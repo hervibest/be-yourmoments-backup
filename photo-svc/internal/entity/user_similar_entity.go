@@ -1,0 +1,40 @@
+package entity
+
+import (
+	"be-yourmoments/photo-svc/internal/enum"
+	"database/sql"
+	"time"
+)
+
+type UserSimilarPhoto struct {
+	Id         string                   `db:"id"`
+	PhotoId    string                   `db:"photo_id"`
+	UserId     string                   `db:"user_id"`
+	Similarity enum.SimilarityLevelEnum `db:"similarity"`
+	IsWishlist bool                     `db:"is_wishlist"`
+	IsResend   bool                     `db:"is_resend"`
+	IsCart     bool                     `db:"is_cart"`
+	IsFavorite bool                     `db:"is_favorite"`
+	CreatedAt  time.Time                `db:"created_at"`
+	UpdatedAt  time.Time                `db:"updated_at"`
+}
+
+type Explore struct {
+	PhotoId    string                   `db:"photo_id"`
+	UserId     string                   `db:"user_id"`
+	Similarity enum.SimilarityLevelEnum `db:"similarity"`
+	IsWishlist bool                     `db:"is_wishlist"`
+	IsResend   bool                     `db:"is_resend"`
+	IsCart     bool                     `db:"is_cart"`
+	IsFavorite bool                     `db:"is_favorite"`
+	CreatorId  string                   `db:"creator_id"`
+	Title      string                   `db:"title"`
+
+	IsThisYouURL   sql.NullString `db:"is_this_you_url"`
+	YourMomentsUrl sql.NullString `db:"your_moments_url"`
+	Price          int32          `db:"price"`
+	PriceStr       string         `db:"price_str"`
+	OriginalAt     time.Time      `db:"original_at"`
+	CreatedAt      time.Time      `db:"created_at"`
+	UpdatedAt      time.Time      `db:"updated_at"`
+}

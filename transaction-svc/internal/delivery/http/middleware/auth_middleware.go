@@ -1,0 +1,44 @@
+package middleware
+
+import (
+	"be-yourmoments/transaction-svc/internal/adapter"
+	"be-yourmoments/transaction-svc/internal/helper"
+	"be-yourmoments/transaction-svc/internal/helper/logger"
+	"be-yourmoments/transaction-svc/internal/model"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"go.opentelemetry.io/otel/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
+)
+
+// TODO SHOULD TOKEN VALIDATED ?
+func NewUserAuth(userAdapter adapter.UserAdapter, tracer trace.Tracer, logs *logger.Log) fiber.Handler {
+	return func(ctx *fiber.Ctx) error {
+		context, span := tracer.Start(ctx.Context(), "authenticateUser", oteltrace.WithAttributes())
+		defer span.End()
+		token := strings.TrimPrefix(ctx.Get("Authorization", ""), "Bearer ")
+		if token == "" || token == "NOT_FOUND" {
+			return fiber.NewError(fiber.ErrUnauthorized.Code, "Unauthorized access")
+		}
+
+		authResponse, err := userAdapter.AuthenticateUser(context, token)
+		if err != nil {
+			return helper.ErrUseCaseResponseJSON(ctx, err, logs)
+		}
+
+		auth := &model.AuthResponse{
+			UserId:      authResponse.User.GetUserId(),
+			Username:    authResponse.User.GetUsername(),
+			Email:       authResponse.User.GetEmail(),
+			PhoneNumber: authResponse.User.GetPhoneNumber(),
+		}
+
+		ctx.Locals("auth", auth)
+		return ctx.Next()
+	}
+}
+
+func GetUser(ctx *fiber.Ctx) *model.AuthResponse {
+	return ctx.Locals("auth").(*model.AuthResponse)
+}

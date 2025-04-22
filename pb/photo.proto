@@ -1,0 +1,230 @@
+syntax = "proto3";
+
+package photo;
+
+option go_package = ".pkg/pb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+
+service PhotoService{
+  rpc UpdatePhotographerPhoto(UpdatePhotographerPhotoRequest) returns (UpdatePhotographerPhotoResponse);
+  rpc UpdateFaceRecogPhoto (UpdateFaceRecogPhotoRequest) returns (UpdateFaceRecogPhotoResponse);  
+  rpc CreatePhoto(CreatePhotoRequest) returns (CreatePhotoResponse);
+  rpc CreateUserSimilarFacecam(CreateUserSimilarFacecamRequest) returns (CreateUserSimilarFacecamResponse);
+  rpc CreateFacecam(CreateFacecamRequest) returns (CreateFacecamResponse);
+  rpc UpdatePhotoDetail(UpdatePhotoDetailRequest) returns (UpdatePhotoDetailResponse);
+  rpc CreateUserSimilar(CreateUserSimilarPhotoRequest) returns (CreateUserSimilarPhotoResponse);
+  rpc CreateCreator(CreateCreatorRequest) returns (CreateCreatorResponse);
+  rpc CalculatePhotoPrice(CalculatePhotoPriceRequest) returns (CalculatePhotoPriceResponse);
+  rpc OwnerOwnPhotos(OwnerOwnPhotosRequest) returns (OwnerOwnPhotosResponse);
+}
+
+
+message Photo {
+  string id = 1;
+  string user_id = 2;
+  string creator_id = 3;
+  string title = 4;
+  string owned_by_user_id = 5;
+  string compressed_url = 6;
+  string is_this_you_url = 7;
+  string your_moments_url = 8;
+  string collection_url = 9;
+
+  int32 price = 10;
+  string price_str = 11;
+
+  google.protobuf.Timestamp original_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+
+  PhotoDetail detail = 15;
+
+  google.protobuf.DoubleValue latitude = 64;
+  google.protobuf.DoubleValue longitude = 65;
+  google.protobuf.StringValue description = 66;
+}
+
+
+message PhotoDetail {
+  string id = 1;
+  string photo_id = 2;
+  string file_name = 3;
+  string file_key = 4;
+  int64 size = 5;
+  string type = 6;
+  string checksum = 7;
+  int32 width = 8;   // int8 di Go, gunakan int32 di proto karena tidak ada int8
+  int32 height = 9;
+  string url = 10;
+  string your_moments_type = 11; // Enum nanti bisa kita define kalau perlu
+
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message CreatePhotoRequest {
+  Photo photo = 1;
+}
+
+message CreatePhotoResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+message UpdatePhotoDetailRequest {
+  PhotoDetail photoDetail = 1;
+}
+
+message UpdatePhotoDetailResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+message UpdatePhotographerPhotoRequest {
+  string id = 1;
+  repeated string user_id = 2; // Gunakan repeated untuk array
+}
+
+message UpdatePhotographerPhotoResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+message UpdateFaceRecogPhotoRequest {
+  string id = 1;
+  repeated string photo_id = 2; // Gunakan repeated untuk array
+}
+
+message UpdateFaceRecogPhotoResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+enum SimilarityLevelEnum {
+  SIMILARITY_UNKNOWN = 0;
+  SIMILARITY_LOW = 1;
+  SIMILARITY_MEDIUM = 2;
+  SIMILARITY_HIGH = 3;
+}
+
+message UserSimilarPhoto {
+  string id = 1;                     // ID unik (jika diperlukan dari client)
+  string photo_id = 2;               // ID foto
+  string user_id = 3;                // ID user
+  SimilarityLevelEnum similarity = 4;// Level kemiripan
+  bool is_wishlist = 5;              // Flag wishlist
+  bool is_resend = 6;                // Flag resend
+  bool is_cart = 7;                  // Flag cart
+  bool is_favorite = 8;              // Flag favorite
+  google.protobuf.Timestamp created_at = 9; // Waktu pembuatan
+  google.protobuf.Timestamp updated_at = 10;// Waktu pembaruan
+}
+
+message CreateUserSimilarPhotoRequest {
+  PhotoDetail photoDetail = 1;
+  repeated UserSimilarPhoto user_similar_photo = 2;
+}
+
+message CreateUserSimilarPhotoResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+message Facecam {
+  string id = 1;
+  string user_id = 2;
+  string file_name = 3;
+  string file_key = 4;
+  string title = 5;
+  int64 size = 6;
+  string checksum = 7;
+  string url = 8;
+  bool is_processed = 9;
+
+  google.protobuf.Timestamp original_at = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message CreateFacecamRequest {
+  Facecam facecam = 1;
+}
+
+message CreateFacecamResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+message CreateUserSimilarFacecamRequest {
+  Facecam facecam = 1;
+  repeated UserSimilarPhoto user_similar_photo = 2;
+}
+
+message CreateUserSimilarFacecamResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+message Creator {
+  string id = 1;
+  string user_id = 2;
+  float rating = 3;
+  int32 rating_count = 4;
+
+  google.protobuf.Timestamp verified_at = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateCreatorRequest {
+  string user_id = 1;
+}
+
+message CreateCreatorResponse {
+  int64   status  = 1;
+  Creator creator = 2;
+  string  error   = 3;
+}
+
+message CheckoutItem {
+  string photo_id = 1;
+  string creator_id = 2;
+  string title = 3;
+  string your_moments_url = 4;
+  int32 price = 5;
+  int32 discount = 6;
+  string discount_id = 7;
+  string discount_type = 8;
+  int32 discount_min_quantity = 9;
+  int32 discount_value =10;
+  int32 final_price = 11;
+}
+
+message Total {
+  int32 price = 1;
+  int32 discount = 2;
+}
+
+message CalculatePhotoPriceRequest {
+  string user_id = 1;
+  repeated string photo_ids = 2; 
+}
+
+message CalculatePhotoPriceResponse {
+  int64   status  = 1;
+  repeated CheckoutItem items = 2;
+  Total total = 3;
+  string  error   = 4;}
+
+message OwnerOwnPhotosRequest {
+  string owner_id = 1; 
+  repeated string photo_ids = 2; 
+}
+  
+message OwnerOwnPhotosResponse {
+  int64   status  = 1;
+  string  error   = 2;
+}

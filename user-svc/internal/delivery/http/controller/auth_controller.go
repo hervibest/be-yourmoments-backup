@@ -1,0 +1,301 @@
+package http
+
+import (
+	"be-yourmoments/user-svc/internal/delivery/http/middleware"
+	"be-yourmoments/user-svc/internal/helper"
+	"be-yourmoments/user-svc/internal/helper/logger"
+	"be-yourmoments/user-svc/internal/model"
+	"be-yourmoments/user-svc/internal/usecase"
+	"net/http"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+type AuthController interface {
+	Current(ctx *fiber.Ctx) error
+	Login(ctx *fiber.Ctx) error
+	Logout(ctx *fiber.Ctx) error
+	RegisterByEmail(ctx *fiber.Ctx) error
+	RegisterByGoogleSignIn(ctx *fiber.Ctx) error
+	RegisterByPhoneNumber(ctx *fiber.Ctx) error
+	RequestAccessToken(ctx *fiber.Ctx) error
+	RequestResetPassword(ctx *fiber.Ctx) error
+	ResendEmailVerification(ctx *fiber.Ctx) error
+	ResetPassword(ctx *fiber.Ctx) error
+	ValidateResetPassword(ctx *fiber.Ctx) error
+	VerifyEmail(ctx *fiber.Ctx) error
+}
+
+type authController struct {
+	authUseCase     usecase.AuthUseCase
+	customValidator helper.CustomValidator
+	logs            *logger.Log
+}
+
+func NewAuthController(authUseCase usecase.AuthUseCase, customValidator helper.CustomValidator, logs *logger.Log) AuthController {
+	return &authController{
+		authUseCase:     authUseCase,
+		customValidator: customValidator,
+		logs:            logs,
+	}
+}
+
+func (c *authController) RegisterByPhoneNumber(ctx *fiber.Ctx) error {
+	request := new(model.RegisterByPhoneRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	response, err := c.authUseCase.RegisterByPhoneNumber(ctx.Context(), request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.UserResponse]{
+		Success: true,
+		Data:    response,
+	})
+}
+
+func (c *authController) RegisterByGoogleSignIn(ctx *fiber.Ctx) error {
+	request := new(model.RegisterByGoogleRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	response, token, err := c.authUseCase.RegisterByGoogleSignIn(ctx.Context(), request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	responses := map[string]interface{}{
+		"user":  response,
+		"token": token,
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+		Data:    responses,
+	})
+}
+
+func (c *authController) RegisterByEmail(ctx *fiber.Ctx) error {
+	request := new(model.RegisterByEmailRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	response, err := c.authUseCase.RegisterByEmail(ctx.Context(), request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.UserResponse]{
+		Success: true,
+		Data:    response,
+	})
+}
+
+func (c *authController) ResendEmailVerification(ctx *fiber.Ctx) error {
+	request := new(model.ResendEmailUserRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	if err := c.authUseCase.ResendEmailVerification(ctx.Context(), request.Email); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+	})
+}
+
+func (c *authController) VerifyEmail(ctx *fiber.Ctx) error {
+	request := new(model.VerifyEmailUserRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	request.Token = ctx.Params("token")
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	if err := c.authUseCase.VerifyEmail(ctx.Context(), request); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+	})
+}
+
+func (c *authController) RequestResetPassword(ctx *fiber.Ctx) error {
+	request := new(model.SendResetPasswordRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	if err := c.authUseCase.RequestResetPassword(ctx.Context(), request.Email); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+	})
+
+}
+
+func (c *authController) ValidateResetPassword(ctx *fiber.Ctx) error {
+	request := new(model.ValidateResetTokenRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	valid, err := c.authUseCase.ValidateResetPassword(ctx.Context(), request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+		Data: map[string]interface{}{
+			"valid": valid,
+		},
+	})
+}
+
+func (c *authController) ResetPassword(ctx *fiber.Ctx) error {
+	request := new(model.ResetPasswordUserRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	request.Token = ctx.Params("token")
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	if err := c.authUseCase.ResetPassword(ctx.Context(), request); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+	})
+}
+
+func (c *authController) Login(ctx *fiber.Ctx) error {
+	request := new(model.LoginUserRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	userResponse, tokenResponse, err := c.authUseCase.Login(ctx.Context(), request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	response := map[string]interface{}{
+		"user":  userResponse,
+		"token": tokenResponse,
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+		Data:    response,
+	})
+}
+
+func (c *authController) Current(ctx *fiber.Ctx) error {
+	auth := middleware.GetUser(ctx)
+
+	userResponse, err := c.authUseCase.Current(ctx.Context(), auth.Email)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.UserResponse]{
+		Success: true,
+		Data:    userResponse,
+	})
+}
+
+func (c *authController) RequestAccessToken(ctx *fiber.Ctx) error {
+	request := new(model.AccessTokenRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	userResponse, tokenResponse, err := c.authUseCase.AccessTokenRequest(ctx.Context(), request.RefreshToken)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	responses := map[string]interface{}{
+		"user":  userResponse,
+		"token": tokenResponse,
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+		Data:    responses,
+	})
+}
+
+func (c *authController) Logout(ctx *fiber.Ctx) error {
+	auth := middleware.GetUser(ctx)
+
+	request := new(model.LogoutUserRequest)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	request.UserId = auth.UserId
+	request.AccessToken = auth.Token
+
+	valid, err := c.authUseCase.Logout(ctx.Context(), request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+		Data: map[string]interface{}{
+			"valid": valid,
+		},
+	})
+}

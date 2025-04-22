@@ -1,0 +1,406 @@
+package repository
+
+import (
+	"be-yourmoments/photo-svc/internal/entity"
+	"be-yourmoments/photo-svc/internal/helper"
+	"be-yourmoments/photo-svc/internal/model"
+	"context"
+	"strconv"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type explorePreparedStmt struct {
+	findByUserId *sqlx.Stmt
+}
+
+func newExplorePreparedStmt(db *sqlx.DB) (*explorePreparedStmt, error) {
+	findByUserIdStmt, err := db.Preparex(`SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
+	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
+	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
+	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1`)
+	if err != nil {
+		return nil, err
+	}
+
+	return &explorePreparedStmt{
+		findByUserId: findByUserIdStmt,
+	}, nil
+}
+
+type ExploreRepository interface {
+	FindAllExploreSimilar(ctx context.Context, tx Querier, page int, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error)
+	FindAllUserCart(ctx context.Context, tx Querier, page int, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error)
+	FindAllUserFavorite(ctx context.Context, tx Querier, page int, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error)
+	FindAllUserWishlist(ctx context.Context, tx Querier, page int, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error)
+	FindByUserId(ctx context.Context, userId string) (*[]*entity.Explore, error)
+	UserAddCart(ctx context.Context, tx Querier, photoId string, userId string) error
+	UserAddFavorite(ctx context.Context, tx Querier, photoId string, userId string) error
+	UserAddWishlist(ctx context.Context, tx Querier, photoId string, userId string) error
+	UserDeleteCart(ctx context.Context, tx Querier, photoId string, userId string) error
+	UserDeleteFavorite(ctx context.Context, tx Querier, photoId string, userId string) error
+	UserDeleteWishlist(ctx context.Context, tx Querier, photoId string, userId string) error
+}
+
+type exploreRepository struct {
+	explorePreparedStmt *explorePreparedStmt
+}
+
+func NewExploreRepository(db *sqlx.DB) (ExploreRepository, error) {
+	explorePreparedStmt, err := newExplorePreparedStmt(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return &exploreRepository{
+		explorePreparedStmt: explorePreparedStmt,
+	}, nil
+}
+
+func (r *exploreRepository) FindByUserId(ctx context.Context, userId string) (*[]*entity.Explore, error) {
+	explores := make([]*entity.Explore, 0)
+
+	rows, err := r.explorePreparedStmt.findByUserId.QueryxContext(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		explore := new(entity.Explore)
+		err := rows.StructScan(explore)
+		if err != nil {
+			return nil, err
+		}
+
+		explores = append(explores, explore)
+	}
+
+	return &explores, nil
+}
+
+func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querier, page, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error) {
+
+	results := make([]*entity.Explore, 0)
+
+	var totalItems int
+	countQuery := `SELECT COUNT(*) FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1`
+
+	var countArgs []interface{}
+
+	query := `SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
+	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
+	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
+	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1`
+
+	var queryArgs []interface{}
+
+	// var conditions []string
+	// var args []interface{}
+	argIndex := 2
+
+	// if username != "" {
+	// 	conditions = append(conditions, "username LIKE $"+strconv.Itoa(argIndex))
+	// 	args = append(args, "%"+username+"%")
+	// 	argIndex++
+	// }
+
+	// if len(conditions) > 0 {
+	// 	query += " WHERE " + strings.Join(conditions, " AND ")
+	// 	countQuery += " WHERE " + strings.Join(conditions, " AND ")
+	// }
+
+	// log.Print(countQuery)
+	// log.Print(countArgs...)
+
+	countArgs = append(countArgs, userId)
+
+	if err := tx.GetContext(ctx, &totalItems, countQuery, countArgs...); err != nil {
+		return nil, nil, err
+	}
+
+	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
+
+	query += " LIMIT $" + strconv.Itoa(argIndex) + " OFFSET $" + strconv.Itoa(argIndex+1)
+	queryArgs = append(queryArgs, userId, pageMetadata.Size, pageMetadata.Offset)
+	// log.Println(query)
+	// log.Println(queryArgs...)
+
+	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		result := new(entity.Explore)
+		if err := rows.StructScan(result); err != nil {
+			return nil, nil, err
+		}
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	return results, pageMetadata, nil
+}
+
+func (r *exploreRepository) FindAllUserWishlist(ctx context.Context, tx Querier, page, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error) {
+
+	results := make([]*entity.Explore, 0)
+
+	var totalItems int
+	countQuery := `SELECT COUNT(*) FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.is_wishlist = true`
+
+	var countArgs []interface{}
+
+	query := `SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
+	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
+	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
+	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.is_wishlist = true`
+	//TO DO ADD logic for
+	var queryArgs []interface{}
+
+	// var conditions []string
+	// var args []interface{}
+	argIndex := 2
+
+	// if username != "" {
+	// 	conditions = append(conditions, "username LIKE $"+strconv.Itoa(argIndex))
+	// 	args = append(args, "%"+username+"%")
+	// 	argIndex++
+	// }
+
+	// if len(conditions) > 0 {Fin
+	// 	query += " WHERE " + strings.Join(conditions, " AND ")
+	// 	countQuery += " WHERE " + strings.Join(conditions, " AND ")
+	// }
+
+	// log.Print(countQuery)
+	// log.Print(countArgs...)
+
+	countArgs = append(countArgs, userId)
+
+	if err := tx.GetContext(ctx, &totalItems, countQuery, countArgs...); err != nil {
+		return nil, nil, err
+	}
+
+	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
+
+	query += " LIMIT $" + strconv.Itoa(argIndex) + " OFFSET $" + strconv.Itoa(argIndex+1)
+	queryArgs = append(queryArgs, userId, pageMetadata.Size, pageMetadata.Offset)
+	// log.Println(query)
+	// log.Println(queryArgs...)
+
+	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		result := new(entity.Explore)
+		if err := rows.StructScan(result); err != nil {
+			return nil, nil, err
+		}
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	return results, pageMetadata, nil
+}
+
+func (r *exploreRepository) UserAddWishlist(ctx context.Context, tx Querier, photoId, userId string) error {
+	query := "UPDATE user_similar_photos SET is_wishlist = true WHERE photo_id = $1 AND user_id = $2"
+	_, err := tx.ExecContext(ctx, query, photoId, userId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *exploreRepository) UserDeleteWishlist(ctx context.Context, tx Querier, photoId, userId string) error {
+	query := "UPDATE user_similar_photos SET is_wishlist = false WHERE photo_id = $1 AND user_id = $2"
+	_, err := tx.ExecContext(ctx, query, photoId, userId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *exploreRepository) FindAllUserFavorite(ctx context.Context, tx Querier, page, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error) {
+
+	results := make([]*entity.Explore, 0)
+
+	var totalItems int
+	countQuery := `SELECT COUNT(*) FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.is_favorite = true`
+
+	var countArgs []interface{}
+
+	query := `SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
+	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
+	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
+	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.is_favorite = true`
+	//TO DO ADD logic for
+	var queryArgs []interface{}
+
+	// var conditions []string
+	// var args []interface{}
+	argIndex := 2
+
+	// if username != "" {
+	// 	conditions = append(conditions, "username LIKE $"+strconv.Itoa(argIndex))
+	// 	args = append(args, "%"+username+"%")
+	// 	argIndex++
+	// }
+
+	// if len(conditions) > 0 {Fin
+	// 	query += " WHERE " + strings.Join(conditions, " AND ")
+	// 	countQuery += " WHERE " + strings.Join(conditions, " AND ")
+	// }
+
+	// log.Print(countQuery)
+	// log.Print(countArgs...)
+
+	countArgs = append(countArgs, userId)
+
+	if err := tx.GetContext(ctx, &totalItems, countQuery, countArgs...); err != nil {
+		return nil, nil, err
+	}
+
+	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
+
+	query += " LIMIT $" + strconv.Itoa(argIndex) + " OFFSET $" + strconv.Itoa(argIndex+1)
+	queryArgs = append(queryArgs, userId, pageMetadata.Size, pageMetadata.Offset)
+	// log.Println(query)
+	// log.Println(queryArgs...)
+
+	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		result := new(entity.Explore)
+		if err := rows.StructScan(result); err != nil {
+			return nil, nil, err
+		}
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	return results, pageMetadata, nil
+}
+
+func (r *exploreRepository) UserAddFavorite(ctx context.Context, tx Querier, photoId, userId string) error {
+	query := "UPDATE user_similar_photos SET is_favorite = true WHERE photo_id = $1 AND user_id = $2"
+	_, err := tx.ExecContext(ctx, query, photoId, userId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *exploreRepository) UserDeleteFavorite(ctx context.Context, tx Querier, photoId, userId string) error {
+	query := "UPDATE user_similar_photos SET is_favorite = false WHERE photo_id = $1 AND user_id = $2"
+	_, err := tx.ExecContext(ctx, query, photoId, userId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *exploreRepository) FindAllUserCart(ctx context.Context, tx Querier, page, size int, userId string) ([]*entity.Explore, *model.PageMetadata, error) {
+
+	results := make([]*entity.Explore, 0)
+
+	var totalItems int
+	countQuery := `SELECT COUNT(*) FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.is_cart = true`
+
+	var countArgs []interface{}
+
+	query := `SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
+	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
+	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
+	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.is_cart = true`
+	//TO DO ADD logic for
+	var queryArgs []interface{}
+
+	// var conditions []string
+	// var args []interface{}
+	argIndex := 2
+
+	// if username != "" {
+	// 	conditions = append(conditions, "username LIKE $"+strconv.Itoa(argIndex))
+	// 	args = append(args, "%"+username+"%")
+	// 	argIndex++
+	// }
+
+	// if len(conditions) > 0 {Fin
+	// 	query += " WHERE " + strings.Join(conditions, " AND ")
+	// 	countQuery += " WHERE " + strings.Join(conditions, " AND ")
+	// }
+
+	// log.Print(countQuery)
+	// log.Print(countArgs...)
+
+	countArgs = append(countArgs, userId)
+
+	if err := tx.GetContext(ctx, &totalItems, countQuery, countArgs...); err != nil {
+		return nil, nil, err
+	}
+
+	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
+
+	query += " LIMIT $" + strconv.Itoa(argIndex) + " OFFSET $" + strconv.Itoa(argIndex+1)
+	queryArgs = append(queryArgs, userId, pageMetadata.Size, pageMetadata.Offset)
+	// log.Println(query)
+	// log.Println(queryArgs...)
+
+	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		result := new(entity.Explore)
+		if err := rows.StructScan(result); err != nil {
+			return nil, nil, err
+		}
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	return results, pageMetadata, nil
+}
+
+func (r *exploreRepository) UserAddCart(ctx context.Context, tx Querier, photoId, userId string) error {
+	query := "UPDATE user_similar_photos SET is_cart = true WHERE photo_id = $1 AND user_id = $2"
+	_, err := tx.ExecContext(ctx, query, photoId, userId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *exploreRepository) UserDeleteCart(ctx context.Context, tx Querier, photoId, userId string) error {
+	query := "UPDATE user_similar_photos SET is_cart = false WHERE photo_id = $1 AND user_id = $2"
+	_, err := tx.ExecContext(ctx, query, photoId, userId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
