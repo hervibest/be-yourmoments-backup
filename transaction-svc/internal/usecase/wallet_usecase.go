@@ -2,12 +2,15 @@ package usecase
 
 import (
 	"be-yourmoments/transaction-svc/internal/entity"
+	errorcode "be-yourmoments/transaction-svc/internal/enum/error"
 	"be-yourmoments/transaction-svc/internal/helper"
 	"be-yourmoments/transaction-svc/internal/helper/logger"
 	"be-yourmoments/transaction-svc/internal/model"
 	"be-yourmoments/transaction-svc/internal/model/converter"
 	"be-yourmoments/transaction-svc/internal/repository"
 	"context"
+	"database/sql"
+	"errors"
 	"log"
 	"time"
 
@@ -16,7 +19,8 @@ import (
 )
 
 type WalletUsecase interface {
-	CreateWallet(ctx context.Context, request *model.RequestCreateWallet) (*model.WalletResponse, error)
+	CreateWallet(ctx context.Context, request *model.CreateWalletRequest) (*model.WalletResponse, error)
+	GetWallet(ctx context.Context, request *model.GetWalletRequest) (*model.WalletResponse, error)
 }
 type walletUsecase struct {
 	walletRepository repository.WalletRepository
@@ -29,7 +33,7 @@ func NewWalletUsecase(walletRepository repository.WalletRepository, db *sqlx.DB,
 	return &walletUsecase{walletRepository: walletRepository, db: db, logs: logs}
 }
 
-func (u *walletUsecase) CreateWallet(ctx context.Context, request *model.RequestCreateWallet) (*model.WalletResponse, error) {
+func (u *walletUsecase) CreateWallet(ctx context.Context, request *model.CreateWalletRequest) (*model.WalletResponse, error) {
 	now := time.Now()
 	wallet := &entity.Wallet{
 		Id:        ulid.Make().String(),
@@ -55,6 +59,18 @@ func (u *walletUsecase) CreateWallet(ctx context.Context, request *model.Request
 
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return nil, err
+	}
+
+	return converter.WalletToResponse(wallet), nil
+}
+
+func (u *walletUsecase) GetWallet(ctx context.Context, request *model.GetWalletRequest) (*model.WalletResponse, error) {
+	wallet, err := u.walletRepository.FindByCreatorId(ctx, u.db, request.CreatorId)
+	if err != nil {
+		if errors.Is(sql.ErrNoRows, err) {
+			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Wallet not found make sure to give a valid creator id")
+		}
+		return nil, helper.WrapInternalServerError(u.logs, "failed to find wallet by creator id", err)
 	}
 
 	return converter.WalletToResponse(wallet), nil

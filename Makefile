@@ -3,8 +3,8 @@ USER_DB_URL=postgres://postgres:postgres@localhost:5432/user_svc?sslmode=disable
 TRANSACTION_DB_URL=postgres://postgres:postgres@localhost:5432/transaction_svc?sslmode=disable&TimeZone=Asia/Jakarta
 
 MIGRATIONS_DIR=db/migrations
-PROTO_DIR=photo-svc/internal/pb
-PROTO_FILE=photo.proto
+PROTO_DIR=user-svc/internal/pb
+PROTO_FILE=user.proto
 
 .PHONY: migrate-down proto
 
@@ -26,11 +26,16 @@ migrate-up:
 migrate-down:
 	goose -dir $(MIGRATIONS_DIR) postgres "$(DB_URL)" down
 
+
 photo-svc-migrate-down:
 	cd photo-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(PHOTO_DB_URL)" down
 
 photo-svc-migrate-up:
 	cd photo-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(PHOTO_DB_URL)" up
+
+photo-svc-migrate-reset:
+	cd photo-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(PHOTO_DB_URL)" down-to 0 &&  goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" up 
+
 
 user-svc-migrate-down:
 	cd user-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" down
@@ -38,12 +43,20 @@ user-svc-migrate-down:
 user-svc-migrate-up:
 	cd user-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" up
 
+user-svc-migrate-reset:
+	cd user-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" down-to 0 &&  goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" up 
+
+
 transaction-svc-migrate-down:
 	cd transaction-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" down
 
 transaction-svc-migrate-up:
 	cd transaction-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" up
 
+transaction-svc-migrate-reset:
+	cd transaction-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" down-to 0 &&  goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" up
+
+	
 proto:
 	cd pb && protoc --go_out=. --go-grpc_out=. $(PROTO_FILE)
 

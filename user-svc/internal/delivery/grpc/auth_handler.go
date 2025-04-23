@@ -45,6 +45,8 @@ func (h *PhotoGRPCHandler) Authenticate(ctx context.Context,
 		Username:    response.Username,
 		Email:       response.Email,
 		PhoneNumber: response.PhoneNumber,
+		CreatorId:   response.CreatorId,
+		WalletId:    response.WalletId,
 	}
 
 	return &pb.AuthenticateResponse{

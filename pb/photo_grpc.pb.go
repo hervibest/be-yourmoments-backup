@@ -27,6 +27,7 @@ const (
 	PhotoService_UpdatePhotoDetail_FullMethodName        = "/photo.PhotoService/UpdatePhotoDetail"
 	PhotoService_CreateUserSimilar_FullMethodName        = "/photo.PhotoService/CreateUserSimilar"
 	PhotoService_CreateCreator_FullMethodName            = "/photo.PhotoService/CreateCreator"
+	PhotoService_GetCreator_FullMethodName               = "/photo.PhotoService/GetCreator"
 	PhotoService_CalculatePhotoPrice_FullMethodName      = "/photo.PhotoService/CalculatePhotoPrice"
 	PhotoService_OwnerOwnPhotos_FullMethodName           = "/photo.PhotoService/OwnerOwnPhotos"
 )
@@ -43,6 +44,7 @@ type PhotoServiceClient interface {
 	UpdatePhotoDetail(ctx context.Context, in *UpdatePhotoDetailRequest, opts ...grpc.CallOption) (*UpdatePhotoDetailResponse, error)
 	CreateUserSimilar(ctx context.Context, in *CreateUserSimilarPhotoRequest, opts ...grpc.CallOption) (*CreateUserSimilarPhotoResponse, error)
 	CreateCreator(ctx context.Context, in *CreateCreatorRequest, opts ...grpc.CallOption) (*CreateCreatorResponse, error)
+	GetCreator(ctx context.Context, in *GetCreatorRequest, opts ...grpc.CallOption) (*GetCreatorResponse, error)
 	CalculatePhotoPrice(ctx context.Context, in *CalculatePhotoPriceRequest, opts ...grpc.CallOption) (*CalculatePhotoPriceResponse, error)
 	OwnerOwnPhotos(ctx context.Context, in *OwnerOwnPhotosRequest, opts ...grpc.CallOption) (*OwnerOwnPhotosResponse, error)
 }
@@ -135,6 +137,16 @@ func (c *photoServiceClient) CreateCreator(ctx context.Context, in *CreateCreato
 	return out, nil
 }
 
+func (c *photoServiceClient) GetCreator(ctx context.Context, in *GetCreatorRequest, opts ...grpc.CallOption) (*GetCreatorResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCreatorResponse)
+	err := c.cc.Invoke(ctx, PhotoService_GetCreator_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *photoServiceClient) CalculatePhotoPrice(ctx context.Context, in *CalculatePhotoPriceRequest, opts ...grpc.CallOption) (*CalculatePhotoPriceResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CalculatePhotoPriceResponse)
@@ -167,6 +179,7 @@ type PhotoServiceServer interface {
 	UpdatePhotoDetail(context.Context, *UpdatePhotoDetailRequest) (*UpdatePhotoDetailResponse, error)
 	CreateUserSimilar(context.Context, *CreateUserSimilarPhotoRequest) (*CreateUserSimilarPhotoResponse, error)
 	CreateCreator(context.Context, *CreateCreatorRequest) (*CreateCreatorResponse, error)
+	GetCreator(context.Context, *GetCreatorRequest) (*GetCreatorResponse, error)
 	CalculatePhotoPrice(context.Context, *CalculatePhotoPriceRequest) (*CalculatePhotoPriceResponse, error)
 	OwnerOwnPhotos(context.Context, *OwnerOwnPhotosRequest) (*OwnerOwnPhotosResponse, error)
 	mustEmbedUnimplementedPhotoServiceServer()
@@ -202,6 +215,9 @@ func (UnimplementedPhotoServiceServer) CreateUserSimilar(context.Context, *Creat
 }
 func (UnimplementedPhotoServiceServer) CreateCreator(context.Context, *CreateCreatorRequest) (*CreateCreatorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateCreator not implemented")
+}
+func (UnimplementedPhotoServiceServer) GetCreator(context.Context, *GetCreatorRequest) (*GetCreatorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCreator not implemented")
 }
 func (UnimplementedPhotoServiceServer) CalculatePhotoPrice(context.Context, *CalculatePhotoPriceRequest) (*CalculatePhotoPriceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CalculatePhotoPrice not implemented")
@@ -374,6 +390,24 @@ func _PhotoService_CreateCreator_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PhotoService_GetCreator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCreatorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PhotoServiceServer).GetCreator(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PhotoService_GetCreator_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PhotoServiceServer).GetCreator(ctx, req.(*GetCreatorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PhotoService_CalculatePhotoPrice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CalculatePhotoPriceRequest)
 	if err := dec(in); err != nil {
@@ -448,6 +482,10 @@ var PhotoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateCreator",
 			Handler:    _PhotoService_CreateCreator_Handler,
+		},
+		{
+			MethodName: "GetCreator",
+			Handler:    _PhotoService_GetCreator_Handler,
 		},
 		{
 			MethodName: "CalculatePhotoPrice",

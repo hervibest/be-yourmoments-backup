@@ -10,7 +10,8 @@ import (
 )
 
 type PhotoAdapter interface {
-	CreateCreator(ctx context.Context, create *entity.Creator) error
+	CreateCreator(ctx context.Context, userId string) (*entity.Creator, error)
+	GetCreator(ctx context.Context, creatorId string) (*entity.Creator, error)
 }
 
 type photoAdapter struct {
@@ -29,15 +30,36 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAda
 	}, nil
 }
 
-func (a *photoAdapter) CreateCreator(ctx context.Context, creator *entity.Creator) error {
+func (a *photoAdapter) CreateCreator(ctx context.Context, userId string) (*entity.Creator, error) {
 	pbRequest := &pb.CreateCreatorRequest{
-		UserId: creator.UserId,
+		UserId: userId,
 	}
 
-	_, err := a.client.CreateCreator(context.Background(), pbRequest)
+	pbResponse, err := a.client.CreateCreator(context.Background(), pbRequest)
 	if err != nil {
-		return helper.FromGRPCError(err)
+		return nil, helper.FromGRPCError(err)
 	}
 
-	return nil
+	creator := &entity.Creator{
+		Id: pbResponse.GetCreator().GetId(),
+	}
+
+	return creator, nil
+}
+
+func (a *photoAdapter) GetCreator(ctx context.Context, userId string) (*entity.Creator, error) {
+	pbRequest := &pb.GetCreatorRequest{
+		UserId: userId,
+	}
+
+	pbResponse, err := a.client.GetCreator(context.Background(), pbRequest)
+	if err != nil {
+		return nil, helper.FromGRPCError(err)
+	}
+
+	creator := &entity.Creator{
+		Id: pbResponse.GetCreator().GetId(),
+	}
+
+	return creator, nil
 }

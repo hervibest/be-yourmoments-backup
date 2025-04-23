@@ -39,8 +39,8 @@ func (c *creatorDiscountController) CreateDiscount(ctx *fiber.Ctx) error {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
 
-	creator := middleware.GetCreator(ctx)
-	request.CreatorId = creator.Id
+	user := middleware.GetUser(ctx)
+	request.CreatorId = user.CreatorId
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
@@ -63,8 +63,8 @@ func (c *creatorDiscountController) ActivateDiscount(ctx *fiber.Ctx) error {
 		Id: discountId,
 	}
 
-	creator := middleware.GetCreator(ctx)
-	request.CreatorId = creator.Id
+	user := middleware.GetUser(ctx)
+	request.CreatorId = user.CreatorId
 
 	if _, err := ulid.Parse(request.Id); err != nil {
 		return fiber.NewError(http.StatusUnprocessableEntity, "The provided discount ID is not valid")
@@ -89,8 +89,8 @@ func (c *creatorDiscountController) DeactivateDiscount(ctx *fiber.Ctx) error {
 		Id: discountId,
 	}
 
-	creator := middleware.GetCreator(ctx)
-	request.CreatorId = creator.Id
+	user := middleware.GetUser(ctx)
+	request.CreatorId = user.CreatorId
 
 	if _, err := ulid.Parse(request.Id); err != nil {
 		return fiber.NewError(http.StatusUnprocessableEntity, "The provided discount ID is not valid")
@@ -116,8 +116,8 @@ func (c *creatorDiscountController) GetDiscount(ctx *fiber.Ctx) error {
 		Id: discountId,
 	}
 
-	creator := middleware.GetCreator(ctx)
-	request.CreatorId = creator.Id
+	user := middleware.GetUser(ctx)
+	request.CreatorId = user.CreatorId
 
 	if _, err := ulid.Parse(request.Id); err != nil {
 		return fiber.NewError(http.StatusUnprocessableEntity, "The provided discount ID is not valid")

@@ -68,7 +68,7 @@ func (e *AppError) HTTPStatus() int {
 		return 422
 	case errorcode.ErrAlreadyExists:
 		return 409
-	case errorcode.ErrUserNotFound:
+	case errorcode.ErrUserNotFound, errorcode.ErrResourceNotFound:
 		return 404
 	case errorcode.ErrTooManyRequests:
 		return 429
@@ -87,7 +87,7 @@ func (e *AppError) GRPCErrorCode() error {
 		return status.Error(codes.InvalidArgument, e.Message)
 	case errorcode.ErrAlreadyExists:
 		return status.Error(codes.AlreadyExists, e.Message)
-	case errorcode.ErrUserNotFound:
+	case errorcode.ErrUserNotFound, errorcode.ErrResourceNotFound:
 		return status.Error(codes.NotFound, e.Message)
 	case errorcode.ErrTooManyRequests:
 		return status.Error(codes.ResourceExhausted, e.Message)

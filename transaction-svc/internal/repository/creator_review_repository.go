@@ -39,6 +39,7 @@ func (r *creatorReviewRepository) Create(ctx context.Context, tx Querier, review
 	return review, nil
 }
 
+// TODO tambahkan get by creator id atau kebalikkanya
 func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page, size int, star int, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error) {
 	results := make([]*entity.CreatorReview, 0)
 	var totalItems int

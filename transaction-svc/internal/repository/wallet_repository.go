@@ -13,6 +13,7 @@ type WalletRepository interface {
 	Create(ctx context.Context, db Querier, wallet *entity.Wallet) (*entity.Wallet, error)
 	FindByCreatorIDs(ctx context.Context, db Querier, creatorIDs []string) (*[]*entity.Wallet, error)
 	FindById(ctx context.Context, db Querier, walletId string) (*entity.Wallet, error)
+	FindByCreatorId(ctx context.Context, db Querier, creatorId string) (*entity.Wallet, error)
 	ReduceBalance(ctx context.Context, db Querier, walletID string, amount int64) error
 }
 
@@ -53,24 +54,30 @@ func (r *walletRepository) FindByCreatorIDs(ctx context.Context, db Querier, cre
 
 func (r *walletRepository) FindById(ctx context.Context, db Querier, walletId string) (*entity.Wallet, error) {
 	const query = `
-        SELECT id, creator_id, balance
+        SELECT id, creator_id, balance, created_at, updated_at
         FROM wallets
         WHERE id = $1
     `
 	wallet := new(entity.Wallet)
-	err := db.SelectContext(ctx, wallet, query, walletId)
-	return wallet, err
+	err := db.GetContext(ctx, wallet, query, walletId)
+	if err != nil {
+		return nil, err
+	}
+	return wallet, nil
 }
 
 func (r *walletRepository) FindByCreatorId(ctx context.Context, db Querier, creatorId string) (*entity.Wallet, error) {
 	const query = `
-        SELECT id, creator_id, balance
+        SELECT id, creator_id, balance, created_at, updated_at
         FROM wallets
         WHERE creator_id = $1
     `
 	wallet := new(entity.Wallet)
-	err := db.SelectContext(ctx, wallet, query, creatorId)
-	return wallet, err
+	err := db.GetContext(ctx, wallet, query, creatorId)
+	if err != nil {
+		return nil, err
+	}
+	return wallet, nil
 }
 
 func (r *walletRepository) AddBalance(ctx context.Context, db Querier, walletID string, amount int64) error {
@@ -81,7 +88,10 @@ func (r *walletRepository) AddBalance(ctx context.Context, db Querier, walletID 
         WHERE id = $2
     `
 	_, err := db.ExecContext(ctx, query, amount, walletID)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *walletRepository) ReduceBalance(ctx context.Context, db Querier, walletID string, amount int64) error {
@@ -92,5 +102,8 @@ func (r *walletRepository) ReduceBalance(ctx context.Context, db Querier, wallet
         WHERE id = $2
     `
 	_, err := db.ExecContext(ctx, query, amount, walletID)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }

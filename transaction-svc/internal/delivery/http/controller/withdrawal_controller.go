@@ -1,6 +1,7 @@
 package http
 
 import (
+	"be-yourmoments/transaction-svc/internal/delivery/http/middleware"
 	"be-yourmoments/transaction-svc/internal/helper"
 	"be-yourmoments/transaction-svc/internal/helper/logger"
 	"be-yourmoments/transaction-svc/internal/model"
@@ -34,7 +35,11 @@ func NewWithdrawalController(withdrawalUseCase usecase.WithdrawalUseCase,
 }
 
 func (c *withdrawalController) CreateWithdrawal(ctx *fiber.Ctx) error {
+
 	request := new(model.CreateWithdrawalRequest)
+	auth := middleware.GetUser(ctx)
+	request.WalletId = auth.WalletId
+
 	if err := helper.StrictBodyParser(ctx, request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}

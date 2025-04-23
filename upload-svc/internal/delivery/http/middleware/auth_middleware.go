@@ -24,10 +24,12 @@ func NewUserAuth(userAdapter adapter.UserAdapter, logs *logger.Log) fiber.Handle
 		}
 
 		auth := &model.AuthResponse{
-			UserId:      authResponse.User.GetUserId(),
-			Username:    authResponse.User.GetUsername(),
-			Email:       authResponse.User.GetEmail(),
-			PhoneNumber: authResponse.User.GetPhoneNumber(),
+			UserId:      authResponse.GetUser().GetUserId(),
+			Username:    authResponse.GetUser().GetUsername(),
+			Email:       authResponse.GetUser().GetEmail(),
+			PhoneNumber: authResponse.GetUser().GetPhoneNumber(),
+			CreatorId:   authResponse.GetUser().GetCreatorId(),
+			WalletId:    authResponse.GetUser().GetWalletId(),
 		}
 
 		ctx.Locals("auth", auth)

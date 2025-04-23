@@ -17,6 +17,7 @@ service PhotoService{
   rpc UpdatePhotoDetail(UpdatePhotoDetailRequest) returns (UpdatePhotoDetailResponse);
   rpc CreateUserSimilar(CreateUserSimilarPhotoRequest) returns (CreateUserSimilarPhotoResponse);
   rpc CreateCreator(CreateCreatorRequest) returns (CreateCreatorResponse);
+  rpc GetCreator(GetCreatorRequest) returns (GetCreatorResponse);
   rpc CalculatePhotoPrice(CalculatePhotoPriceRequest) returns (CalculatePhotoPriceResponse);
   rpc OwnerOwnPhotos(OwnerOwnPhotosRequest) returns (OwnerOwnPhotosResponse);
 }
@@ -184,6 +185,16 @@ message CreateCreatorRequest {
 }
 
 message CreateCreatorResponse {
+  int64   status  = 1;
+  Creator creator = 2;
+  string  error   = 3;
+}
+
+message GetCreatorRequest {
+  string user_id = 1;
+}
+
+message GetCreatorResponse {
   int64   status  = 1;
   Creator creator = 2;
   string  error   = 3;

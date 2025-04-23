@@ -9,6 +9,8 @@ import "google/protobuf/timestamp.proto";
 
 service TransactionService{
   rpc CreateWallet (CreateWalletRequest) returns (CreateWalletResponse);  
+  rpc GetWallet (GetWalletRequest) returns (GetWalletResponse);  
+
 }
 
 message CreateWalletRequest {
@@ -27,4 +29,14 @@ message Wallet {
     int32 balance = 3;
     google.protobuf.Timestamp created_at = 4;
     google.protobuf.Timestamp updated_at = 5;
+}
+
+message GetWalletRequest {
+  string creator_id = 1;
+}
+
+message GetWalletResponse {
+  int64 status = 1;
+  Wallet wallet = 2;
+  string error = 3;
 }

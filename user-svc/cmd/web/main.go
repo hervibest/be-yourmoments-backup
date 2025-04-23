@@ -124,7 +124,10 @@ func webServer() error {
 		log.Println(err)
 	}
 
-	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
+	transactionAdapter, err := adapter.NewTransactionAdapter(ctx, registry)
+	if err != nil {
+		log.Println(err)
+	}
 
 	userRepository, err := repository.NewUserRepository(dbConfig)
 	if err != nil {
@@ -149,7 +152,7 @@ func webServer() error {
 	}
 
 	authUseCase := usecase.NewAuthUseCase(dbConfig, userRepository, userProfileRepository, emailVerificationRepository, resetPasswordRepository,
-		googleTokenAdapter, emailAdapter, jwtAdapter, securityAdapter, cacheAdapter, firestoreAdapter, photoAdapter, logs)
+		googleTokenAdapter, emailAdapter, jwtAdapter, securityAdapter, cacheAdapter, firestoreAdapter, photoAdapter, transactionAdapter, logs)
 	userUseCase := usecase.NewUserUseCase(dbConfig, userRepository, userProfileRepository, userImageRepository, uploadAdapter, logs)
 	chatUseCase := usecase.NewChatUseCase(firestoreAdapter, authClientAdapter, messagingClientAdapter, perspectiveAdapter, logs)
 

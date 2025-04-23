@@ -131,6 +131,38 @@ func (h *PhotoGRPCHandler) CreateCreator(ctx context.Context, pbReq *pb.CreateCr
 	}, nil
 }
 
+func (h *PhotoGRPCHandler) GetCreator(ctx context.Context, pbReq *pb.GetCreatorRequest) (
+	*pb.GetCreatorResponse, error) {
+	log.Println("----  GetCreator Requets via GRPC in photo-svc ------")
+
+	request := &model.GetCreatorRequest{
+		UserId: pbReq.GetUserId(),
+	}
+
+	response, err := h.creatorUseCase.GetCreator(context.Background(), request)
+	if err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	creatorPb := &pb.Creator{
+		Id:     response.Id,
+		UserId: response.UserId,
+		CreatedAt: &timestamppb.Timestamp{
+			Seconds: int64(response.CreatedAt.Second()),
+			Nanos:   int32(response.CreatedAt.UnixNano()),
+		},
+		UpdatedAt: &timestamppb.Timestamp{
+			Seconds: int64(response.UpdatedAt.Second()),
+			Nanos:   int32(response.UpdatedAt.UnixNano()),
+		},
+	}
+
+	return &pb.GetCreatorResponse{
+		Status:  int64(codes.OK),
+		Creator: creatorPb,
+	}, nil
+}
+
 func (h *PhotoGRPCHandler) CalculatePhotoPrice(ctx context.Context, pbReq *pb.CalculatePhotoPriceRequest) (
 	*pb.CalculatePhotoPriceResponse, error) {
 	log.Println("----  Calcualte Photo Price Requets via GRPC in photo-svc ------")

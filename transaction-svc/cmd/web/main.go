@@ -72,7 +72,7 @@ func webServer() error {
 		return err
 	}
 
-	err = registry.RegisterService(ctx, serverConfig.Name+"-grpc", HTTPserviceID, serverConfig.HTTPAddr, httpPortInt, []string{"http"})
+	err = registry.RegisterService(ctx, serverConfig.Name+"-http", HTTPserviceID, serverConfig.HTTPAddr, httpPortInt, []string{"http"})
 	if err != nil {
 		logs.Error("Failed to register category service to consul")
 		return err
@@ -149,12 +149,15 @@ func webServer() error {
 	bankWalletUseCase := usecase.NewBankWalletUseCase(dbConfig, bankWalletRepoistory, logs)
 	reviewUseCase := usecase.NewReviewUseCase(transactionDetailRepo, creatorReviewRepo, dbConfig, logs)
 	withdrawalUseCase := usecase.NewWithdrawalUseCase(dbConfig, withdrawalRepository, walletRepository, logs)
+	transactionWalletUC := usecase.NewTransactionWalletUseCase(dbConfig, transactionWalletRepo, logs)
 
 	transactionController := http.NewTransactionController(transactionUseCase, customValidator, logs)
 	bankController := http.NewBankController(bankUseCase, customValidator, logs)
 	bankWalletController := http.NewBankWalletController(bankWalletUseCase, customValidator, logs)
 	reviewController := http.NewReviewController(reviewUseCase, customValidator, logs)
 	withdarawlController := http.NewWithdrawalController(withdrawalUseCase, customValidator, logs)
+	walletController := http.NewWalletController(walletUseCase, logs)
+	transactionWalletCtrl := http.NewTransactionWalletController(transactionWalletUC, customValidator, logs)
 
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 
@@ -176,7 +179,9 @@ func webServer() error {
 		}
 	}()
 
-	route := route.NewRoute(app, transactionController, bankController, bankWalletController, reviewController, withdarawlController, authMiddleware)
+	route := route.NewRoute(app, transactionController, bankController, bankWalletController, reviewController,
+		withdarawlController, walletController, transactionWalletCtrl, authMiddleware)
+
 	route.SetupRoute()
 	app.Use(cors.New())
 

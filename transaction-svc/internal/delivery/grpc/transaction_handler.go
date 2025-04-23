@@ -33,17 +33,12 @@ func NewTransactionGRPCHandler(server *grpc.Server, walletUseCase usecase.Wallet
 
 func (h *TransactionGRPCHandler) CreateWallet(ctx context.Context, pbReq *pb.CreateWalletRequest) (
 	*pb.CreateWalletResponse, error) {
-	log.Println("----  CreatePhoto Requets via GRPC in transaction-svc ------")
+	log.Println("----  Create Wallet GRPC in transaction-svc ------")
 
-	request := &model.RequestCreateWallet{
+	request := &model.CreateWalletRequest{
 		CreatorId: pbReq.GetCreatorId(),
 	}
 
-	if h.walletUseCase == nil {
-		log.Print("wallet didnt initialized in create wallet method")
-	}
-
-	log.Print(request.CreatorId)
 	wallet, err := h.walletUseCase.CreateWallet(context.Background(), request)
 	if err != nil {
 		return nil, helper.ErrGRPC(err)
@@ -63,6 +58,30 @@ func (h *TransactionGRPCHandler) CreateWallet(ctx context.Context, pbReq *pb.Cre
 	}
 
 	return &pb.CreateWalletResponse{
+		Status: http.StatusCreated,
+		Wallet: pbWallet,
+	}, nil
+}
+
+func (h *TransactionGRPCHandler) GetWallet(ctx context.Context, pbReq *pb.GetWalletRequest) (
+	*pb.GetWalletResponse, error) {
+	log.Println("----  Get Wallet Requets via GRPC in transaction-svc ------")
+
+	request := &model.GetWalletRequest{
+		CreatorId: pbReq.GetCreatorId(),
+	}
+
+	wallet, err := h.walletUseCase.GetWallet(context.Background(), request)
+	if err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	pbWallet := &pb.Wallet{
+		Id:        wallet.Id,
+		CreatorId: wallet.CreatorId,
+	}
+
+	return &pb.GetWalletResponse{
 		Status: http.StatusCreated,
 		Wallet: pbWallet,
 	}, nil

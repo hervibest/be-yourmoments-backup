@@ -17,6 +17,8 @@ type route struct {
 	bankWalletController  http.BankWalletController
 	reviewController      http.ReviewController
 	withdrawalController  http.WithdrawalController
+	walletControler       http.WalletController
+	transactionWalletCtrl http.TransactionWalletController
 	authMiddleware        fiber.Handler
 }
 
@@ -25,6 +27,8 @@ func NewRoute(app *fiber.App, transactionController http.TransactionController,
 	bankWalletController http.BankWalletController,
 	reviewController http.ReviewController,
 	withdrawalController http.WithdrawalController,
+	walletControler http.WalletController,
+	transactionWalletCtrl http.TransactionWalletController,
 	authMiddleware fiber.Handler) Route {
 	return &route{
 		app:                   app,
@@ -33,6 +37,8 @@ func NewRoute(app *fiber.App, transactionController http.TransactionController,
 		bankWalletController:  bankWalletController,
 		reviewController:      reviewController,
 		withdrawalController:  withdrawalController,
+		walletControler:       walletControler,
+		transactionWalletCtrl: transactionWalletCtrl,
 		authMiddleware:        authMiddleware,
 	}
 }
@@ -44,4 +50,6 @@ func (r *route) SetupRoute() {
 	r.setupBankWalletRoute()
 	r.setupReviewRoute()
 	r.setupWithdrawalRoute()
+	r.setupWalletRoute()
+	r.setupTransactionWalletRoute()
 }

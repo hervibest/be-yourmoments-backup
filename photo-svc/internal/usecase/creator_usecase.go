@@ -65,10 +65,10 @@ func (u *creatorUseCase) CreateCreator(ctx context.Context, req *model.CreateCre
 		return nil, err
 	}
 
-	_, err = u.transactionAdapter.CreateWallet(ctx, creator.Id)
-	if err != nil {
-		return nil, err
-	}
+	// _, err = u.transactionAdapter.CreateWallet(ctx, creator.Id)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return converter.CreatorToResponse(creator), nil
 }

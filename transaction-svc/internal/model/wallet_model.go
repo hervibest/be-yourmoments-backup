@@ -2,7 +2,11 @@ package model
 
 import "time"
 
-type RequestCreateWallet struct {
+type CreateWalletRequest struct {
+	CreatorId string
+}
+
+type GetWalletRequest struct {
 	CreatorId string
 }
 

@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS creators (
     id CHAR(26) PRIMARY KEY NOT NULL,
-    user_id CHAR(26) NOT NULL,
+    user_id CHAR(26) NOT NULL UNIQUE,
     rating DECIMAL(3, 1) DEFAULT 0.0,
     rating_count INT DEFAULT 0,
     verified_at TIMESTAMPTZ,

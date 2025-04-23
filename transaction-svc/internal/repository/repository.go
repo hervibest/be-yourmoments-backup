@@ -52,10 +52,8 @@ func BeginTxx(db BeginTx, ctx context.Context, logs *logger.Log) (*sqlx.Tx, erro
 
 func Rollback(err error, tx *sqlx.Tx, ctx context.Context, logs *logger.Log) {
 	if err != nil {
-		if err := tx.Rollback(); err != nil {
-			logs.Error(fmt.Sprintf("failed to rollback transaction %s", err.Error()), &logger.Options{
-				IsPrintStack: true,
-			})
+		if tx != nil {
+			_ = tx.Rollback() // abaikan error rollback
 		}
 	}
 }
