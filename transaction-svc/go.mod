@@ -19,6 +19,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/midtrans/midtrans-go v1.3.8
 	github.com/oklog/ulid/v2 v2.1.0
+	github.com/sony/gobreaker v1.0.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/exporters/zipkin v1.35.0
 	go.opentelemetry.io/otel/sdk v1.35.0

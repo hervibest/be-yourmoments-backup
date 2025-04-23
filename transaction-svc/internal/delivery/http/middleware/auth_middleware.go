@@ -24,14 +24,14 @@ func NewUserAuth(userAdapter adapter.UserAdapter, tracer trace.Tracer, logs *log
 
 		authResponse, err := userAdapter.AuthenticateUser(context, token)
 		if err != nil {
-			return helper.ErrUseCaseResponseJSON(ctx, err, logs)
+			return helper.ErrUseCaseResponseJSON(ctx, "Authenticate user error : ", err, logs)
 		}
 
 		auth := &model.AuthResponse{
-			UserId:      authResponse.User.GetUserId(),
-			Username:    authResponse.User.GetUsername(),
-			Email:       authResponse.User.GetEmail(),
-			PhoneNumber: authResponse.User.GetPhoneNumber(),
+			UserId:      authResponse.GetUser().GetUserId(),
+			Username:    authResponse.GetUser().GetUsername(),
+			Email:       authResponse.GetUser().GetEmail(),
+			PhoneNumber: authResponse.GetUser().GetPhoneNumber(),
 		}
 
 		ctx.Locals("auth", auth)

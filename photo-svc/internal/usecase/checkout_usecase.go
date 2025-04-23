@@ -26,15 +26,17 @@ type CheckoutUseCase interface {
 type checkoutUseCase struct {
 	db                        *sqlx.DB
 	photoRepository           repository.PhotoRepository
+	creatorRepository         repository.CreatorRepository
 	creatorDiscountRepository repository.CreatorDiscountRepository
 	logs                      *logger.Log
 }
 
-func NewCheckoutUseCase(db *sqlx.DB, photoRepository repository.PhotoRepository,
+func NewCheckoutUseCase(db *sqlx.DB, photoRepository repository.PhotoRepository, creatorRepository repository.CreatorRepository,
 	creatorDiscountRepository repository.CreatorDiscountRepository, logs *logger.Log) CheckoutUseCase {
 	return &checkoutUseCase{
 		db:                        db,
 		photoRepository:           photoRepository,
+		creatorRepository:         creatorRepository,
 		creatorDiscountRepository: creatorDiscountRepository,
 		logs:                      logs,
 	}
@@ -56,8 +58,17 @@ func (u *checkoutUseCase) PreviewCheckout(ctx context.Context, request *model.Pr
 }
 
 func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.PreviewCheckoutRequest) (*[]*model.CheckoutItem, *model.Total, error) {
+	//Find creator to make sure creator cannot buy their own photos
+	creator, err := u.creatorRepository.FindByUserId(ctx, request.UserId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user id")
+		}
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find creator by user id", err)
+	}
+
 	// TODO tambahkan permistic locking ? dengan db transaction
-	photos, err := u.photoRepository.GetPhotosByIDs(ctx, request.UserId, request.PhotoIds)
+	photos, err := u.photoRepository.GetPhotosByIDs(ctx, request.UserId, creator.Id, request.PhotoIds)
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")

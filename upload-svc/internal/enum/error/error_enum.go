@@ -5,6 +5,7 @@ const (
 	ErrUnauthorized       string = "UNAUTHORIZED"
 	ErrUserSignedOut      string = "USER_SIGNED_OUT"
 	ErrInvalidCredentials string = "INVALID_CREDENTIALS"
+	ErrForbidden          string = "FORBIDDEN"
 
 	// Validation
 	ErrInvalidArgument  string = "INVALID_ARGUMENT"
@@ -22,6 +23,9 @@ const (
 	ErrInternal        string = "INTERNAL"
 	ErrCacheFailure    string = "CACHE_FAILURE"
 	ErrDatabaseFailure string = "DATABASE_FAILURE"
+
+	// External
+	ErrExternal string = "EXTERNAL"
 
 	// Rate limit
 	ErrTooManyRequests string = "TOO_MANY_REQUESTS"

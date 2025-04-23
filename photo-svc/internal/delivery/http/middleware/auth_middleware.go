@@ -24,7 +24,7 @@ func NewUserAuth(userAdapter adapter.UserAdapter, tracer trace.Tracer, logs *log
 
 		authResponse, err := userAdapter.AuthenticateUser(context, token)
 		if err != nil {
-			return helper.ErrUseCaseResponseJSON(ctx, err, logs)
+			return helper.ErrUseCaseResponseJSON(ctx, "Authenticate user : ", err, logs)
 		}
 
 		auth := &model.AuthResponse{

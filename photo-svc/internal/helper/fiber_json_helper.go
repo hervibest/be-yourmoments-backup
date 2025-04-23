@@ -33,12 +33,12 @@ func ErrValidationResponseJSON(ctx *fiber.Ctx, validatonErrs *UseCaseValError) e
 	})
 }
 
-func ErrUseCaseResponseJSON(ctx *fiber.Ctx, err error, logs *logger.Log) error {
+func ErrUseCaseResponseJSON(ctx *fiber.Ctx, msg string, err error, logs *logger.Log) error {
 	if appErr, ok := err.(*AppError); ok {
 		if appErr.Err != nil {
-			logs.Error(fmt.Sprintf("Internal error [%s]: %v", appErr.Code, appErr.Err.Error()))
+			logs.Error(fmt.Sprintf("Internal error in controller : %s [%s]: %v", msg, appErr.Code, appErr.Err.Error()))
 		} else {
-			logs.Log(fmt.Sprintf("Client error [%s]: %v", appErr.Code, appErr.Message))
+			logs.Log(fmt.Sprintf("Client error in controller : %s [%s]: %v", msg, appErr.Code, appErr.Message))
 		}
 
 		return ctx.Status(appErr.HTTPStatus()).JSON(model.ErrorResponse{

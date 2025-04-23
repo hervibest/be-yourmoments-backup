@@ -6,7 +6,7 @@ import (
 )
 
 type CreateCreatorDiscountRequest struct {
-	CreatorId    string            `validate:"required"`
+	CreatorId    string            `json:"creator_id" validate:"required"`
 	Name         string            `json:"name" validate:"required"`
 	MinQuantity  int               `json:"min_quantity" validate:"required"`
 	DiscountType enum.DiscountType `json:"discount_type" validate:"required"`
@@ -27,13 +27,16 @@ type CreatorDiscountResponse struct {
 }
 
 type GetCreatorDiscountRequest struct {
-	Id string `json:"id" validate:"required"`
+	Id        string `json:"id" validate:"required"`
+	CreatorId string `json:"creator_id" validate:"requried"`
 }
 
 type ActivateCreatorDiscountRequest struct {
-	Id string `json:"id" validate:"required"`
+	Id        string `json:"id" validate:"required"`
+	CreatorId string `json:"creator_id" validate:"requried"`
 }
 
 type DeactivateCreatorDiscountRequest struct {
-	Id string `json:"id" validate:"required"`
+	Id        string `json:"id" validate:"required"`
+	CreatorId string `json:"creator_id" validate:"requried"`
 }

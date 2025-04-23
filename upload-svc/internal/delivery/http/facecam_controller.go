@@ -39,7 +39,7 @@ func (c *facecamController) UploadFacecam(ctx *fiber.Ctx) error {
 
 	err = c.facecamUseCase.UploadFacecam(ctx.UserContext(), file, auth.UserId)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Upload facecam : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(fiber.Map{

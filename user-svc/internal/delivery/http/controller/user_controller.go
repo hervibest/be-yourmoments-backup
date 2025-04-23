@@ -35,7 +35,7 @@ func (c *userController) GetUserProfile(ctx *fiber.Ctx) error {
 
 	userProfileResponse, err := c.userUseCase.GetUserProfile(ctx.Context(), auth.UserId)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get user profile : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.UserProfileResponse]{
@@ -59,7 +59,7 @@ func (c *userController) UpdateUserProfile(ctx *fiber.Ctx) error {
 
 	response, err := c.userUseCase.UpdateUserProfile(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Update user profile : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.UserProfileResponse]{
@@ -87,7 +87,7 @@ func (c *userController) UpdateUserProfileImage(ctx *fiber.Ctx) error {
 
 	success, err := c.userUseCase.UpdateUserProfileImage(ctx.Context(), file, userProfId)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Update user profile image : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -117,7 +117,7 @@ func (c *userController) UpdateUserCoverImage(ctx *fiber.Ctx) error {
 
 	success, err := c.userUseCase.UpdateUserCoverImage(ctx.Context(), file, userProfId)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Update user cover image : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -138,7 +138,7 @@ func (c *userController) GetAllPublicUserChat(ctx *fiber.Ctx) error {
 
 	response, pageMetadata, err := c.userUseCase.GetPublicUserChat(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get all public user chat : ", err, c.logs)
 	}
 
 	baseURL := ctx.BaseURL() + ctx.Path()

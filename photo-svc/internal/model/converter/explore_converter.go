@@ -2,13 +2,26 @@ package converter
 
 import (
 	"be-yourmoments/photo-svc/internal/entity"
+	"be-yourmoments/photo-svc/internal/enum"
 	"be-yourmoments/photo-svc/internal/model"
 )
+
+func ToDiscountIfValid(explore *entity.Explore) *model.CreatorDiscountResponse {
+	if !explore.Name.Valid || explore.Name.String == "" {
+		return nil
+	}
+	return &model.CreatorDiscountResponse{
+		Name:         explore.Name.String,
+		MinQuantity:  int(explore.MinQuantity.Int32),
+		DiscountType: enum.DiscountType(explore.DiscountType.String),
+		Active:       explore.Active.Bool,
+		Value:        explore.Value.Int32,
+	}
+}
 
 func ExploresToResponses(explores *[]*entity.Explore) *[]*model.ExploreUserSimilarResponse {
 	responses := make([]*model.ExploreUserSimilarResponse, 0)
 	for _, explore := range *explores {
-
 		photoUrlResponse := &model.PhotoUrlResponse{
 			IsThisYouURL:   explore.IsThisYouURL.String,
 			YourMomentsUrl: explore.YourMomentsUrl.String,
@@ -21,6 +34,8 @@ func ExploresToResponses(explores *[]*entity.Explore) *[]*model.ExploreUserSimil
 			IsFavorite: explore.IsFavorite,
 		}
 
+		discount := ToDiscountIfValid(explore)
+
 		response := &model.ExploreUserSimilarResponse{
 			PhotoId:    explore.PhotoId,
 			UserId:     explore.UserId,
@@ -31,6 +46,7 @@ func ExploresToResponses(explores *[]*entity.Explore) *[]*model.ExploreUserSimil
 			PhotoUrl:   photoUrlResponse,
 			Price:      explore.Price,
 			PriceStr:   explore.PriceStr,
+			Discount:   discount,
 			OriginalAt: explore.OriginalAt,
 			CreatedAt:  explore.CreatedAt,
 			UpdatedAt:  explore.UpdatedAt,

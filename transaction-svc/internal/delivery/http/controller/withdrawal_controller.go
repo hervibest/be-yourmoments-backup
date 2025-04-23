@@ -45,7 +45,7 @@ func (c *withdrawalController) CreateWithdrawal(ctx *fiber.Ctx) error {
 
 	response, err := c.withdrawalUseCase.Create(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Create withdrawal : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.WithdrawalResponse]{
@@ -63,7 +63,7 @@ func (c *withdrawalController) FindWithdrawalById(ctx *fiber.Ctx) error {
 
 	response, err := c.withdrawalUseCase.FindById(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Find withdrawal by id : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.WithdrawalResponse]{
@@ -75,7 +75,7 @@ func (c *withdrawalController) FindWithdrawalById(ctx *fiber.Ctx) error {
 func (c *withdrawalController) FindAllWithdrawal(ctx *fiber.Ctx) error {
 	response, err := c.withdrawalUseCase.FindAll(ctx.Context())
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Find all withdrawal : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.WithdrawalResponse]{

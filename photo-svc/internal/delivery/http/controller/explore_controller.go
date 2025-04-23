@@ -56,7 +56,7 @@ func (c *exploreController) GetAllExploreSimilar(ctx *fiber.Ctx) error {
 
 	response, pageMetadata, err := c.exploreUseCase.GetUserExploreSimilar(context, request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get all explore similar error : ", err, c.logs)
 	}
 
 	baseURL := ctx.BaseURL() + ctx.Path()
@@ -85,7 +85,7 @@ func (c *exploreController) GetAllUserWishlist(ctx *fiber.Ctx) error {
 
 	response, pageMetadata, err := c.exploreUseCase.GetUserWishlist(context, request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get all user error : ", err, c.logs)
 	}
 
 	baseURL := ctx.BaseURL() + ctx.Path()
@@ -120,7 +120,7 @@ func (c *exploreController) UserAddWishlist(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.exploreUseCase.UserAddWishlist(context, request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "User add wishlist error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -150,7 +150,7 @@ func (c *exploreController) UserDeleteWishlist(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.exploreUseCase.UserDeleteWishlist(context, request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "User delete wishlist error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -174,7 +174,7 @@ func (c *exploreController) GetAllUserFavorite(ctx *fiber.Ctx) error {
 
 	response, pageMetadata, err := c.exploreUseCase.GetUserFavorite(context, request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "User get all user favorite error : ", err, c.logs)
 	}
 
 	baseURL := ctx.BaseURL() + ctx.Path()
@@ -209,7 +209,7 @@ func (c *exploreController) UserAddFavorite(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.exploreUseCase.UserAddFavorite(context, request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "User add favorite error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -239,7 +239,7 @@ func (c *exploreController) UserDeleteFavorite(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.exploreUseCase.UserDeleteFavorite(context, request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "User delete favorite error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -263,7 +263,7 @@ func (c *exploreController) GetAllUserCart(ctx *fiber.Ctx) error {
 
 	response, pageMetadata, err := c.exploreUseCase.GetUserCart(context, request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get all user cart error : ", err, c.logs)
 	}
 
 	baseURL := ctx.BaseURL() + ctx.Path()
@@ -298,7 +298,7 @@ func (c *exploreController) UserAddCart(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.exploreUseCase.UserAddCart(context, request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "User add cart error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -328,7 +328,7 @@ func (c *exploreController) UserDeleteCart(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.exploreUseCase.UserDeleteCart(context, request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "User delete cart : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{

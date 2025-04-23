@@ -45,7 +45,7 @@ func (c *bankController) CreateBank(ctx *fiber.Ctx) error {
 
 	response, err := c.bankUseCase.Create(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Create bank : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.BankResponse]{
@@ -64,7 +64,7 @@ func (c *bankController) FindBankById(ctx *fiber.Ctx) error {
 
 	response, err := c.bankUseCase.FindById(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Find bank by id : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.BankResponse]{
@@ -76,7 +76,7 @@ func (c *bankController) FindBankById(ctx *fiber.Ctx) error {
 func (c *bankController) FindAllBank(ctx *fiber.Ctx) error {
 	response, err := c.bankUseCase.FindAll(ctx.Context())
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Find all bank : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.BankResponse]{
@@ -93,7 +93,7 @@ func (c *bankController) DeleteBank(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.bankUseCase.Delete(ctx.Context(), request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Delete bank : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.BankResponse]{

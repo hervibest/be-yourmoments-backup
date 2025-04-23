@@ -31,7 +31,10 @@ func newPhotoPreparedStmt(db *sqlx.DB) (*photoPreparedStmt, error) {
 		FROM photos AS p
 		JOIN user_similar_photos AS up
 		ON up.photo_id = p.id
-		WHERE id = ANY($1) AND up.user_id = $2 AND p.owned_by_user_id`)
+		WHERE id = ANY($1) 
+		AND up.user_id = $2 
+		AND p.owned_by_user_id IS NULL
+		AND p.creator_id != $3`)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +50,7 @@ type PhotoRepository interface {
 	FindByPhotoId(ctx context.Context, tx Querier, photoId string) (*entity.Photo, error)
 	UpdateProcessedUrl(tx Querier, photo *entity.Photo) error
 	UpdateCompressedUrl(tx Querier, photo *entity.Photo) error
-	GetPhotosByIDs(ctx context.Context, userId string, ids []string) (*[]*entity.Photo, error)
+	GetPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error)
 	UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
 	// UpdateClaimedPhoto(ctx context.Context, db Querier, photo *entity.Photo) error
 	// UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
@@ -60,7 +63,6 @@ type photoRepository struct {
 func NewPhotoRepository(db *sqlx.DB) (PhotoRepository, error) {
 	photoPreparedStmt, err := newPhotoPreparedStmt(db)
 	if err != nil {
-		log.Print("error initialize photo statement : ", err)
 		return nil, err
 	}
 
@@ -78,7 +80,6 @@ func (r *photoRepository) Create(tx Querier, photo *entity.Photo) (*entity.Photo
 		photo.OriginalAt, photo.CreatedAt, photo.UpdatedAt)
 
 	if err != nil {
-		log.Println(err)
 		return nil, fmt.Errorf("failed to insert photo: %w", err)
 	}
 
@@ -122,9 +123,9 @@ func (r *photoRepository) FindByPhotoId(ctx context.Context, tx Querier, photoId
 	return photo, nil
 }
 
-func (r *photoRepository) GetPhotosByIDs(ctx context.Context, userId string, ids []string) (*[]*entity.Photo, error) {
+func (r *photoRepository) GetPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error) {
 	photos := make([]*entity.Photo, 0)
-	if err := r.photoPreparedStmt.findManyByIds.SelectContext(ctx, &photos, ids, userId); err != nil {
+	if err := r.photoPreparedStmt.findManyByIds.SelectContext(ctx, &photos, ids, userId, creatorId); err != nil {
 		return nil, err
 	}
 	return &photos, nil
@@ -134,7 +135,7 @@ func (r *photoRepository) UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Que
 	query := "UPDATE photos SET owned_by_user_id = $1 WHERE id = ANY($2)"
 	_, err := tx.ExecContext(ctx, query, ownerID, photoIDs)
 	if err != nil {
-		log.Println("Error happen in updatePhotoOwner", err)
+		return err
 	}
 
 	return nil

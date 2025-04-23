@@ -35,7 +35,7 @@ func (c *chatController) GetCustomToken(ctx *fiber.Ctx) error {
 
 	response, err := c.chatUseCase.GetCustomToken(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get custom token error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CustomTokenResponse]{
@@ -61,7 +61,7 @@ func (c *chatController) GetOrCreateRoom(ctx *fiber.Ctx) error {
 
 	response, err := c.chatUseCase.GetOrCreateRoom(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get custom or create room error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.GetOrCreateRoomResponse]{
@@ -86,7 +86,7 @@ func (c *chatController) SendMessage(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.chatUseCase.SendMessage(ctx.Context(), request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Send message : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.GetOrCreateRoomResponse]{

@@ -88,10 +88,41 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 
 	var countArgs []interface{}
 
-	query := `SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
-	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
-	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
-	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1`
+	query := `
+	SELECT 
+		usp.photo_id,
+		usp.user_id,
+		usp.similarity,
+		usp.is_wishlist,
+		usp.is_resend,
+		usp.is_cart,
+		usp.is_favorite,
+	
+		p.creator_id,
+		p.title,
+		p.is_this_you_url,
+		p.your_moments_url,
+		p.price,
+		p.price_str,
+		p.original_at,
+		p.created_at,
+		p.updated_at,
+	
+		cd.name,
+		cd.min_quantity,
+		cd.discount_type,
+		cd.value,
+		cd.active
+	
+	FROM
+		user_similar_photos AS usp
+	JOIN
+		photos AS p ON p.id = usp.photo_id
+	LEFT JOIN 
+		creator_discounts AS cd ON p.creator_id = cd.creator_id AND cd.active = true
+	WHERE
+		usp.user_id = $1
+	`
 
 	var queryArgs []interface{}
 

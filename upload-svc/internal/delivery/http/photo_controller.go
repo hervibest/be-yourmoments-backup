@@ -31,7 +31,6 @@ func NewPhotoController(photoUsecase usecase.PhotoUsecase, logs *logger.Log, cus
 	}
 }
 
-// TODO CUSTOM VALIDATOR
 func (c *photoController) UploadPhoto(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("photo")
 	if err != nil {
@@ -54,7 +53,7 @@ func (c *photoController) UploadPhoto(ctx *fiber.Ctx) error {
 
 	err = c.photoUsecase.UploadPhoto(ctx.UserContext(), file, request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Upload photo : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(fiber.Map{

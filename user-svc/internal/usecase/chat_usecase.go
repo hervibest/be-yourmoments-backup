@@ -51,7 +51,7 @@ func (u *chatUseCase) GetOrCreateRoom(ctx context.Context, req *model.RequestGet
 
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to query firestore", err)
+		return nil, helper.WrapInternalServerError(u.logs, "failed to query firestore : ", err)
 	}
 
 	if len(docs) > 0 {
@@ -60,7 +60,7 @@ func (u *chatUseCase) GetOrCreateRoom(ctx context.Context, req *model.RequestGet
 		if rn, ok := data["roomId"].(string); ok {
 			roomId = rn
 		} else {
-			return nil, helper.WrapInternalServerError(u.logs, "roomId missing in documment", err)
+			return nil, helper.WrapInternalServerError(u.logs, "failed to get roomId : roomId missing in documment : ", err)
 		}
 	} else {
 		roomId = ulid.Make().String()
@@ -76,7 +76,7 @@ func (u *chatUseCase) GetOrCreateRoom(ctx context.Context, req *model.RequestGet
 				"createdAt":    firestore.ServerTimestamp,
 			})
 		if err != nil {
-			return nil, helper.WrapInternalServerError(u.logs, "failed to create a firestore room", err)
+			return nil, helper.WrapInternalServerError(u.logs, "failed to create a firestore room : ", err)
 		}
 
 		created = true
@@ -98,7 +98,7 @@ func generateRoomId(userA, userB string) string {
 func (u *chatUseCase) GetCustomToken(ctx context.Context, req *model.RequestCustomToken) (*model.CustomTokenResponse, error) {
 	token, err := u.authClientAdapter.CustomToken(ctx, req.UserId)
 	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to check toxic from perpsective api", err)
+		return nil, helper.WrapInternalServerError(u.logs, "failed to check toxic from perpsective api : ", err)
 	}
 
 	response := &model.CustomTokenResponse{
@@ -115,7 +115,7 @@ func (u *chatUseCase) SendMessage(ctx context.Context, req *model.RequestSendMes
 	}
 
 	if len(trimmed) > 500 {
-		return helper.NewUseCaseError(errorcode.ErrValidationFailed, "Message too long")
+		return helper.NewUseCaseError(errorcode.ErrValidationFailed, "Message too long. Make sure only 500 words")
 	}
 
 	isToxic, err := u.perspectiveAdapter.IsToxicMessage(trimmed)
@@ -139,7 +139,7 @@ func (u *chatUseCase) SendMessage(ctx context.Context, req *model.RequestSendMes
 		})
 
 	if err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to send mesaagge to firestore", err)
+		return helper.WrapInternalServerError(u.logs, "failed to send message to firestore : ", err)
 	}
 
 	return nil

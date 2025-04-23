@@ -24,7 +24,7 @@ func NewCreatorMiddleware(creatorUseCase usecase.CreatorUseCase, tracer trace.Tr
 
 		creatorResponse, err := creatorUseCase.GetCreator(context, request)
 		if err != nil {
-			return helper.ErrUseCaseResponseJSON(ctx, err, logs)
+			return helper.ErrUseCaseResponseJSON(ctx, "Get creator error : ", err, logs)
 		}
 
 		creator := &model.CreatorResponse{

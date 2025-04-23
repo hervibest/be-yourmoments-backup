@@ -72,6 +72,8 @@ func (e *AppError) HTTPStatus() int {
 		return 404
 	case errorcode.ErrTooManyRequests:
 		return 429
+	case errorcode.ErrExternal:
+		return 503
 	default:
 		return 500
 	}
@@ -99,6 +101,13 @@ func WrapInternalServerError(logs *logger.Log, internalMsg string, err error) er
 		IsPrintStack: true,
 	})
 	return NewAppError(errorcode.ErrInternal, "Something went wrong. Please try again later", err)
+}
+
+func WrapExternalServiceUnavailable(logs *logger.Log, internalMsg string, err error) error {
+	logs.Error(fmt.Sprintf("%s %s", internalMsg, err.Error()), &logger.Options{
+		IsPrintStack: true,
+	})
+	return NewAppError(errorcode.ErrExternal, "Service unavailable. Please try again later.", err)
 }
 
 func FromGRPCError(err error) *AppError {

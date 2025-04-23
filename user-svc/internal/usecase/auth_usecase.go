@@ -160,7 +160,7 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 
 	countByNotGoogleTotal, err := u.userRepository.CountByEmailNotGoogle(ctx, claims.Email)
 	if err != nil {
-		return nil, nil, helper.WrapInternalServerError(u.logs, "error count by email not google", err)
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to count by email not google", err)
 	}
 
 	if countByNotGoogleTotal > 0 {
@@ -169,7 +169,7 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 
 	countByGoogleTotal, err := u.userRepository.CountByEmailGoogleId(ctx, claims.Email, claims.GoogleId)
 	if err != nil {
-		return nil, nil, helper.WrapInternalServerError(u.logs, "error count by email google id", err)
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to count by email google id", err)
 	}
 
 	if countByGoogleTotal > 0 {
@@ -178,12 +178,12 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 			if errors.Is(sql.ErrNoRows, err) {
 				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
 			}
-			return nil, nil, helper.WrapInternalServerError(u.logs, "error find user by email not google", err)
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
 		}
 
 		token, err := u.generateToken(ctx, user)
 		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "error find user by email not google", err)
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
 		}
 
 		return converter.UserToResponse(user), token, nil
@@ -215,7 +215,7 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 
 		user, err = u.userRepository.CreateByGoogleSignIn(ctx, tx, user)
 		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "error create user by google sign in", err)
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user by google sign in", err)
 		}
 
 		userProfile := &entity.UserProfile{
@@ -234,7 +234,7 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 		_, err = u.userProfileRepository.CreateWithProfileUrl(ctx, tx, userProfile)
 		if err != nil {
 			log.Println(err)
-			return nil, nil, helper.WrapInternalServerError(u.logs, "error create with profile url", err)
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create with profile url", err)
 		}
 
 		if err := repository.Commit(tx, u.logs); err != nil {
@@ -331,7 +331,7 @@ func (u *authUseCase) RegisterByEmail(ctx context.Context, request *model.Regist
 
 	user, err = u.userRepository.CreateByEmail(ctx, tx, user)
 	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to create user by email verification", err)
+		return nil, helper.WrapInternalServerError(u.logs, "failed to create user by email verification :", err)
 	}
 
 	userProfile := &entity.UserProfile{
@@ -345,7 +345,7 @@ func (u *authUseCase) RegisterByEmail(ctx context.Context, request *model.Regist
 
 	_, err = u.userProfileRepository.Create(ctx, tx, userProfile)
 	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to send email verification", err)
+		return nil, helper.WrapInternalServerError(u.logs, "failed to send email verification :", err)
 	}
 
 	if err := repository.Commit(tx, u.logs); err != nil {
@@ -353,7 +353,7 @@ func (u *authUseCase) RegisterByEmail(ctx context.Context, request *model.Regist
 	}
 
 	if err := u.requestEmailVerification(ctx, request.Email, true); err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to send email verification", err)
+		return nil, helper.WrapInternalServerError(u.logs, "failed to send email verification :", err)
 	}
 
 	return converter.UserToResponse(user), nil
@@ -413,7 +413,7 @@ func (u *authUseCase) ResendEmailVerification(ctx context.Context, email string)
 		if errors.Is(err, sql.ErrNoRows) {
 			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email or password")
 		}
-		return helper.WrapInternalServerError(u.logs, "failed to find user by email", err)
+		return helper.WrapInternalServerError(u.logs, "failed to find user by email :", err)
 	}
 
 	if user.HasVerifiedEmail() {

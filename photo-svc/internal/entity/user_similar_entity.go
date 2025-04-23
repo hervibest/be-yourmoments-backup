@@ -37,4 +37,10 @@ type Explore struct {
 	OriginalAt     time.Time      `db:"original_at"`
 	CreatedAt      time.Time      `db:"created_at"`
 	UpdatedAt      time.Time      `db:"updated_at"`
+
+	Name         sql.NullString `db:"name"`
+	MinQuantity  sql.NullInt32  `db:"min_quantity"`
+	DiscountType sql.NullString `db:"discount_type"`
+	Value        sql.NullInt32  `db:"value"`
+	Active       sql.NullBool   `db:"active"`
 }

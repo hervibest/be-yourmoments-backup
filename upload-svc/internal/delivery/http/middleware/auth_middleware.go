@@ -20,7 +20,7 @@ func NewUserAuth(userAdapter adapter.UserAdapter, logs *logger.Log) fiber.Handle
 
 		authResponse, err := userAdapter.AuthenticateUser(ctx.UserContext(), token)
 		if err != nil {
-			return helper.ErrUseCaseResponseJSON(ctx, err, logs)
+			return helper.ErrUseCaseResponseJSON(ctx, "Authenticate user : ", err, logs)
 		}
 
 		auth := &model.AuthResponse{

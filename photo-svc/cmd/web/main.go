@@ -165,7 +165,7 @@ func webServer() error {
 	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, transactionAdapter, logs)
 	exploreUseCase := usecase.NewExploreUseCase(dbConfig, exploreRepo, photoRepo, tracer, logs)
 	creatorDiscountUseCase := usecase.NewCreatorDiscountUseCase(dbConfig, creatorDiscountRepository, logs)
-	checkoutUseCase := usecase.NewCheckoutUseCase(dbConfig, photoRepo, creatorDiscountRepository, logs)
+	checkoutUseCase := usecase.NewCheckoutUseCase(dbConfig, photoRepo, creatorRepository, creatorDiscountRepository, logs)
 
 	exploreController := http.NewExploreController(tracer, customValidator, exploreUseCase, logs)
 	creatorDiscountController := http.NewCreatorDiscountController(creatorDiscountUseCase, customValidator, logs)

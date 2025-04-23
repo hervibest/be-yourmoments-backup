@@ -43,7 +43,7 @@ func (c *reviewController) CreateReview(ctx *fiber.Ctx) error {
 
 	response, err := c.reviewUseCase.Create(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Create review : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CreatorReviewResponse]{
@@ -62,7 +62,7 @@ func (c *reviewController) GetAllReview(ctx *fiber.Ctx) error {
 
 	response, pageMetadata, err := c.reviewUseCase.GetCreatorReview(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get all review error : ", err, c.logs)
 	}
 
 	baseURL := ctx.BaseURL() + ctx.Path()

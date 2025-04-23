@@ -50,10 +50,20 @@ func (e *AppError) Unwrap() error {
 	return e.Err
 }
 
+func New(code string, message string, err error) *AppError {
+	return &AppError{
+		Code:    code,
+		Message: message,
+		Err:     err,
+	}
+}
+
 func (e *AppError) HTTPStatus() int {
 	switch e.Code {
 	case errorcode.ErrUnauthorized, errorcode.ErrUserSignedOut:
 		return 401
+	case errorcode.ErrForbidden: // ✅ Tambahan di sini
+		return 403
 	case errorcode.ErrValidationFailed, errorcode.ErrInvalidArgument:
 		return 422
 	case errorcode.ErrAlreadyExists:
@@ -62,6 +72,8 @@ func (e *AppError) HTTPStatus() int {
 		return 404
 	case errorcode.ErrTooManyRequests:
 		return 429
+	case errorcode.ErrExternal:
+		return 503
 	default:
 		return 500
 	}
@@ -88,8 +100,14 @@ func WrapInternalServerError(logs *logger.Log, internalMsg string, err error) er
 	logs.Error(fmt.Sprintf("%s %s", internalMsg, err.Error()), &logger.Options{
 		IsPrintStack: true,
 	})
-
 	return NewAppError(errorcode.ErrInternal, "Something went wrong. Please try again later", err)
+}
+
+func WrapExternalServiceUnavailable(logs *logger.Log, internalMsg string, err error) error {
+	logs.Error(fmt.Sprintf("%s %s", internalMsg, err.Error()), &logger.Options{
+		IsPrintStack: true,
+	})
+	return NewAppError(errorcode.ErrExternal, "Service unavailable. Please try again later.", err)
 }
 
 func FromGRPCError(err error) *AppError {

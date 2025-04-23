@@ -79,7 +79,7 @@ func (u *creatorDiscountUseCase) CreateDiscount(ctx context.Context, request *mo
 }
 
 func (u *creatorDiscountUseCase) ActivateDiscount(ctx context.Context, request *model.ActivateCreatorDiscountRequest) error {
-	_, err := u.creatorDiscountRepository.FindById(ctx, u.db, request.Id)
+	_, err := u.creatorDiscountRepository.FindByIdAndCreatorId(ctx, u.db, request.Id, request.CreatorId)
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator discount id")
@@ -108,7 +108,7 @@ func (u *creatorDiscountUseCase) ActivateDiscount(ctx context.Context, request *
 }
 
 func (u *creatorDiscountUseCase) DeactivateDiscount(ctx context.Context, request *model.DeactivateCreatorDiscountRequest) error {
-	_, err := u.creatorDiscountRepository.FindById(ctx, u.db, request.Id)
+	_, err := u.creatorDiscountRepository.FindByIdAndCreatorId(ctx, u.db, request.Id, request.CreatorId)
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator discount id")
@@ -137,7 +137,7 @@ func (u *creatorDiscountUseCase) DeactivateDiscount(ctx context.Context, request
 }
 
 func (u *creatorDiscountUseCase) GetDiscount(ctx context.Context, request *model.GetCreatorDiscountRequest) (*model.CreatorDiscountResponse, error) {
-	discount, err := u.creatorDiscountRepository.FindById(ctx, u.db, request.Id)
+	discount, err := u.creatorDiscountRepository.FindByIdAndCreatorId(ctx, u.db, request.Id, request.CreatorId)
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator discount id")

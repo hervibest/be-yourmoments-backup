@@ -46,7 +46,7 @@ func (c *transactionController) CreateTransaction(ctx *fiber.Ctx) error {
 
 	response, err := c.transactionUseCase.CreateTransaction(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Create transaction error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CreateTransactionResponse]{
@@ -74,7 +74,7 @@ func (c *transactionController) Notify(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.transactionUseCase.UpdateTransactionWebhook(ctx.Context(), request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Notify webhook : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[any]{

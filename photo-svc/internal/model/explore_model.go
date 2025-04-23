@@ -61,6 +61,7 @@ type ExploreUserSimilarResponse struct {
 	PhotoUrl   *PhotoUrlResponse        `json:"url"`
 	Price      int32                    `json:"price"`
 	PriceStr   string                   `json:"price_str"`
+	Discount   *CreatorDiscountResponse `json:"discount"`
 	OriginalAt time.Time                `json:"original_at"`
 	CreatedAt  time.Time                `json:"created_at"`
 	UpdatedAt  time.Time                `json:"updated_at"`

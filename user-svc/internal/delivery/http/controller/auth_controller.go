@@ -52,7 +52,7 @@ func (c *authController) RegisterByPhoneNumber(ctx *fiber.Ctx) error {
 
 	response, err := c.authUseCase.RegisterByPhoneNumber(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Register by phone number error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.UserResponse]{
@@ -73,7 +73,7 @@ func (c *authController) RegisterByGoogleSignIn(ctx *fiber.Ctx) error {
 
 	response, token, err := c.authUseCase.RegisterByGoogleSignIn(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Register by google sign in error : ", err, c.logs)
 	}
 
 	responses := map[string]interface{}{
@@ -99,7 +99,7 @@ func (c *authController) RegisterByEmail(ctx *fiber.Ctx) error {
 
 	response, err := c.authUseCase.RegisterByEmail(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Register by email error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.UserResponse]{
@@ -119,7 +119,7 @@ func (c *authController) ResendEmailVerification(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.authUseCase.ResendEmailVerification(ctx.Context(), request.Email); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Resend email verification error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -139,7 +139,7 @@ func (c *authController) VerifyEmail(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.authUseCase.VerifyEmail(ctx.Context(), request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Verify email : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -158,7 +158,7 @@ func (c *authController) RequestResetPassword(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.authUseCase.RequestResetPassword(ctx.Context(), request.Email); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Request reset password error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -179,7 +179,7 @@ func (c *authController) ValidateResetPassword(ctx *fiber.Ctx) error {
 
 	valid, err := c.authUseCase.ValidateResetPassword(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Validate reset password error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -202,7 +202,7 @@ func (c *authController) ResetPassword(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.authUseCase.ResetPassword(ctx.Context(), request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Reset password error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -222,7 +222,7 @@ func (c *authController) Login(ctx *fiber.Ctx) error {
 
 	userResponse, tokenResponse, err := c.authUseCase.Login(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Login error : ", err, c.logs)
 	}
 
 	response := map[string]interface{}{
@@ -241,7 +241,7 @@ func (c *authController) Current(ctx *fiber.Ctx) error {
 
 	userResponse, err := c.authUseCase.Current(ctx.Context(), auth.Email)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Current error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.UserResponse]{
@@ -262,7 +262,7 @@ func (c *authController) RequestAccessToken(ctx *fiber.Ctx) error {
 
 	userResponse, tokenResponse, err := c.authUseCase.AccessTokenRequest(ctx.Context(), request.RefreshToken)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Request access token error : ", err, c.logs)
 	}
 
 	responses := map[string]interface{}{
@@ -289,7 +289,7 @@ func (c *authController) Logout(ctx *fiber.Ctx) error {
 
 	valid, err := c.authUseCase.Logout(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Logout error : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{

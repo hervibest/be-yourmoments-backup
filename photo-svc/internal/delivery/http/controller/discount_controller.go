@@ -48,7 +48,7 @@ func (c *creatorDiscountController) CreateDiscount(ctx *fiber.Ctx) error {
 
 	response, err := c.creatorDiscountUseCase.CreateDiscount(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Create discount : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CreatorDiscountResponse]{
@@ -63,6 +63,9 @@ func (c *creatorDiscountController) ActivateDiscount(ctx *fiber.Ctx) error {
 		Id: discountId,
 	}
 
+	creator := middleware.GetCreator(ctx)
+	request.CreatorId = creator.Id
+
 	if _, err := ulid.Parse(request.Id); err != nil {
 		return fiber.NewError(http.StatusUnprocessableEntity, "The provided discount ID is not valid")
 	}
@@ -72,7 +75,7 @@ func (c *creatorDiscountController) ActivateDiscount(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.creatorDiscountUseCase.ActivateDiscount(ctx.Context(), request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Activate discount : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -86,6 +89,9 @@ func (c *creatorDiscountController) DeactivateDiscount(ctx *fiber.Ctx) error {
 		Id: discountId,
 	}
 
+	creator := middleware.GetCreator(ctx)
+	request.CreatorId = creator.Id
+
 	if _, err := ulid.Parse(request.Id); err != nil {
 		return fiber.NewError(http.StatusUnprocessableEntity, "The provided discount ID is not valid")
 	}
@@ -95,7 +101,7 @@ func (c *creatorDiscountController) DeactivateDiscount(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.creatorDiscountUseCase.DeactivateDiscount(ctx.Context(), request); err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Deactivate discount : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
@@ -110,6 +116,9 @@ func (c *creatorDiscountController) GetDiscount(ctx *fiber.Ctx) error {
 		Id: discountId,
 	}
 
+	creator := middleware.GetCreator(ctx)
+	request.CreatorId = creator.Id
+
 	if _, err := ulid.Parse(request.Id); err != nil {
 		return fiber.NewError(http.StatusUnprocessableEntity, "The provided discount ID is not valid")
 	}
@@ -120,7 +129,7 @@ func (c *creatorDiscountController) GetDiscount(ctx *fiber.Ctx) error {
 
 	response, err := c.creatorDiscountUseCase.GetDiscount(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Get discount : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CreatorDiscountResponse]{

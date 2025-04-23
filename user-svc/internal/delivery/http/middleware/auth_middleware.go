@@ -27,7 +27,7 @@ func NewUserAuth(authUseCase usecase.AuthUseCase, validator helper.CustomValidat
 
 		auth, err := authUseCase.Verify(ctx.UserContext(), request)
 		if err != nil {
-			return helper.ErrUseCaseResponseJSON(ctx, err, logs)
+			return helper.ErrUseCaseResponseJSON(ctx, "Authenticate user error : ", err, logs)
 		}
 
 		ctx.Locals("auth", auth)

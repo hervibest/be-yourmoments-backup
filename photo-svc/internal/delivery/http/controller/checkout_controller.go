@@ -39,7 +39,7 @@ func (c *checkoutController) PreviewCheckout(ctx *fiber.Ctx) error {
 
 	response, err := c.checkoutUseCase.PreviewCheckout(ctx.Context(), request)
 	if err != nil {
-		return helper.ErrUseCaseResponseJSON(ctx, err, c.logs)
+		return helper.ErrUseCaseResponseJSON(ctx, "Preview checkout : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.PreviewCheckoutResponse]{

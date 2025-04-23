@@ -128,7 +128,7 @@ func webServer() error {
 		logs.Error(err)
 	}
 
-	paymentAdapter := adapter.NewPaymentAdapter(midtransConfig)
+	paymentAdapter := adapter.NewPaymentAdapter(midtransConfig, logs)
 
 	customValidator := helper.NewCustomValidator()
 
