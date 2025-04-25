@@ -70,7 +70,7 @@ func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.Pre
 
 	// TODO tambahkan permistic locking ? dengan db transaction
 	log.Print("creator id", creator.Id, request.PhotoIds)
-	photos, err := u.photoRepository.GetPhotosByIDs(ctx, request.UserId, creator.Id, request.PhotoIds)
+	photos, err := u.photoRepository.GetUnOwnedPhotosByIDs(ctx, request.UserId, creator.Id, request.PhotoIds)
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")

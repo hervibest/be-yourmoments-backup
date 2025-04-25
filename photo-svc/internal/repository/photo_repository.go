@@ -10,8 +10,9 @@ import (
 )
 
 type photoPreparedStmt struct {
-	findByPhotoId *sqlx.Stmt
-	findManyByIds *sqlx.Stmt
+	findByPhotoId           *sqlx.Stmt
+	findManyUnOwnedByIds    *sqlx.Stmt
+	findManyWithDetailByIds *sqlx.Stmt
 }
 
 func newPhotoPreparedStmt(db *sqlx.DB) (*photoPreparedStmt, error) {
@@ -20,7 +21,7 @@ func newPhotoPreparedStmt(db *sqlx.DB) (*photoPreparedStmt, error) {
 		return nil, err
 	}
 
-	findManyByIdsStmt, err := db.Preparex(`
+	findUnOwnedManyByIdsStmt, err := db.Preparex(`
 	SELECT 
 			id,
 			creator_id,
@@ -39,9 +40,24 @@ func newPhotoPreparedStmt(db *sqlx.DB) (*photoPreparedStmt, error) {
 		return nil, err
 	}
 
+	findDetailManyByIdsStmt, err := db.Preparex(`
+	SELECT 
+			id,
+			creator_id,
+			title,
+			is_this_you_url,
+			your_moments_url,
+			price
+		FROM photos AS p
+		WHERE p.id = ANY($1) 
+		AND p.owned_by_user_id = $2`)
+	if err != nil {
+		return nil, err
+	}
+
 	return &photoPreparedStmt{
-		findByPhotoId: findByPhotoIdStmt,
-		findManyByIds: findManyByIdsStmt,
+		findByPhotoId:        findByPhotoIdStmt,
+		findManyUnOwnedByIds: findUnOwnedManyByIdsStmt,
 	}, nil
 }
 
@@ -50,7 +66,7 @@ type PhotoRepository interface {
 	FindByPhotoId(ctx context.Context, tx Querier, photoId string) (*entity.Photo, error)
 	UpdateProcessedUrl(tx Querier, photo *entity.Photo) error
 	UpdateCompressedUrl(tx Querier, photo *entity.Photo) error
-	GetPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error)
+	GetUnOwnedPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error)
 	UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
 	// UpdateClaimedPhoto(ctx context.Context, db Querier, photo *entity.Photo) error
 	// UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
@@ -123,9 +139,9 @@ func (r *photoRepository) FindByPhotoId(ctx context.Context, tx Querier, photoId
 	return photo, nil
 }
 
-func (r *photoRepository) GetPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error) {
+func (r *photoRepository) GetUnOwnedPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error) {
 	photos := make([]*entity.Photo, 0)
-	if err := r.photoPreparedStmt.findManyByIds.SelectContext(ctx, &photos, ids, userId, creatorId); err != nil {
+	if err := r.photoPreparedStmt.findManyUnOwnedByIds.SelectContext(ctx, &photos, ids, userId, creatorId); err != nil {
 		return nil, err
 	}
 	return &photos, nil
