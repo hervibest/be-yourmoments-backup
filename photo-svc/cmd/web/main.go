@@ -158,8 +158,9 @@ func webServer() error {
 	if err != nil {
 		log.Println(err)
 	}
+	bulkPhotoRepository := repository.NewBulkPhotoRepository()
 
-	photoUsecase := usecase.NewPhotoUsecase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, aiAdapter, uploadAdapter, logs)
+	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, aiAdapter, uploadAdapter, logs)
 	faceCamUseCase := usecase.NewFacecamUseCase(dbConfig, facecamRepo, userSimilarRepo, aiAdapter, uploadAdapter, logs)
 	userSimilarPhotoUsecase := usecase.NewUserSimilarUsecase(dbConfig, photoRepo, photoDetailRepo, facecamRepo, userSimilarRepo, logs)
 	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, transactionAdapter, logs)
@@ -186,7 +187,7 @@ func webServer() error {
 		logs.Log(fmt.Sprintf("gRPC server started on %s", serverConfig.GRPC))
 		defer l.Close()
 
-		grpcHandler.NewPhotoGRPCHandler(grpcServer, photoUsecase, faceCamUseCase, userSimilarPhotoUsecase, creatorUseCase, checkoutUseCase)
+		grpcHandler.NewPhotoGRPCHandler(grpcServer, photoUseCase, faceCamUseCase, userSimilarPhotoUsecase, creatorUseCase, checkoutUseCase)
 
 		if err := grpcServer.Serve(l); err != nil {
 			logs.Error(fmt.Sprintf("Failed to start gRPC category server: %v", err))

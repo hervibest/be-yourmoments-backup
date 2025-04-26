@@ -9,6 +9,7 @@ type Photo struct {
 	Id             string `db:"id"`
 	UserId         string
 	CreatorId      string          `db:"creator_id"`
+	BulkPhotoId    sql.NullString  `db:"bulk__photo_id"`
 	Title          string          `db:"title"`
 	OwnedByUserId  string          `db:"owned_by_user_id"`
 	CompressedUrl  string          `db:"compressed_url"`

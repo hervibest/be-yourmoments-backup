@@ -20,6 +20,8 @@ service PhotoService{
   rpc GetCreator(GetCreatorRequest) returns (GetCreatorResponse);
   rpc CalculatePhotoPrice(CalculatePhotoPriceRequest) returns (CalculatePhotoPriceResponse);
   rpc OwnerOwnPhotos(OwnerOwnPhotosRequest) returns (OwnerOwnPhotosResponse);
+  rpc CreateBulkPhoto(CreateBulkPhotoRequest) returns (CreateBulkPhotoResponse);
+
 }
 
 
@@ -42,10 +44,12 @@ message Photo {
   google.protobuf.Timestamp updated_at = 14;
 
   PhotoDetail detail = 15;
-
+  
   google.protobuf.DoubleValue latitude = 64;
   google.protobuf.DoubleValue longitude = 65;
   google.protobuf.StringValue description = 66;
+
+  google.protobuf.StringValue bulk_photo_id = 80; 
 }
 
 
@@ -236,6 +240,24 @@ message OwnerOwnPhotosRequest {
 }
   
 message OwnerOwnPhotosResponse {
+  int64   status  = 1;
+  string  error   = 2;
+}
+
+message BulkPhoto {
+  string id = 1;
+  string creator_id = 2;
+  string bulk_photo_status = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message CreateBulkPhotoRequest {
+  BulkPhoto bulk_photo = 1;
+  repeated Photo photos = 2;
+}
+
+message CreateBulkPhotoResponse {
   int64   status  = 1;
   string  error   = 2;
 }

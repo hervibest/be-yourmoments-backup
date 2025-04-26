@@ -50,10 +50,9 @@ type PhotoRepository interface {
 	FindByPhotoId(ctx context.Context, tx Querier, photoId string) (*entity.Photo, error)
 	UpdateProcessedUrl(tx Querier, photo *entity.Photo) error
 	UpdateCompressedUrl(tx Querier, photo *entity.Photo) error
-	GetPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error)
+	GetSimilarPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error)
 	UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
-	// UpdateClaimedPhoto(ctx context.Context, db Querier, photo *entity.Photo) error
-	// UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
+	BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) // UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
 }
 
 type photoRepository struct {
@@ -123,7 +122,7 @@ func (r *photoRepository) FindByPhotoId(ctx context.Context, tx Querier, photoId
 	return photo, nil
 }
 
-func (r *photoRepository) GetPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error) {
+func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error) {
 	photos := make([]*entity.Photo, 0)
 	if err := r.photoPreparedStmt.findManyByIds.SelectContext(ctx, &photos, ids, userId, creatorId); err != nil {
 		return nil, err
@@ -139,4 +138,17 @@ func (r *photoRepository) UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Que
 	}
 
 	return nil
+}
+
+func (r *photoRepository) BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) {
+	query := `INSERT INTO photos (id, creator_id, bulk_photo_id, title, collection_url, price, price_str, latitude, longitude, description, original_at, created_at, updated_at)
+	          VALUES (:id, :creator_id, :bulk_photo_id, :title, :collection_url, :price, :price_str, :latitude, :longitude, :description, :original_at, :created_at, :updated_at)`
+
+	_, err := tx.NamedExecContext(ctx, query, items)
+	if err != nil {
+		log.Printf("error inserting bulk photo: %v", err)
+		return nil, err
+	}
+
+	return &items, nil
 }

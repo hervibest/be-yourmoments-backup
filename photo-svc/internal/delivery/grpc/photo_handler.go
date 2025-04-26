@@ -6,7 +6,6 @@ import (
 	"be-yourmoments/photo-svc/internal/usecase"
 	"context"
 	"log"
-	"net/http"
 
 	"github.com/be-yourmoments/pb"
 
@@ -16,7 +15,7 @@ import (
 )
 
 type PhotoGRPCHandler struct {
-	photoUseCase            usecase.PhotoUsecase
+	photoUseCase            usecase.PhotoUseCase
 	facecamUseCase          usecase.FacecamUseCase
 	userSimilarPhotoUseCase usecase.UserSimilarUsecase
 	creatorUseCase          usecase.CreatorUseCase
@@ -25,7 +24,7 @@ type PhotoGRPCHandler struct {
 	pb.UnimplementedPhotoServiceServer
 }
 
-func NewPhotoGRPCHandler(server *grpc.Server, photoUseCase usecase.PhotoUsecase,
+func NewPhotoGRPCHandler(server *grpc.Server, photoUseCase usecase.PhotoUseCase,
 	facecamUseCase usecase.FacecamUseCase, userSimilarPhotoUseCase usecase.UserSimilarUsecase,
 	creatorUseCase usecase.CreatorUseCase, checkoutUseCase usecase.CheckoutUseCase) {
 	handler := &PhotoGRPCHandler{
@@ -47,7 +46,7 @@ func (h *PhotoGRPCHandler) CreatePhoto(ctx context.Context, pbReq *pb.CreatePhot
 	}
 
 	return &pb.CreatePhotoResponse{
-		Status: http.StatusCreated,
+		Status: int64(codes.OK),
 	}, nil
 }
 
@@ -216,6 +215,18 @@ func (h *PhotoGRPCHandler) OwnerOwnPhotos(ctx context.Context, pbReq *pb.OwnerOw
 	}
 
 	return &pb.OwnerOwnPhotosResponse{
+		Status: int64(codes.OK),
+	}, nil
+}
+
+func (h *PhotoGRPCHandler) CreateBulkPhoto(ctx context.Context, pbReq *pb.CreateBulkPhotoRequest) (
+	*pb.CreateBulkPhotoResponse, error) {
+	log.Println("----  CreatePhoto Bulk Photo Requets via GRPC in photo-svc ------")
+	if err := h.photoUseCase.CreateBulkPhoto(context.Background(), pbReq); err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	return &pb.CreateBulkPhotoResponse{
 		Status: int64(codes.OK),
 	}, nil
 }

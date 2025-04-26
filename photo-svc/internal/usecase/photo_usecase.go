@@ -8,6 +8,8 @@ import (
 	"be-yourmoments/photo-svc/internal/helper"
 	"be-yourmoments/photo-svc/internal/helper/logger"
 	"be-yourmoments/photo-svc/internal/helper/nullable"
+	"be-yourmoments/photo-svc/internal/model"
+	"be-yourmoments/photo-svc/internal/model/converter"
 	"be-yourmoments/photo-svc/internal/repository"
 	"context"
 	"database/sql"
@@ -21,10 +23,11 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-type PhotoUsecase interface {
+type PhotoUseCase interface {
 	CreatePhoto(ctx context.Context, request *pb.CreatePhotoRequest) error
 	UpdatePhotoDetail(ctx context.Context, request *pb.UpdatePhotoDetailRequest) error
-	// UpdateProcessedPhoto(ctx context.Context, req *model.RequestUpdateProcessedPhoto) (error, error)
+	CreateBulkPhoto(ctx context.Context, request *pb.CreateBulkPhotoRequest) error
+	GetBulkPhotoDetail(ctx context.Context, request *model.GetBulkPhotoDetailRequest) (*model.GetBulkPhotoDetailResponse, error)
 }
 
 type photoUsecase struct {
@@ -33,39 +36,35 @@ type photoUsecase struct {
 	photoDetailRepo repository.PhotoDetailRepository
 	userSimilarRepo repository.UserSimilarRepository
 	creatorRepo     repository.CreatorRepository
+	bulkPhotoRepo   repository.BulkPhotoRepository
 	aiAdapter       adapter.AiAdapter
 	uploadAdapter   adapter.UploadAdapter
 	logs            *logger.Log
 }
 
-func NewPhotoUsecase(db *sqlx.DB, photoRepo repository.PhotoRepository,
+func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	photoDetailRepo repository.PhotoDetailRepository,
 	userSimilarRepo repository.UserSimilarRepository,
 	creatorRepo repository.CreatorRepository,
+	bulkPhotoRepo repository.BulkPhotoRepository,
 	aiAdapter adapter.AiAdapter, uploadAdapter adapter.UploadAdapter,
-	logs *logger.Log) PhotoUsecase {
+	logs *logger.Log) PhotoUseCase {
 	return &photoUsecase{
 		db:              db,
 		photoRepo:       photoRepo,
 		photoDetailRepo: photoDetailRepo,
 		userSimilarRepo: userSimilarRepo,
 		creatorRepo:     creatorRepo,
+		bulkPhotoRepo:   bulkPhotoRepo,
 		aiAdapter:       aiAdapter,
 		uploadAdapter:   uploadAdapter,
 		logs:            logs,
 	}
 }
 
+// ISSUE #1 : creator_id should be called form pb contract and come from AuthMiddleware (centralized auth)
 func (u *photoUsecase) CreatePhoto(ctx context.Context, request *pb.CreatePhotoRequest) error {
 	log.Print(request.Photo.GetUserId())
-	creator, err := u.creatorRepo.FindByUserId(ctx, request.Photo.GetUserId())
-	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user ids")
-		}
-		return helper.WrapInternalServerError(u.logs, "error find creator by user id google", err)
-	}
-
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -76,9 +75,10 @@ func (u *photoUsecase) CreatePhoto(ctx context.Context, request *pb.CreatePhotoR
 	}()
 
 	newPhoto := &entity.Photo{
-		Id:        request.GetPhoto().GetId(),
-		CreatorId: creator.Id,
-		Title:     request.GetPhoto().GetTitle(),
+		Id:          request.GetPhoto().GetId(),
+		CreatorId:   request.GetPhoto().GetCreatorId(),
+		BulkPhotoId: nullable.GRPCtoSQLString(request.GetPhoto().GetBulkPhotoId()),
+		Title:       request.GetPhoto().GetTitle(),
 		CollectionUrl: sql.NullString{
 			Valid:  true,
 			String: request.GetPhoto().GetCollectionUrl(),
@@ -181,103 +181,100 @@ func (u *photoUsecase) UpdatePhotoDetail(ctx context.Context, request *pb.Update
 
 }
 
-// func (u *photoUsecase) ClaimPhoto(ctx context.Context, req *model.RequestClaimPhoto) (error, error) {
+// ISSUE #1 : creator_id should be called form pb contract and come from AuthMiddleware (centralized auth)
+func (u *photoUsecase) CreateBulkPhoto(ctx context.Context, request *pb.CreateBulkPhotoRequest) error {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return err
+	}
 
-// 	tx, err := u.db.Begin(ctx)
-// 	if err != nil {
-// 		return err, err
-// 	}
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
 
-// 	updatePhoto := &entity.Photo{
-// 		Id:            req.Id,
-// 		OwnedByUserId: req.UserId,
-// 		Status:        "Claimed",
-// 		UpdatedAt:     time.Now(),
-// 	}
+	bulkPhotoRepo := &entity.BulkPhoto{
+		Id:              request.GetBulkPhoto().GetId(),
+		CreatorId:       request.GetBulkPhoto().GetCreatorId(),
+		BulkPhotoStatus: enum.BulkPhotoStatus(request.GetBulkPhoto().BulkPhotoStatus),
+		CreatedAt:       request.GetBulkPhoto().GetCreatedAt().AsTime(),
+		UpdatedAt:       request.GetBulkPhoto().GetUpdatedAt().AsTime(),
+	}
 
-// 	err = u.photoRepo.UpdateClaimedPhoto(ctx, tx, updatePhoto)
-// 	if err != nil {
-// 		return err, err
-// 	}
+	_, err = u.bulkPhotoRepo.Create(ctx, tx, bulkPhotoRepo)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to insert new bulk photo to database", err)
+	}
 
-// 	// err = u.userSimilarRepo.UpdateUsersForPhoto(ctx, tx, req.Id, req.UserId)
-// 	// if err != nil {
-// 	// 	return err, err
-// 	// }
+	photos := make([]*entity.Photo, 0)
+	photoDetails := make([]*entity.PhotoDetail, 0)
 
-// 	if err := tx.Commit(ctx); err != nil {
-// 		return err, err
-// 	}
+	for _, pbPhoto := range request.GetPhotos() {
 
-// 	// Process photo service will be executed asyncronously by goroutine
+		photo := &entity.Photo{
+			Id:        pbPhoto.GetId(),
+			CreatorId: pbPhoto.GetCreatorId(),
+			Title:     pbPhoto.GetTitle(),
+			CollectionUrl: sql.NullString{
+				Valid:  true,
+				String: pbPhoto.GetCollectionUrl(),
+			},
+			Price:    pbPhoto.GetPrice(),
+			PriceStr: pbPhoto.GetPriceStr(),
 
-// 	return nil, nil
+			OriginalAt: pbPhoto.GetOriginalAt().AsTime(),
+			CreatedAt:  pbPhoto.GetCreatedAt().AsTime(),
+			UpdatedAt:  pbPhoto.GetUpdatedAt().AsTime(),
 
-// }
+			Latitude:    nullable.GRPCtoSQLDouble(pbPhoto.GetLatitude()),
+			Longitude:   nullable.GRPCtoSQLDouble(pbPhoto.GetLongitude()),
+			Description: nullable.GRPCtoSQLString(pbPhoto.GetDescription()),
+		}
 
-// func (u *photoUsecase) CancelClaimPhoto(ctx context.Context, req *model.RequestClaimPhoto) (error, error) {
+		photoDetail := &entity.PhotoDetail{
+			Id:              ulid.Make().String(),
+			PhotoId:         photo.Id,
+			FileName:        pbPhoto.GetDetail().GetFileName(),
+			FileKey:         pbPhoto.GetDetail().GetFileKey(),
+			Size:            pbPhoto.GetDetail().GetSize(),
+			Type:            pbPhoto.GetDetail().GetType(),
+			Checksum:        pbPhoto.GetDetail().GetChecksum(),
+			Width:           pbPhoto.GetDetail().GetWidth(),
+			Height:          pbPhoto.GetDetail().GetHeight(),
+			Url:             pbPhoto.GetDetail().GetUrl(),
+			YourMomentsType: enum.YourMomentsType(pbPhoto.GetDetail().GetYourMomentsType()),
+			CreatedAt:       pbPhoto.GetDetail().GetCreatedAt().AsTime(),
+			UpdatedAt:       pbPhoto.GetDetail().GetUpdatedAt().AsTime(),
+		}
 
-// 	tx, err := u.db.Begin(ctx)
-// 	if err != nil {
-// 		return err, err
-// 	}
+		photos = append(photos, photo)
+		photoDetails = append(photoDetails, photoDetail)
+	}
 
-// 	updatePhoto := &entity.Photo{
-// 		Id:            req.Id,
-// 		OwnedByUserId: "",
-// 		Status:        "Unclaimed",
-// 		UpdatedAt:     time.Now(),
-// 	}
+	_, err = u.photoRepo.BulkCreate(ctx, tx, photos)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to insert new photos to database", err)
+	}
 
-// 	err = u.photoRepo.UpdateClaimedPhoto(ctx, tx, updatePhoto)
-// 	if err != nil {
-// 		return err, err
-// 	}
+	_, err = u.photoDetailRepo.BulkCreate(ctx, tx, photoDetails)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to insert new photo details to database", err)
+	}
 
-// 	// err = u.userSimilarRepo.UpdateUsersForPhoto(ctx, tx, req.Id, req.UserId)
-// 	// if err != nil {
-// 	// 	return err, err
-// 	// }
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return err
+	}
 
-// 	if err := tx.Commit(ctx); err != nil {
-// 		return err, err
-// 	}
+	return nil
+}
 
-// 	// Process photo service will be executed asyncronously by goroutine
+func (u *photoUsecase) GetBulkPhotoDetail(ctx context.Context, request *model.GetBulkPhotoDetailRequest) (*model.GetBulkPhotoDetailResponse, error) {
+	bulkPhotoDetails, err := u.bulkPhotoRepo.FindDetailById(ctx, u.db, request.BulkPhotoId, request.CreatorId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, helper.NewUseCaseError(errorcode.ErrUserNotFound, "Invalid bulk photo id")
+		}
+		return nil, helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
+	}
 
-// 	return nil, nil
-
-// }
-
-// func (u *photoUsecase) UpdateBuyyedPhoto(ctx context.Context, req *model.RequestClaimPhoto) (error, error) {
-
-// 	tx, err := u.db.Begin(ctx)
-// 	if err != nil {
-// 		return err, err
-// 	}
-
-// 	updatePhoto := &entity.Photo{
-// 		Id:        req.Id,
-// 		Status:    "Owned",
-// 		UpdatedAt: time.Now(),
-// 	}
-
-// 	err = u.photoRepo.UpdatePhotoStatus(ctx, tx, updatePhoto)
-// 	if err != nil {
-// 		return err, err
-// 	}
-
-// 	err = u.userSimilarRepo.DeleteSimilarUsers(ctx, tx, req.Id)
-// 	if err != nil {
-// 		return err, err
-// 	}
-
-// 	if err := tx.Commit(ctx); err != nil {
-// 		return err, err
-// 	}
-
-// 	// Process photo service will be executed asyncronously by goroutine
-
-// 	return nil, nil
-
-// }
+	return converter.BulkPhotoDetailToResponse(bulkPhotoDetails), nil
+}

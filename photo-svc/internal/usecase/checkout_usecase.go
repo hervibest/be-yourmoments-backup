@@ -59,6 +59,7 @@ func (u *checkoutUseCase) PreviewCheckout(ctx context.Context, request *model.Pr
 }
 
 func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.PreviewCheckoutRequest) (*[]*model.CheckoutItem, *model.Total, error) {
+	//ISSUE #3 creator_id should not checked (redudant from auth middleware)
 	//Find creator to make sure creator cannot buy their own photos
 	creator, err := u.creatorRepository.FindByUserId(ctx, request.UserId)
 	if err != nil {
@@ -70,7 +71,7 @@ func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.Pre
 
 	// TODO tambahkan permistic locking ? dengan db transaction
 	log.Print("creator id", creator.Id, request.PhotoIds)
-	photos, err := u.photoRepository.GetPhotosByIDs(ctx, request.UserId, creator.Id, request.PhotoIds)
+	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, request.UserId, creator.Id, request.PhotoIds)
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")

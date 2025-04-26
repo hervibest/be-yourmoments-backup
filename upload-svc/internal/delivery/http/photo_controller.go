@@ -15,6 +15,7 @@ import (
 type PhotoController interface {
 	UploadPhoto(ctx *fiber.Ctx) error
 	PhotoRoute(app *fiber.App, authMiddleware fiber.Handler)
+	BulkUploadPhoto(ctx *fiber.Ctx) error
 }
 
 type photoController struct {
@@ -54,6 +55,41 @@ func (c *photoController) UploadPhoto(ctx *fiber.Ctx) error {
 	err = c.photoUsecase.UploadPhoto(ctx.UserContext(), file, request)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Upload photo : ", err, c.logs)
+	}
+
+	return ctx.Status(http.StatusCreated).JSON(fiber.Map{
+		"success": true,
+	})
+}
+
+func (c *photoController) BulkUploadPhoto(ctx *fiber.Ctx) error {
+	form, err := ctx.MultipartForm()
+	if err != nil || form.File["photo"] == nil {
+		return fiber.NewError(http.StatusBadRequest, "No photo files uploaded")
+	}
+
+	files := form.File["photo"]
+
+	request := new(model.CreatePhotoRequest)
+	if err := ctx.BodyParser(request); err != nil {
+		return fiber.NewError(http.StatusBadRequest, "Invalid body json")
+	}
+
+	auth := middleware.GetUser(ctx)
+
+	request.UserId = auth.UserId
+	request.CreatorId = auth.CreatorId
+
+	priceStr := strconv.Itoa(request.Price)
+	request.PriceStr = priceStr
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	err = c.photoUsecase.BulkUploadPhoto(ctx.UserContext(), files, request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Upload bulk photo photo : ", err, c.logs)
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(fiber.Map{

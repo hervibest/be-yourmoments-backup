@@ -2,12 +2,14 @@ package repository
 
 import (
 	"be-yourmoments/photo-svc/internal/entity"
+	"context"
 	"fmt"
 	"log"
 )
 
 type PhotoDetailRepository interface {
 	Create(tx Querier, photoDetail *entity.PhotoDetail) (*entity.PhotoDetail, error)
+	BulkCreate(ctx context.Context, tx Querier, items []*entity.PhotoDetail) (*[]*entity.PhotoDetail, error)
 }
 
 type photoDetailRepository struct {
@@ -34,14 +36,15 @@ func (r *photoDetailRepository) Create(tx Querier, photoDetail *entity.PhotoDeta
 	return photoDetail, nil
 }
 
-// func (r *photoDetailRepository) Update(ctx context.Context, db Querier, req *model.RequestUpdatePhoto) error {
+func (r *photoDetailRepository) BulkCreate(ctx context.Context, tx Querier, items []*entity.PhotoDetail) (*[]*entity.PhotoDetail, error) {
+	query := `INSERT INTO photo_details (id, photo_id, file_name, file_key, size, type, checksum, width, height, url, your_moments_type, created_at, updated_at)
+	          VALUES (:id, :photo_id, :file_name, :file_key, :size, :type, :checksum, :width, :height, :url, :your_moments_type, :created_at, :updated_at)`
 
-// 	query := `UPDATE INTO user_simillars (id, user_id, size, url, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING (id)`
+	_, err := tx.NamedExecContext(ctx, query, items)
+	if err != nil {
+		log.Printf("error inserting bulk photo details: %v", err)
+		return nil, err
+	}
 
-// 	err := db.Exec(ctx, query)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
+	return &items, nil
+}

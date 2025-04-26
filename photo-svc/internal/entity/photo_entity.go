@@ -8,6 +8,7 @@ import (
 type Photo struct {
 	Id             string          `db:"id"`
 	CreatorId      string          `db:"creator_id"`
+	BulkPhotoId    sql.NullString  `db:"bulk_photo_id"`
 	Title          string          `db:"title"`
 	OwnedByUserId  sql.NullString  `db:"owned_by_user_id"`
 	CompressedUrl  sql.NullString  `db:"compressed_url"`

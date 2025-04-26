@@ -15,6 +15,7 @@ import (
 
 type PhotoAdapter interface {
 	CreatePhoto(ctx context.Context, photo *entity.Photo, facecam *entity.PhotoDetail) error
+	CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo, photoDetails *[]*entity.PhotoDetail) error
 	UpdatePhotoDetail(ctx context.Context, facecam *entity.PhotoDetail) error
 	CreateFacecam(ctx context.Context, facecam *entity.Facecam) error
 }
@@ -39,7 +40,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs *log
 }
 
 func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, facecam *entity.PhotoDetail) error {
-	facecampb := &pb.PhotoDetail{
+	photoDetailPb := &pb.PhotoDetail{
 		Id:              facecam.Id,
 		PhotoId:         facecam.PhotoId,
 		FileName:        facecam.FileName,
@@ -64,6 +65,7 @@ func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, fac
 	photoPb := &pb.Photo{
 		Id:            photo.Id,
 		UserId:        photo.UserId,
+		CreatorId:     photo.CreatorId,
 		Title:         photo.Title,
 		CollectionUrl: photo.CollectionUrl,
 		Price:         int32(photo.Price),
@@ -82,7 +84,7 @@ func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, fac
 			Nanos:   int32(photo.UpdatedAt.Nanosecond()),
 		},
 
-		Detail:      facecampb,
+		Detail:      photoDetailPb,
 		Latitude:    nullable.SQLToProtoDouble(photo.Latitude),
 		Longitude:   nullable.SQLToProtoDouble(photo.Longitude),
 		Description: nullable.SQLToProtoString(photo.Description),
@@ -101,7 +103,7 @@ func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, fac
 }
 
 func (a *photoAdapter) UpdatePhotoDetail(ctx context.Context, facecam *entity.PhotoDetail) error {
-	facecampb := &pb.PhotoDetail{
+	photoDetailPb := &pb.PhotoDetail{
 		Id:              facecam.Id,
 		PhotoId:         facecam.PhotoId,
 		FileName:        facecam.FileName,
@@ -123,7 +125,7 @@ func (a *photoAdapter) UpdatePhotoDetail(ctx context.Context, facecam *entity.Ph
 		},
 	}
 	pbRequest := &pb.UpdatePhotoDetailRequest{
-		PhotoDetail: facecampb,
+		PhotoDetail: photoDetailPb,
 	}
 
 	_, err := a.client.UpdatePhotoDetail(context.Background(), pbRequest)
@@ -158,6 +160,91 @@ func (a *photoAdapter) CreateFacecam(ctx context.Context, facecam *entity.Faceca
 	}
 
 	_, err := a.client.CreateFacecam(context.Background(), pbRequest)
+	if err != nil {
+		return helper.FromGRPCError(err)
+	}
+
+	return nil
+}
+
+func (a *photoAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo, photoDetails *[]*entity.PhotoDetail) error {
+	photoPbs := make([]*pb.Photo, 0)
+
+	photoBukPb := &pb.BulkPhoto{
+		Id:              bulkPhoto.Id,
+		CreatorId:       bulkPhoto.CreatorId,
+		BulkPhotoStatus: string(bulkPhoto.BulkPhotoStatus),
+		CreatedAt: &timestamppb.Timestamp{
+			Seconds: bulkPhoto.CreatedAt.Unix(),
+			Nanos:   int32(bulkPhoto.CreatedAt.Nanosecond()),
+		},
+		UpdatedAt: &timestamppb.Timestamp{
+			Seconds: bulkPhoto.UpdatedAt.Unix(),
+			Nanos:   int32(bulkPhoto.UpdatedAt.Nanosecond()),
+		},
+	}
+
+	for idx, photoDetail := range *photoDetails {
+		photoDetailPb := &pb.PhotoDetail{
+			Id:              photoDetail.Id,
+			PhotoId:         photoDetail.PhotoId,
+			FileName:        photoDetail.FileName,
+			FileKey:         photoDetail.FileKey,
+			Size:            photoDetail.Size,
+			Type:            photoDetail.Type,
+			Checksum:        photoDetail.Checksum,
+			Width:           int32(photoDetail.Width),
+			Height:          int32(photoDetail.Height),
+			Url:             photoDetail.Url,
+			YourMomentsType: string(photoDetail.YourMomentsType),
+			CreatedAt: &timestamppb.Timestamp{
+				Seconds: photoDetail.CreatedAt.Unix(),
+				Nanos:   int32(photoDetail.CreatedAt.Nanosecond()),
+			},
+			UpdatedAt: &timestamppb.Timestamp{
+				Seconds: photoDetail.UpdatedAt.Unix(),
+				Nanos:   int32(photoDetail.UpdatedAt.Nanosecond()),
+			},
+		}
+
+		photoPb := &pb.Photo{
+			Id:            (*photos)[idx].Id,
+			UserId:        (*photos)[idx].UserId,
+			CreatorId:     (*photos)[idx].CreatorId,
+			Title:         (*photos)[idx].Title,
+			BulkPhotoId:   nullable.SQLToProtoString((*photos)[idx].BulkPhotoId),
+			CollectionUrl: (*photos)[idx].CollectionUrl,
+			Price:         int32((*photos)[idx].Price),
+			PriceStr:      (*photos)[idx].PriceStr,
+
+			OriginalAt: &timestamppb.Timestamp{
+				Seconds: (*photos)[idx].OriginalAt.Unix(),
+				Nanos:   int32((*photos)[idx].OriginalAt.Nanosecond()),
+			},
+			CreatedAt: &timestamppb.Timestamp{
+				Seconds: (*photos)[idx].CreatedAt.Unix(),
+				Nanos:   int32((*photos)[idx].CreatedAt.Nanosecond()),
+			},
+			UpdatedAt: &timestamppb.Timestamp{
+				Seconds: (*photos)[idx].UpdatedAt.Unix(),
+				Nanos:   int32((*photos)[idx].UpdatedAt.Nanosecond()),
+			},
+
+			Detail:      photoDetailPb,
+			Latitude:    nullable.SQLToProtoDouble((*photos)[idx].Latitude),
+			Longitude:   nullable.SQLToProtoDouble((*photos)[idx].Longitude),
+			Description: nullable.SQLToProtoString((*photos)[idx].Description),
+		}
+
+		photoPbs = append(photoPbs, photoPb)
+	}
+
+	pbRequest := &pb.CreateBulkPhotoRequest{
+		BulkPhoto: photoBukPb,
+		Photos:    photoPbs,
+	}
+
+	_, err := a.client.CreateBulkPhoto(context.Background(), pbRequest)
 	if err != nil {
 		return helper.FromGRPCError(err)
 	}

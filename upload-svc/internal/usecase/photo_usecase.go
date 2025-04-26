@@ -29,7 +29,7 @@ import (
 
 type PhotoUsecase interface {
 	UploadPhoto(ctx context.Context, file *multipart.FileHeader, request *model.CreatePhotoRequest) error
-	// UpdateProcessedPhoto(ctx context.Context, req *model.RequestUpdateProcessedPhoto) (error, error)
+	BulkUploadPhoto(ctx context.Context, files []*multipart.FileHeader, request *model.CreatePhotoRequest) error
 }
 
 type photoUsecase struct {
@@ -91,6 +91,7 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 	newPhoto := &entity.Photo{
 		Id:            ulid.Make().String(),
 		UserId:        request.UserId,
+		CreatorId:     request.CreatorId,
 		Title:         upload.Filename,
 		CollectionUrl: upload.URL,
 		Price:         request.Price,
@@ -149,6 +150,7 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 
 	*/
 	go func() {
+		// Should be queued ? using go routine ? Bisa dipikirkan nanti
 		_, filePath, err := u.compressAdapter.CompressImage(file, wrappedReader, "photo")
 		if err != nil {
 			u.logs.CustomError("failed to compress image: %v", err)
@@ -209,6 +211,110 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 
 		u.aiAdapter.ProcessPhoto(ctx, newPhoto.Id, compressedPhoto.URL)
 	}()
+
+	return nil
+}
+
+// ISSUE #2 Dont forget to add bulk_photo_id for each photo entity
+func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.FileHeader, request *model.CreatePhotoRequest) error {
+	if request.Latitude != nil && request.Longitude == nil {
+		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Longitude is required")
+	} else if request.Latitude == nil && request.Longitude != nil {
+		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Latitude is required")
+	}
+
+	bulkPhoto := &entity.BulkPhoto{
+		Id:              ulid.Make().String(),
+		CreatorId:       request.CreatorId,
+		BulkPhotoStatus: enum.BulkPhotoStatusProcessed,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}
+
+	photoEntities := make([]*entity.Photo, 0)
+	photoDetailEntities := make([]*entity.PhotoDetail, 0)
+
+	// Initiate
+	for _, file := range files {
+		uploadFile, err := file.Open()
+		if err != nil {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot process uploaded file")
+		}
+
+		data, err := io.ReadAll(uploadFile)
+		if err != nil {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot read uploaded file")
+		}
+
+		defer uploadFile.Close()
+
+		readerForUpload := bytes.NewReader(data)
+		wrappedReader := nopReadSeekCloser{readerForUpload}
+
+		upload, err := u.storageAdapter.UploadFile(ctx, file, wrappedReader, "photo")
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "error when uploading file :", err)
+		}
+
+		// Buat entitas Photo baru
+		newPhoto := &entity.Photo{
+			Id:            ulid.Make().String(),
+			UserId:        request.UserId,
+			CreatorId:     request.CreatorId,
+			BulkPhotoId:   nullable.ToSQLString(&bulkPhoto.Id),
+			Title:         upload.Filename,
+			CollectionUrl: upload.URL,
+			Price:         request.Price,
+			PriceStr:      request.PriceStr,
+			OriginalAt:    time.Now(),
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+			Latitude:      nullable.ToSQLFloat64(request.Latitude),
+			Longitude:     nullable.ToSQLFloat64(request.Longitude),
+			Description:   nullable.ToSQLString(request.Description),
+		}
+
+		photoEntities = append(photoEntities, newPhoto)
+		readerForDecode := bytes.NewReader(data)
+		imgConfig, format, err := image.DecodeConfig(readerForDecode)
+		if err != nil {
+			return helper.NewUseCaseWithInternalError(errorcode.ErrInvalidArgument, "Not a valid image", err)
+		}
+
+		u.logs.CustomLog("Decoded image format:", format)
+		u.logs.Log(fmt.Sprintf("Decoded image resolution: %d * %d", imgConfig.Width, imgConfig.Height))
+
+		var imageType string
+		if format == "jpeg" {
+			imageType = "JPG"
+		} else {
+			imageType = strings.ToUpper(format)
+		}
+
+		checksum := fmt.Sprintf("%x", sha256.Sum256(data))
+
+		newPhotoDetail := &entity.PhotoDetail{
+			Id:              ulid.Make().String(),
+			PhotoId:         newPhoto.Id,
+			FileName:        upload.Filename,
+			FileKey:         upload.FileKey,
+			Size:            upload.Size,
+			Type:            imageType,
+			Checksum:        checksum,
+			Width:           imgConfig.Width,  // disesuaikan tipe data jika perlu
+			Height:          imgConfig.Height, // disesuaikan tipe data jika perlu
+			Url:             upload.URL,
+			YourMomentsType: enum.YourMomentTypeCollection,
+			CreatedAt:       time.Now(),
+			UpdatedAt:       time.Now(),
+		}
+
+		photoDetailEntities = append(photoDetailEntities, newPhotoDetail)
+	}
+
+	if err := u.photoAdapter.CreatePhotos(ctx, bulkPhoto, &photoEntities, &photoDetailEntities); err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to create photo :", err)
+	}
 
 	return nil
 }

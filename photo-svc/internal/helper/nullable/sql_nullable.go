@@ -44,3 +44,17 @@ func ExtractINT32(ns sql.NullInt32) int32 {
 // 	}
 // 	return ""
 // }
+
+func SQLStringToPtr(ns sql.NullString) *string {
+	if ns.Valid {
+		return &ns.String
+	}
+	return nil
+}
+
+func SQLFloat64ToPtr(ns sql.NullFloat64) *float64 {
+	if ns.Valid {
+		return &ns.Float64
+	}
+	return nil
+}
