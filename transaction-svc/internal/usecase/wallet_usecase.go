@@ -67,7 +67,7 @@ func (u *walletUsecase) CreateWallet(ctx context.Context, request *model.CreateW
 func (u *walletUsecase) GetWallet(ctx context.Context, request *model.GetWalletRequest) (*model.WalletResponse, error) {
 	wallet, err := u.walletRepository.FindByCreatorId(ctx, u.db, request.CreatorId)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Wallet not found make sure to give a valid creator id")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find wallet by creator id", err)

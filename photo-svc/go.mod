@@ -15,6 +15,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.3
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
+	github.com/lib/pq v1.10.9
 	github.com/minio/minio-go/v7 v7.0.87
 	github.com/oklog/ulid/v2 v2.1.0
 	go.opentelemetry.io/otel v1.35.0

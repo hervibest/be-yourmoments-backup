@@ -28,18 +28,21 @@ type userSimilarUsecase struct {
 	photoDetailRepo repository.PhotoDetailRepository
 	facecamRepo     repository.FacecamRepository
 	userSimilarRepo repository.UserSimilarRepository
+	bulkPhotoRepo   repository.BulkPhotoRepository
 	logs            *logger.Log
 }
 
 func NewUserSimilarUsecase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	photoDetailRepo repository.PhotoDetailRepository, facecamRepo repository.FacecamRepository,
-	userSimilarRepo repository.UserSimilarRepository, logs *logger.Log) UserSimilarUsecase {
+	userSimilarRepo repository.UserSimilarRepository, bulkPhotoRepo repository.BulkPhotoRepository,
+	logs *logger.Log) UserSimilarUsecase {
 	return &userSimilarUsecase{
 		db:              db,
 		photoRepo:       photoRepo,
 		photoDetailRepo: photoDetailRepo,
 		facecamRepo:     facecamRepo,
 		userSimilarRepo: userSimilarRepo,
+		bulkPhotoRepo:   bulkPhotoRepo,
 		logs:            logs,
 	}
 }
@@ -160,6 +163,103 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pb.
 	err = u.userSimilarRepo.InserOrUpdateByUserId(tx, request.GetFacecam().UserId, &userSimilarPhotos)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to insert or update user facececam in database", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return err
+	}
+
+	return nil
+}
+func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, request *pb.CreateBulkUserSimilarPhotoRequest) error {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	// Update BulkPhoto entity
+	bulkPhoto := &entity.BulkPhoto{
+		Id:              request.GetBulkPhoto().GetId(),
+		CreatorId:       request.GetBulkPhoto().GetCreatorId(),
+		BulkPhotoStatus: enum.BulkPhotoStatus(request.GetBulkPhoto().GetBulkPhotoStatus()),
+		UpdatedAt:       time.Now(),
+	}
+	_, err = u.bulkPhotoRepo.Update(ctx, tx, bulkPhoto)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to update bulk photo entity in database", err)
+	}
+
+	allPhotos := make([]*entity.Photo, 0)
+
+	for _, bulkUserSimilar := range request.GetBulkUserSimilarPhoto() {
+		photo := &entity.Photo{
+			Id:             bulkUserSimilar.GetPhotoDetail().GetPhotoId(),
+			IsThisYouURL:   sql.NullString{String: "", Valid: true},
+			YourMomentsUrl: sql.NullString{String: bulkUserSimilar.GetPhotoDetail().GetUrl(), Valid: true},
+			UpdatedAt:      time.Now(),
+		}
+		allPhotos = append(allPhotos, photo)
+	}
+
+	err = u.photoRepo.UpdateProcessedUrlBulk(tx, allPhotos)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to bulk update photo processed url", err)
+	}
+
+	// Mapping untuk bulk insert
+	photoUserSimilarMap := make(map[string][]*entity.UserSimilarPhoto)
+
+	for _, bulkUserSimilar := range request.GetBulkUserSimilarPhoto() {
+		// Insert PhotoDetail untuk setiap foto
+		newPhotoDetail := &entity.PhotoDetail{
+			Id:              ulid.Make().String(),
+			PhotoId:         bulkUserSimilar.GetPhotoDetail().GetPhotoId(),
+			FileName:        bulkUserSimilar.GetPhotoDetail().GetFileName(),
+			FileKey:         bulkUserSimilar.GetPhotoDetail().GetFileKey(),
+			Size:            bulkUserSimilar.GetPhotoDetail().GetSize(),
+			Type:            "JPG",
+			Checksum:        "1212",
+			Height:          121,
+			Width:           1212,
+			Url:             bulkUserSimilar.GetPhotoDetail().GetUrl(),
+			YourMomentsType: enum.YourMomentsType(bulkUserSimilar.GetPhotoDetail().GetYourMomentsType()),
+			CreatedAt:       bulkUserSimilar.GetPhotoDetail().GetCreatedAt().AsTime(),
+			UpdatedAt:       bulkUserSimilar.GetPhotoDetail().GetUpdatedAt().AsTime(),
+		}
+
+		_, err = u.photoDetailRepo.Create(tx, newPhotoDetail)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		// Build user similar photos per photo
+		userSimilarPhotos := make([]*entity.UserSimilarPhoto, 0, len(bulkUserSimilar.GetUserSimilarPhoto()))
+		for _, userSimilarPhotoRequest := range bulkUserSimilar.GetUserSimilarPhoto() {
+			userSimilarPhotos = append(userSimilarPhotos, &entity.UserSimilarPhoto{
+				Id:         ulid.Make().String(),
+				PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
+				UserId:     userSimilarPhotoRequest.GetUserId(),
+				Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
+				IsWishlist: userSimilarPhotoRequest.GetIsWishlist(),
+				IsResend:   userSimilarPhotoRequest.GetIsResend(),
+				IsCart:     userSimilarPhotoRequest.GetIsCart(),
+				IsFavorite: userSimilarPhotoRequest.GetIsFavorite(),
+				CreatedAt:  userSimilarPhotoRequest.GetCreatedAt().AsTime(),
+				UpdatedAt:  userSimilarPhotoRequest.GetUpdatedAt().AsTime(),
+			})
+		}
+
+		photoUserSimilarMap[bulkUserSimilar.GetPhotoDetail().GetPhotoId()] = userSimilarPhotos
+	}
+
+	// Insert bulk user similar photos
+	err = u.userSimilarRepo.InsertOrUpdateBulk(tx, photoUserSimilarMap)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to insert or update bulk user similar photos in database", err)
 	}
 
 	if err := repository.Commit(tx, u.logs); err != nil {

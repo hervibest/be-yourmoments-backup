@@ -15,7 +15,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -326,7 +325,7 @@ func (u *transactionUseCase) distributeTransactionToWallets(ctx context.Context,
 	// 1. Get all transaction_details for the transaction_id
 	details, err := u.transactionDetailRepository.FindManyByTrxID(ctx, tx, transactionID)
 	if err != nil {
-		return errors.New(fmt.Sprintf("find many transaction detail by trx id error : %+v", err))
+		return fmt.Errorf("find many transaction detail by trx id error : %+v", err)
 	}
 
 	if len(*details) == 0 {
@@ -348,7 +347,7 @@ func (u *transactionUseCase) distributeTransactionToWallets(ctx context.Context,
 	// 3. Get wallets by creator_id
 	wallets, err := u.walletRepository.FindByCreatorIDs(ctx, tx, creatorIDs)
 	if err != nil {
-		return errors.New(fmt.Sprintf("find wallets by creator ids error : %+v", err))
+		return fmt.Errorf("find wallets by creator ids error : %+v", err)
 	}
 
 	// Mapping creator_id -> wallet_id
@@ -377,13 +376,13 @@ func (u *transactionUseCase) distributeTransactionToWallets(ctx context.Context,
 
 	// 5. Bulk insert transaction_wallets
 	if err := u.transactionWalletRepo.BulkInsert(ctx, tx, txWallets); err != nil {
-		return errors.New(fmt.Sprintf("failed to bulk insert transaction wallet :  %+v", err))
+		return fmt.Errorf("failed to bulk insert transaction wallet :  %+v", err)
 	}
 
 	// 6. Update wallet balance
 	for walletID, addAmount := range walletUpdateMap {
 		if err := u.walletRepository.AddBalance(ctx, tx, walletID, int64(addAmount)); err != nil {
-			return errors.New(fmt.Sprintf("failed to add balance to wallet :  %+v", err))
+			return fmt.Errorf("failed to add balance to wallet :  %+v", err)
 		}
 	}
 

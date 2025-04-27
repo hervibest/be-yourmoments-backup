@@ -4,7 +4,6 @@ import (
 	"be-yourmoments/user-svc/internal/config"
 	"be-yourmoments/user-svc/internal/model"
 	"context"
-	"errors"
 	"fmt"
 	"mime/multipart"
 	"time"
@@ -88,14 +87,14 @@ func (a *uploadAdapter) GetPresignedUrl(ctx context.Context, fileKey string) (st
 
 	url, err := a.minio.MinioClient.PresignedGetObject(ctx, a.minio.GetBucketName(), fileKey, 15*time.Minute, nil)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("minio client error presigned object : %+v", err))
+		return "", fmt.Errorf("minio client error presigned object : %+v", err)
 	}
 
 	urlStr := url.String()
 
 	err = a.redisClient.Set(ctx, cacheKey, urlStr, 15*time.Minute).Err()
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("redis set cached presigned url : %+v", err))
+		return "", fmt.Errorf("redis set cached presigned url : %+v", err)
 	}
 
 	return urlStr, nil

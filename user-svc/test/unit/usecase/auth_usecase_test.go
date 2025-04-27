@@ -9,7 +9,7 @@ import (
 	"be-yourmoments/user-svc/internal/usecase"
 	"context"
 	"database/sql"
-	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -147,7 +147,7 @@ func TestRegisterByPhoneNumber(t *testing.T) {
 		}, nil)
 
 		// Simulasikan error pada commit transaksi
-		commitErr := errors.New("commit failed")
+		commitErr := fmt.Errorf("commit failed")
 		mockTx.EXPECT().Commit().Return(commitErr)
 
 		resp, err := authUC.RegisterByPhoneNumber(ctx, req)

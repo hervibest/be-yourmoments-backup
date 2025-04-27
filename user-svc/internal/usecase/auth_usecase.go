@@ -46,6 +46,7 @@ type authUseCase struct {
 	userProfileRepository repository.UserProfileRepository
 	emailVerificationRepo repository.EmailVerificationRepository
 	resetPasswordRepo     repository.ResetPasswordRepository
+	userDeviceRepository  repository.UserDeviceRepository
 	googleTokenAdapter    adapter.GoogleTokenAdapter
 	emailAdapter          adapter.EmailAdapter
 	securityAdapter       adapter.SecurityAdapter
@@ -60,8 +61,9 @@ type authUseCase struct {
 
 func NewAuthUseCase(db repository.BeginTx, userRepository repository.UserRepository, userProfileRepository repository.UserProfileRepository,
 	emailVerificationRepo repository.EmailVerificationRepository, resetPasswordRepo repository.ResetPasswordRepository,
-	googleTokenAdapter adapter.GoogleTokenAdapter, emailAdapter adapter.EmailAdapter, jwtAdapter adapter.JWTAdapter,
-	securityAdapter adapter.SecurityAdapter, cacheAdapter adapter.CacheAdapter, firestoreAdapter adapter.FirestoreClientAdapter,
+	userDeviceRepository repository.UserDeviceRepository, googleTokenAdapter adapter.GoogleTokenAdapter,
+	emailAdapter adapter.EmailAdapter, jwtAdapter adapter.JWTAdapter, securityAdapter adapter.SecurityAdapter,
+	cacheAdapter adapter.CacheAdapter, firestoreAdapter adapter.FirestoreClientAdapter,
 	photoAdapter adapter.PhotoAdapter, transactionAdapter adapter.TransactionAdapter, logs *logger.Log) AuthUseCase {
 	return &authUseCase{
 		db:                    db,
@@ -69,6 +71,7 @@ func NewAuthUseCase(db repository.BeginTx, userRepository repository.UserReposit
 		userProfileRepository: userProfileRepository,
 		emailVerificationRepo: emailVerificationRepo,
 		resetPasswordRepo:     resetPasswordRepo,
+		userDeviceRepository:  userDeviceRepository,
 		googleTokenAdapter:    googleTokenAdapter,
 		emailAdapter:          emailAdapter,
 		securityAdapter:       securityAdapter,
@@ -179,7 +182,7 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 	if countByGoogleTotal > 0 {
 		user, err := u.userRepository.FindByEmail(ctx, claims.Email)
 		if err != nil {
-			if errors.Is(sql.ErrNoRows, err) {
+			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
 			}
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
@@ -257,6 +260,19 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 		_, err = u.userProfileRepository.CreateWithProfileUrl(ctx, tx, userProfile)
 		if err != nil {
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create with profile url", err)
+		}
+
+		userDevice := &entity.UserDevice{
+			Id:        ulid.Make().String(),
+			UserId:    user.Id,
+			Token:     request.DeviceToken,
+			Platform:  request.Platform,
+			CreatedAt: &now,
+		}
+
+		_, err = u.userDeviceRepository.Create(ctx, tx, userDevice)
+		if err != nil {
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
 		}
 
 		if err := repository.Commit(tx, u.logs); err != nil {
@@ -416,26 +432,26 @@ func (u *authUseCase) requestEmailVerification(ctx context.Context, email string
 	if newUser {
 		_, err = u.emailVerificationRepo.Insert(ctx, tx, emailVerification)
 		if err != nil {
-			return errors.New(fmt.Sprintf("insert email verification token : %+v", err))
+			return fmt.Errorf("insert email verification token : %+v", err)
 		}
 	} else {
 		_, err = u.emailVerificationRepo.Update(ctx, tx, emailVerification)
 		if err != nil {
-			return errors.New(fmt.Sprintf("update email verification token : %+v", err))
+			return fmt.Errorf("update email verification token : %+v", err)
 		}
 	}
 
 	encryptedToken, err := u.securityAdapter.Encrypt(token)
 	if err != nil {
-		return errors.New(fmt.Sprintf("encrypt email verification token : %+v", err))
+		return fmt.Errorf("encrypt email verification token : %+v", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return errors.New(fmt.Sprintf("commit transaction : %+v", err))
+		return fmt.Errorf("commit transaction : %+v", err)
 	}
 
 	if err := u.emailAdapter.SendEmail(email, encryptedToken, "new email verification"); err != nil {
-		return errors.New(fmt.Sprintf("send new email verification : %+v", err))
+		return fmt.Errorf("send new email verification : %+v", err)
 	}
 
 	return nil
@@ -526,7 +542,7 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, request *model.VerifyEmai
 func (u *authUseCase) RequestResetPassword(ctx context.Context, email string) error {
 	_, err := u.userRepository.FindByEmailNotGoogle(ctx, email)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
 		}
 		return helper.WrapInternalServerError(u.logs, "failed to find email", err)
@@ -591,7 +607,7 @@ func (u *authUseCase) ValidateResetPassword(ctx context.Context, request *model.
 
 	_, err = u.resetPasswordRepo.FindByEmailAndToken(ctx, request.Email, decryptedToken)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return false, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid email")
 		}
 		return false, helper.WrapInternalServerError(u.logs, "failed to find by email and token", err)
@@ -660,7 +676,7 @@ func (u *authUseCase) ResetPassword(ctx context.Context, request *model.ResetPas
 func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest) (*model.UserResponse, *model.TokenResponse, error) {
 	user, err := u.userRepository.FindByMultipleParam(ctx, request.MultipleParam)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrValidationFailed, "invalid email or password")
 		}
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to send reset password email", err)
@@ -705,6 +721,33 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 		WalletId:    wallet.Id,
 	}
 
+	now := time.Now()
+	userDevice := &entity.UserDevice{
+		Id:        ulid.Make().String(),
+		UserId:    user.Id,
+		Token:     request.DeviceToken,
+		Platform:  request.Platform,
+		CreatedAt: &now,
+	}
+
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	_, err = u.userDeviceRepository.Create(ctx, tx, userDevice)
+	if err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return nil, nil, err
+	}
+
 	token, err := u.generateToken(ctx, auth)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to generate token", err)
@@ -716,27 +759,27 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 func (u *authUseCase) generateToken(ctx context.Context, auth *entity.Auth) (*model.TokenResponse, error) {
 	accessTokenDetail, err := u.jwtAdapter.GenerateAccessToken(auth.Id)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("generate access token : %+v", err))
+		return nil, fmt.Errorf("generate access token : %+v", err)
 	}
 
 	refreshTokenDetail, err := u.jwtAdapter.GenerateRefreshToken(auth.Id)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("generate refresh token : %+v", err))
+		return nil, fmt.Errorf("generate refresh token : %+v", err)
 	}
 
 	jsonValue, err := sonic.ConfigFastest.Marshal(auth)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("marshal user : %+v", err))
+		return nil, fmt.Errorf("marshal user : %+v", err)
 	}
 
 	if err := u.cacheAdapter.Set(ctx, refreshTokenDetail.Token, auth.Id, time.Until(refreshTokenDetail.ExpiresAt)); err != nil {
-		return nil, errors.New(fmt.Sprintf("save refresh token into cache : %+v", err))
+		return nil, fmt.Errorf("save refresh token into cache : %+v", err)
 	}
 
 	//TODO -- SYNC with update ()
 	//set user persistence data in cache (redis) for better verify auth flow (should be synced with update profile usecase)
 	if err := u.cacheAdapter.Set(ctx, auth.Id, jsonValue, time.Until(refreshTokenDetail.ExpiresAt)); err != nil {
-		return nil, errors.New(fmt.Sprintf("save user body into cache : %+v", err))
+		return nil, fmt.Errorf("save user body into cache : %+v", err)
 	}
 
 	token := &model.TokenResponse{
@@ -750,7 +793,7 @@ func (u *authUseCase) generateToken(ctx context.Context, auth *entity.Auth) (*mo
 func (u *authUseCase) Current(ctx context.Context, email string) (*model.UserResponse, error) {
 	user, err := u.userRepository.FindByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrUserNotFound, "Invalid token")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find by email not google", err)
@@ -829,7 +872,7 @@ func (u *authUseCase) AccessTokenRequest(ctx context.Context, refreshToken strin
 
 	user, err := u.userRepository.FindById(ctx, refreshTokenDetail.UserId)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "invalid refresh token")
 		}
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find user by id", err)

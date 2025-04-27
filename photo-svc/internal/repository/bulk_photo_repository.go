@@ -8,6 +8,7 @@ import (
 type BulkPhotoRepository interface {
 	Create(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (*entity.BulkPhoto, error)
 	FindDetailById(ctx context.Context, tx Querier, bulkPhotoID, creatorID string) (*[]*entity.BulkPhotoDetail, error)
+	Update(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (entity.BulkPhoto, error)
 }
 type bulkPhotoRepository struct{}
 

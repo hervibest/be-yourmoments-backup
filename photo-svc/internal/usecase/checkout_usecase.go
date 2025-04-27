@@ -73,7 +73,7 @@ func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.Pre
 	log.Print("creator id", creator.Id, request.PhotoIds)
 	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, request.UserId, creator.Id, request.PhotoIds)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
 		}
 		return nil, nil, helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
@@ -121,7 +121,7 @@ func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.Pre
 
 	discountRules, err := u.creatorDiscountRepository.GetDiscountRules(ctx, creatorIds)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid discount rule")
 		}
 		return nil, nil, helper.WrapInternalServerError(u.logs, "error get discount rules by ids", err)

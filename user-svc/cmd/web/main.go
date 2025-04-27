@@ -151,8 +151,10 @@ func webServer() error {
 		log.Fatalf(err.Error())
 	}
 
+	userDeviceRepository := repository.NewUserDeviceRepository()
+
 	authUseCase := usecase.NewAuthUseCase(dbConfig, userRepository, userProfileRepository, emailVerificationRepository, resetPasswordRepository,
-		googleTokenAdapter, emailAdapter, jwtAdapter, securityAdapter, cacheAdapter, firestoreAdapter, photoAdapter, transactionAdapter, logs)
+		userDeviceRepository, googleTokenAdapter, emailAdapter, jwtAdapter, securityAdapter, cacheAdapter, firestoreAdapter, photoAdapter, transactionAdapter, logs)
 	userUseCase := usecase.NewUserUseCase(dbConfig, userRepository, userProfileRepository, userImageRepository, uploadAdapter, logs)
 	chatUseCase := usecase.NewChatUseCase(firestoreAdapter, authClientAdapter, messagingClientAdapter, perspectiveAdapter, logs)
 

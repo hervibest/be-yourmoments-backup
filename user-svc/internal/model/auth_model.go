@@ -1,6 +1,7 @@
 package model
 
 import (
+	"be-yourmoments/user-svc/internal/enum"
 	"time"
 )
 
@@ -13,7 +14,9 @@ type RegisterByPhoneRequest struct {
 }
 
 type RegisterByGoogleRequest struct {
-	Token string `json:"token" validate:"required"`
+	Token       string                `json:"token" validate:"required"`
+	DeviceToken string                `json:"device_token" validate:"required"`
+	Platform    enum.PlatformTypeEnum `json:"platform" validate:"required"`
 }
 
 type GoogleSignInClaim struct {
@@ -55,8 +58,10 @@ type ResetPasswordUserRequest struct {
 }
 
 type LoginUserRequest struct {
-	MultipleParam string `json:"multiple_param" validate:"required,email,max=100"`
-	Password      string `json:"password" validate:"required,max=100"`
+	MultipleParam string                `json:"multiple_param" validate:"required,email,max=100"`
+	DeviceToken   string                `json:"device_token" validate:"required"`
+	Platform      enum.PlatformTypeEnum `json:"platform" validate:"required"`
+	Password      string                `json:"password" validate:"required,max=100"`
 }
 
 type VerifyUserRequest struct {

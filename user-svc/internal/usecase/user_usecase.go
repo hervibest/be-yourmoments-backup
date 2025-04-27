@@ -53,7 +53,7 @@ func NewUserUseCase(db repository.BeginTx, userRepository repository.UserReposit
 func (u *userUseCase) GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
 	userProfile, err := u.userProfileRepository.FindByUserId(ctx, userId)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user id")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user profile by user id", err)
@@ -61,7 +61,7 @@ func (u *userUseCase) GetUserProfile(ctx context.Context, userId string) (*model
 
 	userImages, err := u.userImageRepository.FindByUserProfId(ctx, userProfile.Id)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user profile id")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", err)
@@ -86,12 +86,12 @@ func (u *userUseCase) getUserImageUrl(ctx context.Context, userImages *[]*entity
 		if userImage.ImageType == enum.ImageTypeProfile {
 			profileUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
 			if err != nil {
-				return "", "", errors.New(fmt.Sprintf("get presigned url image type profile : %+v", err))
+				return "", "", fmt.Errorf("get presigned url image type profile : %+v", err)
 			}
 		} else if userImage.ImageType == enum.ImageTypeCover {
 			coverUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
 			if err != nil {
-				return "", "", errors.New(fmt.Sprintf("get presigned url image type cover : %+v", err))
+				return "", "", fmt.Errorf("get presigned url image type cover : %+v", err)
 			}
 		}
 	}
@@ -132,7 +132,7 @@ func (u *userUseCase) UpdateUserProfile(ctx context.Context, request *model.Requ
 
 	userImages, err := u.userImageRepository.FindByUserProfId(ctx, userProfile.Id)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			log.Println(err)
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user profile id")
 		}
@@ -167,7 +167,7 @@ func (u *userUseCase) UpdateUserCoverImage(ctx context.Context, file *multipart.
 
 func (u *userUseCase) updateUserImage(ctx context.Context, file *multipart.FileHeader, userProfId string, imageType enum.ImageTypeEnum) (bool, error) {
 	prevUserProfileImage, errRepo := u.userImageRepository.FindByUserProfIdAndType(ctx, userProfId, string(imageType))
-	if errRepo != nil && !errors.Is(sql.ErrNoRows, errRepo) {
+	if errRepo != nil && !errors.Is(errRepo, sql.ErrNoRows) {
 		return false, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", errRepo)
 	}
 
@@ -184,7 +184,7 @@ func (u *userUseCase) updateUserImage(ctx context.Context, file *multipart.FileH
 
 	now := time.Now()
 
-	if errors.Is(sql.ErrNoRows, errRepo) {
+	if errors.Is(errRepo, sql.ErrNoRows) {
 		newUserProfileImage := &entity.UserImage{
 			Id:            ulid.Make().String(),
 			UserProfileId: userProfId,

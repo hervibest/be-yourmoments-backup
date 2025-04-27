@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type photoPreparedStmt struct {
@@ -53,6 +54,7 @@ type PhotoRepository interface {
 	GetSimilarPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error)
 	UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
 	BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) // UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
+	UpdateProcessedUrlBulk(tx Querier, photos []*entity.Photo) error
 }
 
 type photoRepository struct {
@@ -151,4 +153,55 @@ func (r *photoRepository) BulkCreate(ctx context.Context, tx Querier, items []*e
 	}
 
 	return &items, nil
+}
+
+func (r *photoRepository) UpdateProcessedUrlBulk(tx Querier, photos []*entity.Photo) error {
+	if len(photos) == 0 {
+		return nil
+	}
+
+	caseIsThisYouURL := "CASE id"
+	caseYourMomentsURL := "CASE id"
+	caseUpdatedAt := "CASE id"
+
+	args := make([]interface{}, 0, len(photos)*4) // *4 karena 3 CASE + 1 WHERE IN
+	argPos := 1                                   // PostgreSQL bind starts with $1
+	idArgs := make([]string, 0, len(photos))
+
+	for _, photo := range photos {
+		caseIsThisYouURL += fmt.Sprintf(" WHEN $%d THEN $%d", argPos, argPos+1)
+		args = append(args, photo.Id, photo.IsThisYouURL.String)
+		argPos += 2
+
+		caseYourMomentsURL += fmt.Sprintf(" WHEN $%d THEN $%d", argPos, argPos+1)
+		args = append(args, photo.Id, photo.YourMomentsUrl.String)
+		argPos += 2
+
+		caseUpdatedAt += fmt.Sprintf(" WHEN $%d THEN $%d", argPos, argPos+1)
+		args = append(args, photo.Id, photo.UpdatedAt)
+		argPos += 2
+
+		idArgs = append(idArgs, photo.Id)
+	}
+
+	caseIsThisYouURL += " END"
+	caseYourMomentsURL += " END"
+	caseUpdatedAt += " END"
+
+	// Untuk WHERE IN kita pakai Array
+	args = append(args, pq.Array(idArgs))
+
+	query := fmt.Sprintf(`
+		UPDATE photos
+		SET
+			is_this_you_url = %s,
+			your_moments_url = %s,
+			updated_at = %s
+		WHERE id = ANY($%d)
+	`, caseIsThisYouURL, caseYourMomentsURL, caseUpdatedAt, argPos)
+
+	if _, err := tx.Exec(query, args...); err != nil {
+		return fmt.Errorf("failed to bulk update photo: %w", err)
+	}
+	return nil
 }

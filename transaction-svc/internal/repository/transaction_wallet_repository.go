@@ -5,7 +5,6 @@ import (
 	"be-yourmoments/transaction-svc/internal/helper"
 	"be-yourmoments/transaction-svc/internal/model"
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -58,7 +57,7 @@ func (r *transactionWalletRepository) FindManyByWalletId(ctx context.Context, db
 	WHERE tw.wallet_id = $1
 	`
 	if err := db.SelectContext(ctx, transactionWallets, query, walletId); err != nil {
-		return nil, errors.New(fmt.Sprintf("select context find many by wallet id error : %+v", err))
+		return nil, fmt.Errorf("select context find many by wallet id error : %+v", err)
 	}
 
 	return &transactionWallets, nil

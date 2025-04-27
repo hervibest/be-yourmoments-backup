@@ -3,7 +3,6 @@ package adapter
 import (
 	"be-yourmoments/upload-svc/internal/config"
 	"be-yourmoments/upload-svc/internal/model"
-	"errors"
 
 	"context"
 	"fmt"
@@ -36,7 +35,7 @@ func (a *storageAdapter) UploadFile(ctx context.Context, file *multipart.FileHea
 		ContentType: contentType,
 	})
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to put object to minio storage : %v", err))
+		return nil, fmt.Errorf("failed to put object to minio storage : %v", err)
 	}
 
 	fileResponse := new(model.MinioFileResponse)
@@ -49,7 +48,7 @@ func (a *storageAdapter) UploadFile(ctx context.Context, file *multipart.FileHea
 
 	fileURL, err := a.minio.MinioClient.PresignedGetObject(ctx, a.minio.GetBucketName(), fileKey, 1*time.Hour, nil)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to put presigned image from minio storage : %v", err))
+		return nil, fmt.Errorf("failed to put presigned image from minio storage : %v", err)
 	}
 
 	fileResponse.URL = fileURL.String()
@@ -65,7 +64,7 @@ func (a *storageAdapter) DeleteFile(ctx context.Context, fileName string) (bool,
 
 	err := a.minio.MinioClient.RemoveObject(ctx, a.minio.GetBucketName(), fileName, minio.RemoveObjectOptions{ForceDelete: true})
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("failed to delete image in minio storage : %v", err))
+		return false, fmt.Errorf("failed to delete image in minio storage : %v", err)
 	}
 
 	return true, nil

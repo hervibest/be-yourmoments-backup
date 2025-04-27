@@ -261,3 +261,20 @@ message CreateBulkPhotoResponse {
   int64   status  = 1;
   string  error   = 2;
 }
+
+//ISSUE #5 UserSimilarRequest naming ??
+
+message BulkUserSimilarPhoto {
+  PhotoDetail photoDetail = 1;
+  repeated UserSimilarPhoto user_similar_photo = 2;
+}
+
+message CreateBulkUserSimilarPhotoRequest {
+  BulkPhoto bulk_photo = 1;
+  repeated BulkUserSimilarPhoto bulk_user_similar_photo = 2;
+}
+
+message CreateBulkUserSimilarPhotoResponse {
+  int64 status = 1;
+  string error = 2;
+}

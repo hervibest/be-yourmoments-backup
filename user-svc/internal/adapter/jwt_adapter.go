@@ -3,7 +3,7 @@ package adapter
 import (
 	"be-yourmoments/user-svc/internal/entity"
 	"be-yourmoments/user-svc/internal/helper/utils"
-	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -99,31 +99,31 @@ func (c *jwtAdapter) VerifyAccessToken(token string) (*entity.AccessToken, error
 		userIdStr, ok := claims["user_id"].(string)
 		if !ok {
 			log.Println("user_id not a string")
-			return nil, errors.New("Invalid token claims")
+			return nil, fmt.Errorf("Invalid token claims")
 		}
 
 		authorized, ok := claims["authorized"].(bool)
 		if !ok {
 			log.Println("authorized is not a bool")
-			return nil, errors.New("Invalid token claims")
+			return nil, fmt.Errorf("Invalid token claims")
 		}
 
 		if !authorized {
 			log.Println("unathorize")
-			return nil, errors.New("Invalid token claims")
+			return nil, fmt.Errorf("Invalid token claims")
 		}
 
 		_, err := ulid.Parse(userIdStr)
 		if err != nil {
 			log.Println("failed to parse ulid:", err)
-			return nil, errors.New("Invalid token claims")
+			return nil, fmt.Errorf("Invalid token claims")
 		}
 
 		accessTokenDetail.UserId = userIdStr
 		expFloat, ok := claims["exp"].(float64)
 		if !ok {
 			log.Println("exp is not a float")
-			return nil, errors.New("Invalid exp in token claims")
+			return nil, fmt.Errorf("Invalid exp in token claims")
 		}
 
 		expiresAt := time.Unix(int64(expFloat), 0)
@@ -149,20 +149,20 @@ func (c *jwtAdapter) VerifyRefreshToken(token string) (*entity.RefreshToken, err
 		userIdStr, ok := claims["user_id"].(string)
 		if !ok {
 			log.Println("user_id not a string")
-			return nil, errors.New("Invalid token claims")
+			return nil, fmt.Errorf("Invalid token claims")
 		}
 
 		_, err := ulid.Parse(userIdStr)
 		if err != nil {
 			log.Println("failed to parse ulid:", err)
-			return nil, errors.New("Invalid token claims")
+			return nil, fmt.Errorf("Invalid token claims")
 		}
 
 		refreshTokenDetail.UserId = userIdStr
 		expFloat, ok := claims["exp"].(float64)
 		if !ok {
 			log.Println("exp is not a float")
-			return nil, errors.New("Invalid exp in token claims")
+			return nil, fmt.Errorf("Invalid exp in token claims")
 		}
 
 		expiresAt := time.Unix(int64(expFloat), 0)

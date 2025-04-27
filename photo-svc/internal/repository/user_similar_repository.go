@@ -6,11 +6,14 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type UserSimilarRepository interface {
 	InsertOrUpdateByPhotoId(tx Querier, photoId string, userSimilarPhotos *[]*entity.UserSimilarPhoto) error
 	InserOrUpdateByUserId(tx Querier, userId string, userSimilarPhotos *[]*entity.UserSimilarPhoto) error
+	InsertOrUpdateBulk(tx Querier, photoUserSimilarMap map[string][]*entity.UserSimilarPhoto) error
 	// UpdateUsersForPhoto(ctx context.Context, db Querier, photoId string, userIds []string) error
 	// GetSimilarPhotosByUser(ctx context.Context, db Querier, userId string) (*UserSimilarPhotosResponse, error)
 	// DeleteSimilarUsers(ctx context.Context, db Querier, photoId string) error
@@ -114,51 +117,85 @@ func (r *userSimilarRepository) InserOrUpdateByUserId(tx Querier, userId string,
 	return nil
 }
 
-// type UserSimilarPhotosResponse struct {
-// 	UserID string         `json:"user_id"`
-// 	Photos []PhotoPreview `json:"photos"`
-// }
+func (r *userSimilarRepository) InsertOrUpdateBulk(tx Querier, photoUserSimilarMap map[string][]*entity.UserSimilarPhoto) error {
+	now := time.Now()
 
-// type PhotoPreview struct {
-// 	ID         string `json:"id"`
-// 	PreviewUrl string `json:"preview_url"`
-// }
+	// Kumpulkan semua photo_id dan (photo_id, user_id) pair
+	photoIDs := make([]string, 0, len(photoUserSimilarMap))
+	userPairs := make([]string, 0)
+	deleteArgs := make([]interface{}, 0)
+	argCounter := 1
 
-// func (r *userSimilarRepository) GetSimilarPhotosByUser(ctx context.Context, db Querier, userId string) (*UserSimilarPhotosResponse, error) {
-// 	/*  !!! TODO !!!
-// 	Query salah, pastikan logic wishlish dihandle
+	for photoID, userSimilars := range photoUserSimilarMap {
+		photoIDs = append(photoIDs, photoID)
+		for _, userSimilar := range userSimilars {
+			userPairs = append(userPairs, fmt.Sprintf("($%d, $%d)", argCounter, argCounter+1))
+			deleteArgs = append(deleteArgs, photoID, userSimilar.UserId)
+			argCounter += 2
+		}
+	}
 
-// 	*/
+	if len(photoIDs) == 0 {
+		return nil
+	}
 
-// 	query := `
-// 		SELECT p.id,
-// 		       CASE
-// 		         WHEN p.owned_by_user_id IS NULL THEN p.preview_with_bounding_url
-// 		         WHEN p.owned_by_user_id = $1 THEN p.preview_url
-// 		         ELSE NULL
-// 		       END AS preview_url
-// 		FROM photos p
-// 		INNER JOIN user_similar_photos usp ON p.id = usp.photo_id
-// 		WHERE usp.user_id = $1
-// 	`
+	// Hapus user_similar yang tidak ada dalam batch baru
+	deleteQuery := `
+		DELETE FROM user_similar_photos
+		WHERE (photo_id, user_id) NOT IN (` + strings.Join(userPairs, ", ") + `)
+		AND photo_id = ANY($` + fmt.Sprint(argCounter) + `)
+	`
 
-// 	rows, err := db.Query(ctx, query, userId)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to get similar photos: %w", err)
-// 	}
-// 	defer rows.Close()
+	deleteArgs = append(deleteArgs, pq.Array(photoIDs)) // postgres array
 
-// 	var photos []PhotoPreview
-// 	for rows.Next() {
-// 		var photo PhotoPreview
-// 		if err := rows.Scan(&photo.ID, &photo.PreviewUrl); err != nil {
-// 			return nil, fmt.Errorf("failed to scan photo: %w", err)
-// 		}
-// 		photos = append(photos, photo)
-// 	}
+	if _, err := tx.Exec(deleteQuery, deleteArgs...); err != nil {
+		log.Println("Error during bulk delete:", err)
+		return err
+	}
 
-// 	return &UserSimilarPhotosResponse{
-// 		UserID: userId,
-// 		Photos: photos,
-// 	}, nil
-// }
+	// Masukkan semua user_similar baru
+	insertValues := make([]string, 0)
+	insertArgs := make([]interface{}, 0)
+	counter := 1
+
+	for photoID, userSimilars := range photoUserSimilarMap {
+		for _, userSimilar := range userSimilars {
+			insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)", counter, counter+1, counter+2, counter+3, counter+4, counter+5, counter+6, counter+7, counter+8))
+			insertArgs = append(insertArgs,
+				userSimilar.Id,
+				photoID,
+				userSimilar.UserId,
+				userSimilar.Similarity,
+				userSimilar.IsWishlist,
+				userSimilar.IsResend,
+				userSimilar.IsCart,
+				userSimilar.IsFavorite,
+				now,
+			)
+			counter += 9
+		}
+	}
+
+	if len(insertValues) > 0 {
+		insertQuery := `
+			INSERT INTO user_similar_photos 
+			(id, photo_id, user_id, similarity, is_wishlist, is_resend, is_cart, is_favorite, created_at)
+			VALUES ` + strings.Join(insertValues, ", ") + `
+			ON CONFLICT (user_id, photo_id) 
+			DO UPDATE SET
+				similarity = EXCLUDED.similarity,
+				is_wishlist = EXCLUDED.is_wishlist,
+				is_resend = EXCLUDED.is_resend,
+				is_cart = EXCLUDED.is_cart,
+				is_favorite = EXCLUDED.is_favorite,
+				updated_at = NOW()
+		`
+
+		if _, err := tx.Exec(insertQuery, insertArgs...); err != nil {
+			log.Println("Error during bulk insert:", err)
+			return err
+		}
+	}
+
+	return nil
+}

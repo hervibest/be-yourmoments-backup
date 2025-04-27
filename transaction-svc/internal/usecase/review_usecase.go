@@ -42,7 +42,7 @@ func NewReviewUseCase(transactionDetailRepo repository.TransactionDetailReposito
 func (u *reviewUseCase) Create(ctx context.Context, request *model.CreateReviewRequest) (*model.CreatorReviewResponse, error) {
 	transactionDetail, err := u.transactionDetailRepo.FindByID(ctx, u.db, request.TransactionDetailId)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid transaction detail id")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find transaction detail by transaction detail id", err)

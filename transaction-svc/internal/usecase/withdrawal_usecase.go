@@ -54,7 +54,7 @@ func (u *withdrawalUseCase) Create(ctx context.Context, request *model.CreateWit
 
 	wallet, err := u.walletRepository.FindById(ctx, tx, "33")
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator discount id")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find creator discount by discount id", err)

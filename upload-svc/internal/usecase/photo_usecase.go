@@ -19,6 +19,7 @@ import (
 	"net/textproto"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	_ "image/jpeg"
@@ -215,7 +216,15 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 	return nil
 }
 
+// Define pool 1MB buffer
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 1*1024*1024) // 1MB buffer
+	},
+}
+
 // ISSUE #2 Dont forget to add bulk_photo_id for each photo entity
+// TODO : add start and end span for ordering
 func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.FileHeader, request *model.CreatePhotoRequest) error {
 	if request.Latitude != nil && request.Longitude == nil {
 		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Longitude is required")
@@ -231,22 +240,37 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 		UpdatedAt:       time.Now(),
 	}
 
-	photoEntities := make([]*entity.Photo, 0)
-	photoDetailEntities := make([]*entity.PhotoDetail, 0)
+	photoEntities := make([]*entity.Photo, 0, len(files))
+	photoDetailEntities := make([]*entity.PhotoDetail, 0, len(files))
 
-	// Initiate
 	for _, file := range files {
 		uploadFile, err := file.Open()
 		if err != nil {
 			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot process uploaded file")
 		}
-
-		data, err := io.ReadAll(uploadFile)
-		if err != nil {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot read uploaded file")
-		}
-
 		defer uploadFile.Close()
+
+		// Gunakan buffer dari sync.Pool
+		buf := bufPool.Get().([]byte)
+		defer bufPool.Put(buf)
+
+		// Baca file dengan ukuran pasti
+		data := make([]byte, file.Size)
+		var offset int64
+		for offset < file.Size {
+			readSize := int64(len(buf))
+			if file.Size-offset < readSize {
+				readSize = file.Size - offset
+			}
+
+			n, err := uploadFile.Read(buf[:readSize])
+			if err != nil && err != io.EOF {
+				return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot read uploaded file")
+			}
+
+			copy(data[offset:], buf[:n])
+			offset += int64(n)
+		}
 
 		readerForUpload := bytes.NewReader(data)
 		wrappedReader := nopReadSeekCloser{readerForUpload}
@@ -256,7 +280,6 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 			return helper.WrapInternalServerError(u.logs, "error when uploading file :", err)
 		}
 
-		// Buat entitas Photo baru
 		newPhoto := &entity.Photo{
 			Id:            ulid.Make().String(),
 			UserId:        request.UserId,
@@ -273,8 +296,8 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 			Longitude:     nullable.ToSQLFloat64(request.Longitude),
 			Description:   nullable.ToSQLString(request.Description),
 		}
-
 		photoEntities = append(photoEntities, newPhoto)
+
 		readerForDecode := bytes.NewReader(data)
 		imgConfig, format, err := image.DecodeConfig(readerForDecode)
 		if err != nil {
@@ -301,14 +324,13 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 			Size:            upload.Size,
 			Type:            imageType,
 			Checksum:        checksum,
-			Width:           imgConfig.Width,  // disesuaikan tipe data jika perlu
-			Height:          imgConfig.Height, // disesuaikan tipe data jika perlu
+			Width:           imgConfig.Width,
+			Height:          imgConfig.Height,
 			Url:             upload.URL,
 			YourMomentsType: enum.YourMomentTypeCollection,
 			CreatedAt:       time.Now(),
 			UpdatedAt:       time.Now(),
 		}
-
 		photoDetailEntities = append(photoDetailEntities, newPhotoDetail)
 	}
 

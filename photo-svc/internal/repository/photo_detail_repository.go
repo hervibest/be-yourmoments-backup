@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 )
 
 type PhotoDetailRepository interface {
@@ -47,4 +48,45 @@ func (r *photoDetailRepository) BulkCreate(ctx context.Context, tx Querier, item
 	}
 
 	return &items, nil
+}
+
+func (r *photoDetailRepository) CreateBulk(tx Querier, photoDetails []*entity.PhotoDetail) error {
+	if len(photoDetails) == 0 {
+		return nil
+	}
+
+	insertValues := make([]string, 0, len(photoDetails))
+	insertArgs := make([]interface{}, 0, len(photoDetails)*10) // 10 kolom per photo detail
+	counter := 1
+
+	for _, detail := range photoDetails {
+		insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			counter, counter+1, counter+2, counter+3, counter+4, counter+5, counter+6, counter+7, counter+8, counter+9))
+		insertArgs = append(insertArgs,
+			detail.Id,
+			detail.PhotoId,
+			detail.FileName,
+			detail.FileKey,
+			detail.Size,
+			detail.Type,
+			detail.Checksum,
+			detail.Height,
+			detail.Width,
+			detail.Url,
+		)
+		counter += 10
+	}
+
+	query := `
+		INSERT INTO photo_details 
+		(id, photo_id, file_name, file_key, size, type, checksum, height, width, url) 
+		VALUES ` + strings.Join(insertValues, ", ")
+
+	_, err := tx.Exec(query, insertArgs...)
+	if err != nil {
+		log.Println("Error at CreateBulkPhotoDetail:", err)
+		return err
+	}
+
+	return nil
 }
