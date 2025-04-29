@@ -7,6 +7,7 @@ option go_package = ".pkg/pb";
 service AiService{
   rpc ProcessPhoto(ProcessPhotoRequest) returns (ProcessPhotoResponse);
   rpc ProcessFacecam(ProcessFacecamRequest) returns (ProcessFacecamResponse);
+  rpc ProcessBulkPhoto(ProcessBulkPhotoRequest) returns (ProcessBulkPhotoResponse);
 }
 
 message ProcessPhotoRequest{
@@ -25,6 +26,27 @@ message ProcessFacecamRequest{
 }
 
 message ProcessFacecamResponse{
+  int64 status = 1;
+  string error = 2;
+}
+
+message AIBulkPhoto {
+  string id = 1;
+  string creator_id = 2;
+}
+
+message AIPhoto {
+  string id = 1;
+  string compressed_url = 5;
+  string collection_url = 6;
+}
+
+message ProcessBulkPhotoRequest {
+  AIBulkPhoto process_bulk_photo = 1;
+  repeated AIPhoto process_photo = 2;
+}
+
+message ProcessBulkPhotoResponse{
   int64 status = 1;
   string error = 2;
 }

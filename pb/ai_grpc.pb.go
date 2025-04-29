@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AiService_ProcessPhoto_FullMethodName   = "/ai.AiService/ProcessPhoto"
-	AiService_ProcessFacecam_FullMethodName = "/ai.AiService/ProcessFacecam"
+	AiService_ProcessPhoto_FullMethodName     = "/ai.AiService/ProcessPhoto"
+	AiService_ProcessFacecam_FullMethodName   = "/ai.AiService/ProcessFacecam"
+	AiService_ProcessBulkPhoto_FullMethodName = "/ai.AiService/ProcessBulkPhoto"
 )
 
 // AiServiceClient is the client API for AiService service.
@@ -29,6 +30,7 @@ const (
 type AiServiceClient interface {
 	ProcessPhoto(ctx context.Context, in *ProcessPhotoRequest, opts ...grpc.CallOption) (*ProcessPhotoResponse, error)
 	ProcessFacecam(ctx context.Context, in *ProcessFacecamRequest, opts ...grpc.CallOption) (*ProcessFacecamResponse, error)
+	ProcessBulkPhoto(ctx context.Context, in *ProcessBulkPhotoRequest, opts ...grpc.CallOption) (*ProcessBulkPhotoResponse, error)
 }
 
 type aiServiceClient struct {
@@ -59,12 +61,23 @@ func (c *aiServiceClient) ProcessFacecam(ctx context.Context, in *ProcessFacecam
 	return out, nil
 }
 
+func (c *aiServiceClient) ProcessBulkPhoto(ctx context.Context, in *ProcessBulkPhotoRequest, opts ...grpc.CallOption) (*ProcessBulkPhotoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProcessBulkPhotoResponse)
+	err := c.cc.Invoke(ctx, AiService_ProcessBulkPhoto_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AiServiceServer is the server API for AiService service.
 // All implementations must embed UnimplementedAiServiceServer
 // for forward compatibility.
 type AiServiceServer interface {
 	ProcessPhoto(context.Context, *ProcessPhotoRequest) (*ProcessPhotoResponse, error)
 	ProcessFacecam(context.Context, *ProcessFacecamRequest) (*ProcessFacecamResponse, error)
+	ProcessBulkPhoto(context.Context, *ProcessBulkPhotoRequest) (*ProcessBulkPhotoResponse, error)
 	mustEmbedUnimplementedAiServiceServer()
 }
 
@@ -80,6 +93,9 @@ func (UnimplementedAiServiceServer) ProcessPhoto(context.Context, *ProcessPhotoR
 }
 func (UnimplementedAiServiceServer) ProcessFacecam(context.Context, *ProcessFacecamRequest) (*ProcessFacecamResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ProcessFacecam not implemented")
+}
+func (UnimplementedAiServiceServer) ProcessBulkPhoto(context.Context, *ProcessBulkPhotoRequest) (*ProcessBulkPhotoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessBulkPhoto not implemented")
 }
 func (UnimplementedAiServiceServer) mustEmbedUnimplementedAiServiceServer() {}
 func (UnimplementedAiServiceServer) testEmbeddedByValue()                   {}
@@ -138,6 +154,24 @@ func _AiService_ProcessFacecam_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AiService_ProcessBulkPhoto_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProcessBulkPhotoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AiServiceServer).ProcessBulkPhoto(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AiService_ProcessBulkPhoto_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AiServiceServer).ProcessBulkPhoto(ctx, req.(*ProcessBulkPhotoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AiService_ServiceDesc is the grpc.ServiceDesc for AiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -152,6 +186,10 @@ var AiService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ProcessFacecam",
 			Handler:    _AiService_ProcessFacecam_Handler,
+		},
+		{
+			MethodName: "ProcessBulkPhoto",
+			Handler:    _AiService_ProcessBulkPhoto_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -3,8 +3,8 @@ USER_DB_URL=postgres://postgres:postgres@localhost:5432/user_svc?sslmode=disable
 TRANSACTION_DB_URL=postgres://postgres:postgres@localhost:5432/transaction_svc?sslmode=disable&TimeZone=Asia/Jakarta
 
 MIGRATIONS_DIR=db/migrations
-PROTO_DIR=photo-svc/internal/pb
-PROTO_FILE=photo.proto
+PROTO_DIR=ai-svc/internal/pb
+PROTO_FILE=ai.proto
 
 .PHONY: migrate-down proto
 
