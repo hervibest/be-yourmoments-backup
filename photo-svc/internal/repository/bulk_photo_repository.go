@@ -8,7 +8,7 @@ import (
 type BulkPhotoRepository interface {
 	Create(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (*entity.BulkPhoto, error)
 	FindDetailById(ctx context.Context, tx Querier, bulkPhotoID, creatorID string) (*[]*entity.BulkPhotoDetail, error)
-	Update(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (entity.BulkPhoto, error)
+	Update(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (*entity.BulkPhoto, error)
 }
 type bulkPhotoRepository struct{}
 
@@ -66,4 +66,14 @@ func (r *bulkPhotoRepository) FindDetailById(ctx context.Context, tx Querier, bu
 		return nil, err
 	}
 	return &bulkPhotoDetails, nil
+}
+
+func (r *bulkPhotoRepository) Update(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (*entity.BulkPhoto, error) {
+	query := "UPDATE bulk_photos SET bulk_photo_status = $1, updated_at = $2 WHERE bulk_photo_id = $3 AND creator_id = $4"
+	_, err := tx.ExecContext(ctx, query, bulkPhoto.BulkPhotoStatus, bulkPhoto.UpdatedAt, bulkPhoto.Id, bulkPhoto.CreatorId)
+	if err != nil {
+		return nil, err
+	}
+
+	return bulkPhoto, err
 }

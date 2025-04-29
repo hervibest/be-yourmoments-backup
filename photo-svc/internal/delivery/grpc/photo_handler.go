@@ -230,3 +230,15 @@ func (h *PhotoGRPCHandler) CreateBulkPhoto(ctx context.Context, pbReq *pb.Create
 		Status: int64(codes.OK),
 	}, nil
 }
+
+func (h *PhotoGRPCHandler) CreateBulkUserSimilarPhotos(ctx context.Context, pbReq *pb.CreateBulkUserSimilarPhotoRequest) (
+	*pb.CreateBulkUserSimilarPhotoResponse, error) {
+	log.Println("----  Create Bulk User Similar Photos Requets via GRPC in photo-svc ------")
+	if err := h.userSimilarPhotoUseCase.CreateBulkUserSimilarPhotos(context.Background(), pbReq); err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	return &pb.CreateBulkUserSimilarPhotoResponse{
+		Status: int64(codes.OK),
+	}, nil
+}

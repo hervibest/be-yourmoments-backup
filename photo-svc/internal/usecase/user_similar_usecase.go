@@ -20,6 +20,7 @@ import (
 type UserSimilarUsecase interface {
 	CreateUserSimilar(ctx context.Context, request *pb.CreateUserSimilarPhotoRequest) error
 	CreateUserFacecam(ctx context.Context, request *pb.CreateUserSimilarFacecamRequest) error
+	CreateBulkUserSimilarPhotos(ctx context.Context, request *pb.CreateBulkUserSimilarPhotoRequest) error
 }
 
 type userSimilarUsecase struct {
@@ -209,11 +210,9 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 		return helper.WrapInternalServerError(u.logs, "failed to bulk update photo processed url", err)
 	}
 
-	// Mapping untuk bulk insert
 	photoUserSimilarMap := make(map[string][]*entity.UserSimilarPhoto)
 
 	for _, bulkUserSimilar := range request.GetBulkUserSimilarPhoto() {
-		// Insert PhotoDetail untuk setiap foto
 		newPhotoDetail := &entity.PhotoDetail{
 			Id:              ulid.Make().String(),
 			PhotoId:         bulkUserSimilar.GetPhotoDetail().GetPhotoId(),
@@ -236,7 +235,6 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 			return err
 		}
 
-		// Build user similar photos per photo
 		userSimilarPhotos := make([]*entity.UserSimilarPhoto, 0, len(bulkUserSimilar.GetUserSimilarPhoto()))
 		for _, userSimilarPhotoRequest := range bulkUserSimilar.GetUserSimilarPhoto() {
 			userSimilarPhotos = append(userSimilarPhotos, &entity.UserSimilarPhoto{
@@ -244,10 +242,6 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 				PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
 				UserId:     userSimilarPhotoRequest.GetUserId(),
 				Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
-				IsWishlist: userSimilarPhotoRequest.GetIsWishlist(),
-				IsResend:   userSimilarPhotoRequest.GetIsResend(),
-				IsCart:     userSimilarPhotoRequest.GetIsCart(),
-				IsFavorite: userSimilarPhotoRequest.GetIsFavorite(),
 				CreatedAt:  userSimilarPhotoRequest.GetCreatedAt().AsTime(),
 				UpdatedAt:  userSimilarPhotoRequest.GetUpdatedAt().AsTime(),
 			})
@@ -256,8 +250,7 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 		photoUserSimilarMap[bulkUserSimilar.GetPhotoDetail().GetPhotoId()] = userSimilarPhotos
 	}
 
-	// Insert bulk user similar photos
-	err = u.userSimilarRepo.InsertOrUpdateBulk(tx, photoUserSimilarMap)
+	err = u.userSimilarRepo.InsertOrUpdateBulk(ctx, tx, photoUserSimilarMap)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to insert or update bulk user similar photos in database", err)
 	}

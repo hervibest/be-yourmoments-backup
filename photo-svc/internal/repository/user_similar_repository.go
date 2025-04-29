@@ -2,6 +2,7 @@ package repository
 
 import (
 	"be-yourmoments/photo-svc/internal/entity"
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -13,8 +14,7 @@ import (
 type UserSimilarRepository interface {
 	InsertOrUpdateByPhotoId(tx Querier, photoId string, userSimilarPhotos *[]*entity.UserSimilarPhoto) error
 	InserOrUpdateByUserId(tx Querier, userId string, userSimilarPhotos *[]*entity.UserSimilarPhoto) error
-	InsertOrUpdateBulk(tx Querier, photoUserSimilarMap map[string][]*entity.UserSimilarPhoto) error
-	// UpdateUsersForPhoto(ctx context.Context, db Querier, photoId string, userIds []string) error
+	InsertOrUpdateBulk(ctx context.Context, tx Querier, photoUserSimilarMap map[string][]*entity.UserSimilarPhoto) error // UpdateUsersForPhoto(ctx context.Context, db Querier, photoId string, userIds []string) error
 	// GetSimilarPhotosByUser(ctx context.Context, db Querier, userId string) (*UserSimilarPhotosResponse, error)
 	// DeleteSimilarUsers(ctx context.Context, db Querier, photoId string) error
 }
@@ -117,7 +117,7 @@ func (r *userSimilarRepository) InserOrUpdateByUserId(tx Querier, userId string,
 	return nil
 }
 
-func (r *userSimilarRepository) InsertOrUpdateBulk(tx Querier, photoUserSimilarMap map[string][]*entity.UserSimilarPhoto) error {
+func (r *userSimilarRepository) InsertOrUpdateBulk(ctx context.Context, tx Querier, photoUserSimilarMap map[string][]*entity.UserSimilarPhoto) error {
 	now := time.Now()
 
 	// Kumpulkan semua photo_id dan (photo_id, user_id) pair
@@ -148,7 +148,7 @@ func (r *userSimilarRepository) InsertOrUpdateBulk(tx Querier, photoUserSimilarM
 
 	deleteArgs = append(deleteArgs, pq.Array(photoIDs)) // postgres array
 
-	if _, err := tx.Exec(deleteQuery, deleteArgs...); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteQuery, deleteArgs...); err != nil {
 		log.Println("Error during bulk delete:", err)
 		return err
 	}
@@ -160,16 +160,12 @@ func (r *userSimilarRepository) InsertOrUpdateBulk(tx Querier, photoUserSimilarM
 
 	for photoID, userSimilars := range photoUserSimilarMap {
 		for _, userSimilar := range userSimilars {
-			insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)", counter, counter+1, counter+2, counter+3, counter+4, counter+5, counter+6, counter+7, counter+8))
+			insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", counter, counter+1, counter+2, counter+3, counter+4))
 			insertArgs = append(insertArgs,
 				userSimilar.Id,
 				photoID,
 				userSimilar.UserId,
 				userSimilar.Similarity,
-				userSimilar.IsWishlist,
-				userSimilar.IsResend,
-				userSimilar.IsCart,
-				userSimilar.IsFavorite,
 				now,
 			)
 			counter += 9
@@ -179,19 +175,15 @@ func (r *userSimilarRepository) InsertOrUpdateBulk(tx Querier, photoUserSimilarM
 	if len(insertValues) > 0 {
 		insertQuery := `
 			INSERT INTO user_similar_photos 
-			(id, photo_id, user_id, similarity, is_wishlist, is_resend, is_cart, is_favorite, created_at)
+			(id, photo_id, user_id, similarity, created_at)
 			VALUES ` + strings.Join(insertValues, ", ") + `
 			ON CONFLICT (user_id, photo_id) 
 			DO UPDATE SET
 				similarity = EXCLUDED.similarity,
-				is_wishlist = EXCLUDED.is_wishlist,
-				is_resend = EXCLUDED.is_resend,
-				is_cart = EXCLUDED.is_cart,
-				is_favorite = EXCLUDED.is_favorite,
 				updated_at = NOW()
 		`
 
-		if _, err := tx.Exec(insertQuery, insertArgs...); err != nil {
+		if _, err := tx.ExecContext(ctx, insertQuery, insertArgs...); err != nil {
 			log.Println("Error during bulk insert:", err)
 			return err
 		}

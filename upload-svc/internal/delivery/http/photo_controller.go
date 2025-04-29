@@ -32,6 +32,7 @@ func NewPhotoController(photoUsecase usecase.PhotoUsecase, logs *logger.Log, cus
 	}
 }
 
+// -- IMPLEMENT COMPRESS PHOTO (DEFAULT)
 func (c *photoController) UploadPhoto(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("photo")
 	if err != nil {
@@ -62,6 +63,7 @@ func (c *photoController) UploadPhoto(ctx *fiber.Ctx) error {
 	})
 }
 
+// -- NOT IMPLEMENTING COMPRESS PHOTO (DEFAULT)
 func (c *photoController) BulkUploadPhoto(ctx *fiber.Ctx) error {
 	form, err := ctx.MultipartForm()
 	if err != nil || form.File["photo"] == nil {
@@ -82,6 +84,13 @@ func (c *photoController) BulkUploadPhoto(ctx *fiber.Ctx) error {
 
 	priceStr := strconv.Itoa(request.Price)
 	request.PriceStr = priceStr
+
+	const maxFileSize = 1 * 1024 * 1024 // 1MB
+	for _, file := range files {
+		if file.Size > maxFileSize {
+			return fiber.NewError(fiber.StatusRequestEntityTooLarge, "File size exceeds the 1MB limit")
+		}
+	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)

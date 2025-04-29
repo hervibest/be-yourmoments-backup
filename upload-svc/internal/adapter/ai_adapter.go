@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"be-yourmoments/upload-svc/internal/entity"
 	"be-yourmoments/upload-svc/internal/helper"
 	discovery "be-yourmoments/upload-svc/internal/helper/discovery"
 	"be-yourmoments/upload-svc/internal/helper/logger"
@@ -57,6 +58,34 @@ func (a *aiAdapter) ProcessFacecam(ctx context.Context, fileId, fileUrl string) 
 	}
 
 	_, err := a.client.ProcessFacecam(ctx, processPhotoRequest)
+	if err != nil {
+		return helper.FromGRPCError(err)
+	}
+
+	return nil
+}
+
+func (a *aiAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error {
+	pbAIPhotos := make([]*pb.AIPhoto, len(*photos))
+	for _, photo := range *photos {
+		pbAIPhoto := &pb.AIPhoto{
+			Id:            photo.Id,
+			CollectionUrl: photo.CollectionUrl,
+		}
+		pbAIPhotos = append(pbAIPhotos, pbAIPhoto)
+	}
+
+	pbAIBulkPhoto := &pb.AIBulkPhoto{
+		Id:        bulkPhoto.Id,
+		CreatorId: bulkPhoto.CreatorId,
+	}
+
+	pbRequest := &pb.ProcessBulkPhotoRequest{
+		ProcessBulkPhoto: pbAIBulkPhoto,
+		ProcessPhoto:     pbAIPhotos,
+	}
+
+	_, err := a.client.ProcessBulkPhoto(ctx, pbRequest)
 	if err != nil {
 		return helper.FromGRPCError(err)
 	}

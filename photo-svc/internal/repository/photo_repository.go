@@ -142,6 +142,7 @@ func (r *photoRepository) UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Que
 	return nil
 }
 
+// TODO NamedExecContext doesnt use bulk upload
 func (r *photoRepository) BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) {
 	query := `INSERT INTO photos (id, creator_id, bulk_photo_id, title, collection_url, price, price_str, latitude, longitude, description, original_at, created_at, updated_at)
 	          VALUES (:id, :creator_id, :bulk_photo_id, :title, :collection_url, :price, :price_str, :latitude, :longitude, :description, :original_at, :created_at, :updated_at)`

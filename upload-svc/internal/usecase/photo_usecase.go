@@ -338,5 +338,9 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 		return helper.WrapInternalServerError(u.logs, "failed to create photo :", err)
 	}
 
+	go func() {
+
+	}()
+
 	return nil
 }

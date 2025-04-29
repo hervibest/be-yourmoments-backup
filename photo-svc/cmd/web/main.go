@@ -162,7 +162,7 @@ func webServer() error {
 
 	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, aiAdapter, uploadAdapter, logs)
 	faceCamUseCase := usecase.NewFacecamUseCase(dbConfig, facecamRepo, userSimilarRepo, aiAdapter, uploadAdapter, logs)
-	userSimilarPhotoUsecase := usecase.NewUserSimilarUsecase(dbConfig, photoRepo, photoDetailRepo, facecamRepo, userSimilarRepo, logs)
+	userSimilarPhotoUsecase := usecase.NewUserSimilarUsecase(dbConfig, photoRepo, photoDetailRepo, facecamRepo, userSimilarRepo, bulkPhotoRepository, logs)
 	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, transactionAdapter, logs)
 	exploreUseCase := usecase.NewExploreUseCase(dbConfig, exploreRepo, photoRepo, tracer, logs)
 	creatorDiscountUseCase := usecase.NewCreatorDiscountUseCase(dbConfig, creatorDiscountRepository, logs)
