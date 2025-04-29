@@ -1,7 +1,7 @@
 package config
 
 import (
-	"be-yourmoments/transaction-svc/internal/helper/utils"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/utils"
 
 	"github.com/midtrans/midtrans-go"
 

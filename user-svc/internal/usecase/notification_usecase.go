@@ -1,11 +1,6 @@
 package usecase
 
 import (
-	"be-yourmoments/user-svc/internal/adapter"
-	"be-yourmoments/user-svc/internal/entity"
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/helper/logger"
-	"be-yourmoments/user-svc/internal/repository"
 	"context"
 	"fmt"
 	"log"
@@ -13,8 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
+
 	"firebase.google.com/go/messaging"
-	"github.com/be-yourmoments/pb"
+	"github.com/hervibest/be-yourmoments-backup/pb"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )

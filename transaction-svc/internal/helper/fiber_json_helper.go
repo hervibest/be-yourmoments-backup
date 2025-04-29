@@ -1,12 +1,13 @@
 package helper
 
 import (
-	"be-yourmoments/transaction-svc/internal/helper/logger"
-	"be-yourmoments/transaction-svc/internal/model"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 
 	"github.com/gofiber/fiber/v2"
 )

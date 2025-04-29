@@ -1,12 +1,13 @@
 package adapter
 
 import (
-	"be-yourmoments/photo-svc/internal/helper"
-	"be-yourmoments/photo-svc/internal/helper/discovery"
 	"context"
 	"log"
 
-	userpb "github.com/be-yourmoments/pb/user"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
+
+	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
 )
 
 type UserAdapter interface {

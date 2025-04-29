@@ -1,8 +1,9 @@
 package model
 
 import (
-	"be-yourmoments/user-svc/internal/enum"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
 )
 
 type RegisterByPhoneRequest struct {

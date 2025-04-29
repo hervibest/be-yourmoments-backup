@@ -1,8 +1,8 @@
 package converter
 
 import (
-	"be-yourmoments/user-svc/internal/entity"
-	"be-yourmoments/user-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 )
 
 func UserToResponse(u *entity.User) *model.UserResponse {

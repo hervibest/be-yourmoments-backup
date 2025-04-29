@@ -1,9 +1,10 @@
 package entity
 
 import (
-	"be-yourmoments/user-svc/internal/enum"
 	"database/sql"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
 )
 
 type UserImage struct {

@@ -1,7 +1,7 @@
 package route
 
 import (
-	http "be-yourmoments/photo-svc/internal/delivery/http/controller"
+	http "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/controller"
 
 	"github.com/gofiber/fiber/v2"
 )

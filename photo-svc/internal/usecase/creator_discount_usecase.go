@@ -1,18 +1,19 @@
 package usecase
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
-	"be-yourmoments/photo-svc/internal/enum"
-	errorcode "be-yourmoments/photo-svc/internal/enum/error"
-	"be-yourmoments/photo-svc/internal/helper"
-	"be-yourmoments/photo-svc/internal/helper/logger"
-	"be-yourmoments/photo-svc/internal/model"
-	"be-yourmoments/photo-svc/internal/model/converter"
-	"be-yourmoments/photo-svc/internal/repository"
 	"context"
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
+	errorcode "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model/converter"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/oklog/ulid/v2"

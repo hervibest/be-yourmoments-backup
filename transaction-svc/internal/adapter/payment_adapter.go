@@ -1,12 +1,13 @@
 package adapter
 
 import (
-	"be-yourmoments/transaction-svc/internal/helper/logger"
-	"be-yourmoments/transaction-svc/internal/model"
 	"context"
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 
 	"github.com/midtrans/midtrans-go"
 	"github.com/midtrans/midtrans-go/snap"

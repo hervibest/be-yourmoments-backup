@@ -1,12 +1,13 @@
 package repository
 
 import (
-	"be-yourmoments/user-svc/internal/entity"
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/model"
 	"context"
 	"strconv"
 	"strings"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 
 	"github.com/jmoiron/sqlx"
 )

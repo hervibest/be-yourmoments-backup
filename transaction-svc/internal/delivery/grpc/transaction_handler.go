@@ -1,14 +1,15 @@
 package grpc
 
 import (
-	"be-yourmoments/transaction-svc/internal/helper"
-	"be-yourmoments/transaction-svc/internal/model"
-	"be-yourmoments/transaction-svc/internal/usecase"
 	"context"
 	"log"
 	"net/http"
 
-	transactionpb "github.com/be-yourmoments/pb/transaction"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase"
+
+	transactionpb "github.com/hervibest/be-yourmoments-backup/pb/transaction"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"

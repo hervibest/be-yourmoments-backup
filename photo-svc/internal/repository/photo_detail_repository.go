@@ -1,11 +1,12 @@
 package repository
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
 	"context"
 	"fmt"
 	"log"
 	"strings"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 )
 
 type PhotoDetailRepository interface {

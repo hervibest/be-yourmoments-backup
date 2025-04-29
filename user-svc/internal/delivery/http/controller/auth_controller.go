@@ -1,12 +1,13 @@
 package http
 
 import (
-	"be-yourmoments/user-svc/internal/delivery/http/middleware"
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/helper/logger"
-	"be-yourmoments/user-svc/internal/model"
-	"be-yourmoments/user-svc/internal/usecase"
 	"net/http"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/middleware"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/usecase"
 
 	"github.com/gofiber/fiber/v2"
 )

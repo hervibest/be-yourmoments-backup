@@ -1,10 +1,11 @@
 package repository
 
 import (
-	"be-yourmoments/transaction-svc/internal/entity"
 	"context"
 	"fmt"
 	"log"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 )
 
 type TransactionRepository interface {

@@ -1,13 +1,14 @@
 package adapter
 
 import (
-	"be-yourmoments/upload-svc/internal/helper/utils"
 	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
 	"os"
 	"strconv"
+
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/utils"
 
 	"github.com/h2non/bimg"
 )

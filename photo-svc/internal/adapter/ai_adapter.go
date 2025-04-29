@@ -1,10 +1,11 @@
 package adapter
 
 import (
-	"be-yourmoments/photo-svc/internal/helper/discovery"
 	"context"
 
-	aipb "github.com/be-yourmoments/pb/ai"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
+
+	aipb "github.com/hervibest/be-yourmoments-backup/pb/ai"
 )
 
 type AiAdapter interface {

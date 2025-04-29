@@ -1,8 +1,9 @@
 package entity
 
 import (
-	"be-yourmoments/upload-svc/internal/enum"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/enum"
 )
 
 type BulkPhoto struct {

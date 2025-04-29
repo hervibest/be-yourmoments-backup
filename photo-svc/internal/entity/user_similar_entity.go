@@ -1,9 +1,10 @@
 package entity
 
 import (
-	"be-yourmoments/photo-svc/internal/enum"
 	"database/sql"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
 )
 
 type UserSimilarPhoto struct {

@@ -1,18 +1,19 @@
 package usecase
 
 import (
-	"be-yourmoments/user-svc/internal/entity"
-	mockadapter "be-yourmoments/user-svc/internal/mocks/adapter"
-	mockdb "be-yourmoments/user-svc/internal/mocks/db"
-	mockrepository "be-yourmoments/user-svc/internal/mocks/repository"
-	"be-yourmoments/user-svc/internal/model"
-	"be-yourmoments/user-svc/internal/usecase"
 	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	mockadapter "github.com/hervibest/be-yourmoments-backup/user-svc/internal/mocks/adapter"
+	mockdb "github.com/hervibest/be-yourmoments-backup/user-svc/internal/mocks/db"
+	mockrepository "github.com/hervibest/be-yourmoments-backup/user-svc/internal/mocks/repository"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/usecase"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang/mock/gomock"

@@ -1,25 +1,26 @@
 package main
 
 import (
-	"be-yourmoments/user-svc/internal/adapter"
-	"be-yourmoments/user-svc/internal/config"
-	grpcHandler "be-yourmoments/user-svc/internal/delivery/grpc"
-	http "be-yourmoments/user-svc/internal/delivery/http/controller"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
+	grpcHandler "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/grpc"
+	http "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/controller"
 
-	"be-yourmoments/user-svc/internal/delivery/http/middleware"
-	"be-yourmoments/user-svc/internal/delivery/http/route"
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/helper/discovery"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"be-yourmoments/user-svc/internal/helper/discovery/consul"
-	"be-yourmoments/user-svc/internal/helper/logger"
-	"be-yourmoments/user-svc/internal/repository"
-	"be-yourmoments/user-svc/internal/usecase"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/middleware"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/route"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/discovery"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/discovery/consul"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/usecase"
 
 	"context"
 	"fmt"

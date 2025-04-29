@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"be-yourmoments/user-svc/internal/helper/utils"
 	"bytes"
 	"fmt"
 	"html/template"
@@ -9,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 
 	"gopkg.in/gomail.v2"
 )

@@ -1,11 +1,11 @@
-module be-yourmoments/transaction-svc
+module github.com/hervibest/be-yourmoments-backup/transaction-svc
 
-replace github.com/be-yourmoments/pb => ../pb
+replace github.com/hervibest/be-yourmoments-backup/pb => ../pb
 
 go 1.23.4
 
 require (
-	github.com/be-yourmoments/pb v0.0.0-00010101000000-000000000000
+	github.com/hervibest/be-yourmoments-backup/pb v0.0.0-00010101000000-000000000000
 	github.com/bytedance/sonic v1.13.2
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/gofiber/contrib/otelfiber v1.0.10

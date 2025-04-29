@@ -1,9 +1,10 @@
 package config
 
 import (
-	logs "be-yourmoments/photo-svc/internal/helper/logger"
-	"be-yourmoments/photo-svc/internal/helper/utils"
 	"log"
+
+	logs "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/utils"
 
 	"fmt"
 	"strconv"

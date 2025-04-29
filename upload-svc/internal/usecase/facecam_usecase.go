@@ -1,11 +1,6 @@
 package usecase
 
 import (
-	"be-yourmoments/upload-svc/internal/adapter"
-	"be-yourmoments/upload-svc/internal/entity"
-	errorcode "be-yourmoments/upload-svc/internal/enum/error"
-	"be-yourmoments/upload-svc/internal/helper"
-	"be-yourmoments/upload-svc/internal/helper/logger"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -15,6 +10,12 @@ import (
 	"net/textproto"
 	"os"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/entity"
+	errorcode "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
 
 	"github.com/oklog/ulid/v2"
 )

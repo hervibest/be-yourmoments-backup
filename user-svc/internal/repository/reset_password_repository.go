@@ -1,9 +1,10 @@
 package repository
 
 import (
-	"be-yourmoments/user-svc/internal/entity"
 	"context"
 	"fmt"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
 
 	"github.com/jmoiron/sqlx"
 )

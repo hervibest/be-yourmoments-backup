@@ -1,7 +1,7 @@
 package http
 
 import (
-	"be-yourmoments/upload-svc/internal/config"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/config"
 
 	"github.com/gofiber/fiber/v2"
 )

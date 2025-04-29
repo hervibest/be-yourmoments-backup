@@ -1,10 +1,11 @@
 package repository
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
 	"context"
 	"fmt"
 	"log"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"

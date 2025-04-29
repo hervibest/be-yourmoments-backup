@@ -1,12 +1,13 @@
 package repository
 
 import (
-	errorcode "be-yourmoments/photo-svc/internal/enum/error"
-	"be-yourmoments/photo-svc/internal/helper"
-	"be-yourmoments/photo-svc/internal/helper/logger"
 	"context"
 	"database/sql"
 	"fmt"
+
+	errorcode "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 
 	"github.com/jmoiron/sqlx"
 )

@@ -1,8 +1,9 @@
 package repository
 
 import (
-	"be-yourmoments/transaction-svc/internal/entity"
 	"context"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 )
 
 type BankRepository interface {

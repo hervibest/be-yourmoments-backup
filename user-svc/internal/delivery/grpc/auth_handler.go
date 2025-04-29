@@ -1,12 +1,13 @@
 package grpc
 
 import (
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/model"
 	"context"
 	"log"
 
-	userpb "github.com/be-yourmoments/pb/user"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
+
+	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
 
 	"google.golang.org/grpc/codes"
 )

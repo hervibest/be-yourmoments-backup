@@ -1,14 +1,15 @@
 package adapter
 
 import (
-	"be-yourmoments/upload-svc/internal/entity"
-	"be-yourmoments/upload-svc/internal/helper"
-	"be-yourmoments/upload-svc/internal/helper/discovery"
-	"be-yourmoments/upload-svc/internal/helper/logger"
-	"be-yourmoments/upload-svc/internal/helper/nullable"
 	"context"
 
-	photopb "github.com/be-yourmoments/pb/photo"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/nullable"
+
+	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

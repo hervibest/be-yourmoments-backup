@@ -5,8 +5,8 @@
 package mockrepository
 
 import (
-	entity "be-yourmoments/user-svc/internal/entity"
-	repository "be-yourmoments/user-svc/internal/repository"
+	entity "github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	repository "github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
 	context "context"
 	reflect "reflect"
 

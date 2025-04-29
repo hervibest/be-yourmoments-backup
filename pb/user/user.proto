@@ -4,7 +4,7 @@ package user;
 
 option go_package = "github.com/hervibest/be-yourmoments-backup/pb/user;userpb";
 
-import "photo/photo.proto";
+import "../photo/photo.proto";
 
 service UserService{
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
@@ -28,9 +28,6 @@ message User {
   string  creator_id = 5;
   string  wallet_id = 6;
 }
-
-
-
 
 service NotificationService {
   rpc SendBulkPhotoNotification(SendBulkPhotoNotificationRequest) returns (SendBulkPhotoNotificationResponse);

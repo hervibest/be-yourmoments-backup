@@ -1,11 +1,12 @@
 package middleware
 
 import (
-	"be-yourmoments/upload-svc/internal/adapter"
-	"be-yourmoments/upload-svc/internal/helper"
-	"be-yourmoments/upload-svc/internal/helper/logger"
-	"be-yourmoments/upload-svc/internal/model"
 	"strings"
+
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
 
 	"github.com/gofiber/fiber/v2"
 )

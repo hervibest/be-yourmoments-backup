@@ -1,9 +1,10 @@
 package logger
 
 import (
-	"be-yourmoments/transaction-svc/internal/helper/utils"
 	"log"
 	"os"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/utils"
 )
 
 var logLevel = utils.GetEnv("LOG_LEVEL")

@@ -1,24 +1,26 @@
 package main
 
 import (
-	"be-yourmoments/photo-svc/internal/adapter"
-	"be-yourmoments/photo-svc/internal/config"
-	grpcHandler "be-yourmoments/photo-svc/internal/delivery/grpc"
-	http "be-yourmoments/photo-svc/internal/delivery/http/controller"
-	"be-yourmoments/photo-svc/internal/delivery/http/middleware"
-	"be-yourmoments/photo-svc/internal/delivery/http/route"
-	"be-yourmoments/photo-svc/internal/helper"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"be-yourmoments/photo-svc/internal/helper/consul"
-	"be-yourmoments/photo-svc/internal/helper/discovery"
-	"be-yourmoments/photo-svc/internal/helper/logger"
-	"be-yourmoments/photo-svc/internal/repository"
-	"be-yourmoments/photo-svc/internal/usecase"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/config"
+	grpcHandler "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/grpc"
+	http "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/controller"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/middleware"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/route"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
+
 	"net"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/consul"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/usecase"
 
 	"context"
 	"fmt"

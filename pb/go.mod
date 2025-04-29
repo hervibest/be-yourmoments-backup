@@ -1,4 +1,4 @@
-module be-yourmoments/pb
+module github.com/hervibest/be-yourmoments-backup/pb
 
 go 1.22.2
 

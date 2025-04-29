@@ -1,10 +1,11 @@
 package config
 
 import (
-	"be-yourmoments/photo-svc/internal/helper/logger"
-	"be-yourmoments/photo-svc/internal/helper/utils"
 	"context"
 	"log"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/utils"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"

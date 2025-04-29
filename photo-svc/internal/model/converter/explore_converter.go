@@ -1,9 +1,9 @@
 package converter
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
-	"be-yourmoments/photo-svc/internal/enum"
-	"be-yourmoments/photo-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
 )
 
 func ToDiscountIfValid(explore *entity.Explore) *model.CreatorDiscountResponse {

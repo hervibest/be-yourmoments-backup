@@ -1,8 +1,8 @@
 package converter
 
 import (
-	"be-yourmoments/transaction-svc/internal/entity"
-	"be-yourmoments/transaction-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 )
 
 func TransactionToResponse(transaction *entity.Transaction, redirectUrl string) *model.CreateTransactionResponse {

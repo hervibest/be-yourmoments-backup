@@ -1,12 +1,13 @@
 package repository
 
 import (
-	errorcode "be-yourmoments/transaction-svc/internal/enum/error"
-	"be-yourmoments/transaction-svc/internal/helper"
-	"be-yourmoments/transaction-svc/internal/helper/logger"
 	"context"
 	"database/sql"
 	"fmt"
+
+	errorcode "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 
 	"github.com/jmoiron/sqlx"
 )

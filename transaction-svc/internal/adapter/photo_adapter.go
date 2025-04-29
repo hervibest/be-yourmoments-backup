@@ -1,12 +1,13 @@
 package adapter
 
 import (
-	"be-yourmoments/transaction-svc/internal/helper"
-	"be-yourmoments/transaction-svc/internal/helper/discovery"
-	"be-yourmoments/transaction-svc/internal/model"
 	"context"
 
-	photopb "github.com/be-yourmoments/pb/photo"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
+
+	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 )
 
 type PhotoAdapter interface {

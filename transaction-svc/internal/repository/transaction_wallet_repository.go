@@ -1,13 +1,14 @@
 package repository
 
 import (
-	"be-yourmoments/transaction-svc/internal/entity"
-	"be-yourmoments/transaction-svc/internal/helper"
-	"be-yourmoments/transaction-svc/internal/model"
 	"context"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 )
 
 type TransactionWalletRepository interface {

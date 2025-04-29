@@ -1,9 +1,10 @@
 package helper
 
 import (
-	errorcode "be-yourmoments/upload-svc/internal/enum/error"
-	"be-yourmoments/upload-svc/internal/helper/logger"
 	"fmt"
+
+	errorcode "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

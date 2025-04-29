@@ -5,7 +5,7 @@
 package mockadapter
 
 import (
-	entity "be-yourmoments/user-svc/internal/entity"
+	entity "github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

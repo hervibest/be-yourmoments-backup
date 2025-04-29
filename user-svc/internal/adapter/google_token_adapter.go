@@ -1,10 +1,11 @@
 package adapter
 
 import (
-	"be-yourmoments/user-svc/internal/helper/utils"
-	"be-yourmoments/user-svc/internal/model"
 	"context"
 	"fmt"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 
 	"google.golang.org/api/idtoken"
 )

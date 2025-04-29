@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"be-yourmoments/user-svc/internal/helper/utils"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -9,6 +8,8 @@ import (
 	"io"
 	"log"
 	"reflect"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 
 	"github.com/microcosm-cc/bluemonday"
 )

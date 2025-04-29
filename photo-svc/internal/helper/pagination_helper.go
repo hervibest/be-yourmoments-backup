@@ -1,10 +1,11 @@
 package helper
 
 import (
-	"be-yourmoments/photo-svc/internal/model"
 	"math"
 	"net/url"
 	"strconv"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
 )
 
 func CalculatePagination(totalItems int64, page, size int) *model.PageMetadata {

@@ -1,9 +1,10 @@
 package repository
 
 import (
-	"be-yourmoments/transaction-svc/internal/entity"
 	"context"
 	"fmt"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 
 	"github.com/lib/pq"
 )

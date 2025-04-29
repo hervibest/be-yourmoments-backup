@@ -1,12 +1,13 @@
 package adapter
 
 import (
-	"be-yourmoments/user-svc/internal/config"
-	"be-yourmoments/user-svc/internal/model"
 	"context"
 	"fmt"
 	"mime/multipart"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/minio/minio-go/v7"

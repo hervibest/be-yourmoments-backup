@@ -1,9 +1,10 @@
 package config
 
 import (
-	"be-yourmoments/user-svc/internal/helper/utils"
 	"context"
 	"log"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 
 	"github.com/redis/go-redis/v9"
 )

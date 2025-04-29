@@ -5,7 +5,7 @@
 package mockadapter
 
 import (
-	model "be-yourmoments/user-svc/internal/model"
+	model "github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 	context "context"
 	reflect "reflect"
 

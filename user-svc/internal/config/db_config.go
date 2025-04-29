@@ -1,11 +1,12 @@
 package config
 
 import (
-	"be-yourmoments/user-svc/internal/helper/utils"
 	"fmt"
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"

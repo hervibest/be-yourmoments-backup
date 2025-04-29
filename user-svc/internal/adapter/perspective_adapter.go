@@ -1,12 +1,13 @@
 package adapter
 
 import (
-	"be-yourmoments/user-svc/internal/helper/utils"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 )
 
 type PerspectiveAdapter interface {

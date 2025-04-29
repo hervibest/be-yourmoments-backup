@@ -1,13 +1,14 @@
 package usecase
 
 import (
-	"be-yourmoments/photo-svc/internal/adapter"
-	"be-yourmoments/photo-svc/internal/entity"
-	"be-yourmoments/photo-svc/internal/helper/logger"
-	"be-yourmoments/photo-svc/internal/repository"
 	"context"
 
-	photopb "github.com/be-yourmoments/pb/photo"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
+
+	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/oklog/ulid/v2"

@@ -1,9 +1,10 @@
 package config
 
 import (
-	"be-yourmoments/upload-svc/internal/helper/utils"
 	"fmt"
 	"log"
+
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/utils"
 )
 
 var EndpointPrefix = utils.GetEnv("ENDPOINT_PREFIX")

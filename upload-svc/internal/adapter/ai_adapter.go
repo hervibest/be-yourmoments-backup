@@ -1,12 +1,12 @@
 package adapter
 
 import (
-	"be-yourmoments/upload-svc/internal/entity"
-	"be-yourmoments/upload-svc/internal/helper"
-	discovery "be-yourmoments/upload-svc/internal/helper/discovery"
-	"be-yourmoments/upload-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
+	discovery "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
 
-	aipb "github.com/be-yourmoments/pb/ai"
+	aipb "github.com/hervibest/be-yourmoments-backup/pb/ai"
 
 	"context"
 	"log"

@@ -1,14 +1,15 @@
 package usecase
 
 import (
-	"be-yourmoments/user-svc/internal/adapter"
-	errorcode "be-yourmoments/user-svc/internal/enum/error"
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/helper/logger"
-	"be-yourmoments/user-svc/internal/model"
 	"context"
 	"html"
 	"strings"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
+	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 
 	"cloud.google.com/go/firestore"
 	"github.com/oklog/ulid/v2"

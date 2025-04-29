@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"be-yourmoments/photo-svc/internal/helper"
-	"be-yourmoments/photo-svc/internal/helper/logger"
-	"be-yourmoments/photo-svc/internal/model"
-	"be-yourmoments/photo-svc/internal/usecase"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/usecase"
 
 	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel/trace"

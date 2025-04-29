@@ -1,8 +1,8 @@
 package adapter
 
 import (
-	"be-yourmoments/upload-svc/internal/config"
-	"be-yourmoments/upload-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/config"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
 
 	"context"
 	"fmt"

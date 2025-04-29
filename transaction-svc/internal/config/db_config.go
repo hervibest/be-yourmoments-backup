@@ -1,9 +1,10 @@
 package config
 
 import (
-	logs "be-yourmoments/transaction-svc/internal/helper/logger"
-	"be-yourmoments/transaction-svc/internal/helper/utils"
 	"log"
+
+	logs "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/utils"
 
 	"fmt"
 	"strconv"

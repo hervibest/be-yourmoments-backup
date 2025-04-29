@@ -1,8 +1,9 @@
 package http
 
 import (
-	"be-yourmoments/transaction-svc/internal/model"
 	"net/http"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 
 	"github.com/gofiber/fiber/v2"
 )

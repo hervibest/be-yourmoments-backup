@@ -1,11 +1,12 @@
 package repository
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
-	"be-yourmoments/photo-svc/internal/helper"
-	"be-yourmoments/photo-svc/internal/model"
 	"context"
 	"strconv"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
 
 	"github.com/jmoiron/sqlx"
 )

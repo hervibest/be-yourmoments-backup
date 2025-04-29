@@ -1,8 +1,8 @@
-module be-yourmoments/upload-svc
+module github.com/hervibest/be-yourmoments-backup/upload-svc
 
-require github.com/be-yourmoments/pb v0.0.0
+require github.com/hervibest/be-yourmoments-backup/pb v0.0.0
 
-replace github.com/be-yourmoments/pb => ../pb
+replace github.com/hervibest/be-yourmoments-backup/pb => ../pb
 
 go 1.22.12
 

@@ -1,12 +1,13 @@
 package adapter
 
 import (
-	"be-yourmoments/user-svc/internal/entity"
-	"be-yourmoments/user-svc/internal/helper/utils"
 	"fmt"
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/oklog/ulid/v2"

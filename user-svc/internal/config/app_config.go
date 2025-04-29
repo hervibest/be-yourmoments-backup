@@ -1,8 +1,8 @@
 package config
 
 // import (
-// 	"be-yourmoments/user-svc/internal/adapter"
-// 	"be-yourmoments/user-svc/internal/helper"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 
 // 	"github.com/gofiber/fiber/v2"
 // 	"github.com/jmoiron/sqlx"

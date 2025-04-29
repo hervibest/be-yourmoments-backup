@@ -1,9 +1,9 @@
 package converter
 
 import (
-	"be-yourmoments/photo-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
 
-	photopb "github.com/be-yourmoments/pb/photo"
+	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 )
 
 func GrpcToCreateRequest(req *photopb.UpdatePhotographerPhotoRequest) *model.RequestUpdateProcessedPhoto {

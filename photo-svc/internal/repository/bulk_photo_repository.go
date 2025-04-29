@@ -1,8 +1,9 @@
 package repository
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
 	"context"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 )
 
 type BulkPhotoRepository interface {

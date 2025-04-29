@@ -1,9 +1,9 @@
 package converter
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
-	"be-yourmoments/photo-svc/internal/helper/nullable"
-	"be-yourmoments/photo-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/nullable"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
 )
 
 func BulkPhotoDetailToResponse(items *[]*entity.BulkPhotoDetail) *model.GetBulkPhotoDetailResponse {

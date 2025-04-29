@@ -1,10 +1,10 @@
 package adapter
 
 import (
-	"be-yourmoments/upload-svc/internal/helper"
-	"be-yourmoments/upload-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
 
-	userpb "github.com/be-yourmoments/pb/user"
+	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
 
 	"context"
 	"log"

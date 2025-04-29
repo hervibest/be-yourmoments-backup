@@ -1,9 +1,9 @@
 package grpc
 
 import (
-	"be-yourmoments/user-svc/internal/usecase"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/usecase"
 
-	userpb "github.com/be-yourmoments/pb/user"
+	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
 	"google.golang.org/grpc"
 )
 

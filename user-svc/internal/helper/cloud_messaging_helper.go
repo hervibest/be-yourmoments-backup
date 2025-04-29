@@ -1,6 +1,6 @@
 package helper
 
-import "be-yourmoments/user-svc/internal/enum/fcm"
+import "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/fcm"
 
 // --- Helper cek error ---
 func IsFCMInvalidTokenError(err error) bool {

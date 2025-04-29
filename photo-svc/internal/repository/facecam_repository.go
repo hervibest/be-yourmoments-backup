@@ -1,9 +1,10 @@
 package repository
 
 import (
-	"be-yourmoments/photo-svc/internal/entity"
 	"fmt"
 	"log"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 )
 
 type FacecamRepository interface {

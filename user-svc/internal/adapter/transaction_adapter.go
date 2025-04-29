@@ -1,13 +1,14 @@
 package adapter
 
 import (
-	"be-yourmoments/user-svc/internal/entity"
-	"be-yourmoments/user-svc/internal/helper"
-	discovery "be-yourmoments/user-svc/internal/helper/discovery"
 	"context"
 	"log"
 
-	transcationpb "github.com/be-yourmoments/pb/transaction"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	discovery "github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/discovery"
+
+	transcationpb "github.com/hervibest/be-yourmoments-backup/pb/transaction"
 )
 
 type TransactionAdapter interface {

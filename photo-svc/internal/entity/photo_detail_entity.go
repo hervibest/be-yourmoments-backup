@@ -1,8 +1,9 @@
 package entity
 
 import (
-	"be-yourmoments/photo-svc/internal/enum"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
 )
 
 type PhotoDetail struct {

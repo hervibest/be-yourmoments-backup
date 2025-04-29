@@ -1,12 +1,13 @@
 package middleware
 
 import (
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/helper/logger"
-	"be-yourmoments/user-svc/internal/model"
-	"be-yourmoments/user-svc/internal/usecase"
 	"net/http"
 	"strings"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/usecase"
 
 	"github.com/gofiber/fiber/v2"
 )

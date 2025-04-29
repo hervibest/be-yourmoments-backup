@@ -1,14 +1,6 @@
 package usecase
 
 import (
-	"be-yourmoments/user-svc/internal/adapter"
-	"be-yourmoments/user-svc/internal/entity"
-	errorcode "be-yourmoments/user-svc/internal/enum/error"
-	"be-yourmoments/user-svc/internal/helper"
-	"be-yourmoments/user-svc/internal/helper/logger"
-	"be-yourmoments/user-svc/internal/model"
-	"be-yourmoments/user-svc/internal/model/converter"
-	"be-yourmoments/user-svc/internal/repository"
 	"context"
 	"database/sql"
 	"errors"
@@ -16,6 +8,15 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/converter"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
 
 	"cloud.google.com/go/firestore"
 	"github.com/bytedance/sonic"

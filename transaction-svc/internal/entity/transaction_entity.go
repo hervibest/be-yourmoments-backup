@@ -1,10 +1,11 @@
 package entity
 
 import (
-	"be-yourmoments/transaction-svc/internal/enum"
 	"database/sql"
 	"encoding/json"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 )
 
 type Transaction struct {
