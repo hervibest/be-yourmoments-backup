@@ -7,14 +7,14 @@ import (
 	"be-yourmoments/photo-svc/internal/repository"
 	"context"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/oklog/ulid/v2"
 )
 
 type FacecamUseCase interface {
-	CreateFacecam(ctx context.Context, request *pb.CreateFacecamRequest) error
+	CreateFacecam(ctx context.Context, request *photopb.CreateFacecamRequest) error
 	// UpdateProcessedPhoto(ctx context.Context, req *model.RequestUpdateProcessedPhoto) (error, error)
 }
 
@@ -40,7 +40,7 @@ func NewFacecamUseCase(db *sqlx.DB, facecamRepo repository.FacecamRepository,
 	}
 }
 
-func (u *facecamUseCase) CreateFacecam(ctx context.Context, request *pb.CreateFacecamRequest) error {
+func (u *facecamUseCase) CreateFacecam(ctx context.Context, request *photopb.CreateFacecamRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err

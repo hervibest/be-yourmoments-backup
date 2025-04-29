@@ -17,16 +17,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/oklog/ulid/v2"
 )
 
 type PhotoUseCase interface {
-	CreatePhoto(ctx context.Context, request *pb.CreatePhotoRequest) error
-	UpdatePhotoDetail(ctx context.Context, request *pb.UpdatePhotoDetailRequest) error
-	CreateBulkPhoto(ctx context.Context, request *pb.CreateBulkPhotoRequest) error
+	CreatePhoto(ctx context.Context, request *photopb.CreatePhotoRequest) error
+	UpdatePhotoDetail(ctx context.Context, request *photopb.UpdatePhotoDetailRequest) error
+	CreateBulkPhoto(ctx context.Context, request *photopb.CreateBulkPhotoRequest) error
 	GetBulkPhotoDetail(ctx context.Context, request *model.GetBulkPhotoDetailRequest) (*model.GetBulkPhotoDetailResponse, error)
 }
 
@@ -63,7 +63,7 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 }
 
 // ISSUE #1 : creator_id should be called form pb contract and come from AuthMiddleware (centralized auth)
-func (u *photoUsecase) CreatePhoto(ctx context.Context, request *pb.CreatePhotoRequest) error {
+func (u *photoUsecase) CreatePhoto(ctx context.Context, request *photopb.CreatePhotoRequest) error {
 	log.Print(request.Photo.GetUserId())
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
@@ -129,7 +129,7 @@ func (u *photoUsecase) CreatePhoto(ctx context.Context, request *pb.CreatePhotoR
 
 }
 
-func (u *photoUsecase) UpdatePhotoDetail(ctx context.Context, request *pb.UpdatePhotoDetailRequest) error {
+func (u *photoUsecase) UpdatePhotoDetail(ctx context.Context, request *photopb.UpdatePhotoDetailRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -182,7 +182,7 @@ func (u *photoUsecase) UpdatePhotoDetail(ctx context.Context, request *pb.Update
 }
 
 // ISSUE #1 : creator_id should be called form pb contract and come from AuthMiddleware (centralized auth)
-func (u *photoUsecase) CreateBulkPhoto(ctx context.Context, request *pb.CreateBulkPhotoRequest) error {
+func (u *photoUsecase) CreateBulkPhoto(ctx context.Context, request *photopb.CreateBulkPhotoRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -232,7 +232,7 @@ func (u *photoUsecase) CreateBulkPhoto(ctx context.Context, request *pb.CreateBu
 
 		photoDetail := &entity.PhotoDetail{
 			Id:              ulid.Make().String(),
-			PhotoId:         photo.Id,
+			PhotoId:         pbPhoto.Id,
 			FileName:        pbPhoto.GetDetail().GetFileName(),
 			FileKey:         pbPhoto.GetDetail().GetFileKey(),
 			Size:            pbPhoto.GetDetail().GetSize(),

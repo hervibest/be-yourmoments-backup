@@ -162,7 +162,6 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 	claims, err := u.googleTokenAdapter.ValidateGoogleToken(ctx, request.Token)
 	if err != nil {
 		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, err.Error())
-
 	}
 
 	countByNotGoogleTotal, err := u.userRepository.CountByEmailNotGoogle(ctx, claims.Email)

@@ -4,14 +4,14 @@ import (
 	"be-yourmoments/photo-svc/internal/helper/discovery"
 	"context"
 
-	"github.com/be-yourmoments/pb"
+	aipb "github.com/be-yourmoments/pb/ai"
 )
 
 type AiAdapter interface {
 }
 
 type aiAdapter struct {
-	client pb.AiServiceClient
+	client aipb.AiServiceClient
 }
 
 func NewAiAdapter(ctx context.Context, registry discovery.Registry) (AiAdapter, error) {
@@ -20,7 +20,7 @@ func NewAiAdapter(ctx context.Context, registry discovery.Registry) (AiAdapter, 
 		return nil, err
 	}
 
-	client := pb.NewAiServiceClient(conn)
+	client := aipb.NewAiServiceClient(conn)
 
 	return &aiAdapter{
 		client: client,

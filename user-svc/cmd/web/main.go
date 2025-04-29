@@ -115,7 +115,7 @@ func webServer() error {
 	uploadAdapter := adapter.NewUploadAdapter(minioConfig, redisConfig)
 	firestoreAdapter := adapter.NewFirestoreClientAdapter(firebaseConfig)
 	authClientAdapter := adapter.NewAuthClientAdapter(firebaseConfig)
-	messagingClientAdapter := adapter.NewMessagingClientAdapter(firebaseConfig)
+	cloudMessagingAdapter := adapter.NewCloudMessagingAdapter(firebaseConfig)
 	perspectiveAdapter := adapter.NewPerspectiveAdapter()
 	customValidator := helper.NewCustomValidator()
 
@@ -156,8 +156,8 @@ func webServer() error {
 	authUseCase := usecase.NewAuthUseCase(dbConfig, userRepository, userProfileRepository, emailVerificationRepository, resetPasswordRepository,
 		userDeviceRepository, googleTokenAdapter, emailAdapter, jwtAdapter, securityAdapter, cacheAdapter, firestoreAdapter, photoAdapter, transactionAdapter, logs)
 	userUseCase := usecase.NewUserUseCase(dbConfig, userRepository, userProfileRepository, userImageRepository, uploadAdapter, logs)
-	chatUseCase := usecase.NewChatUseCase(firestoreAdapter, authClientAdapter, messagingClientAdapter, perspectiveAdapter, logs)
-
+	chatUseCase := usecase.NewChatUseCase(firestoreAdapter, authClientAdapter, cloudMessagingAdapter, perspectiveAdapter, logs)
+	notificationUseCase := usecase.NewNotificationUseCase(dbConfig, redisConfig, userDeviceRepository, cloudMessagingAdapter, logs)
 	authController := http.NewAuthController(authUseCase, customValidator, logs)
 	userController := http.NewUserController(userUseCase, customValidator, logs)
 	chatController := http.NewChatController(chatUseCase, customValidator, logs)
@@ -183,7 +183,8 @@ func webServer() error {
 		logs.Log(fmt.Sprintf("gRPC server started on %s", serverConfig.GRPC))
 		defer l.Close()
 
-		grpcHandler.NewPhotoGRPCHandler(grpcServer, authUseCase)
+		grpcHandler.NewUserGRPCHandler(grpcServer, authUseCase)
+		grpcHandler.NewNotificationGRPCHandler(grpcServer, notificationUseCase)
 
 		if err := grpcServer.Serve(l); err != nil {
 			logs.Error(fmt.Sprintf("Failed to start gRPC category server: %v", err))

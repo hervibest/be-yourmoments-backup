@@ -7,7 +7,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -21,7 +21,7 @@ type PhotoGRPCHandler struct {
 	creatorUseCase          usecase.CreatorUseCase
 	checkoutUseCase         usecase.CheckoutUseCase
 
-	pb.UnimplementedPhotoServiceServer
+	photopb.UnimplementedPhotoServiceServer
 }
 
 func NewPhotoGRPCHandler(server *grpc.Server, photoUseCase usecase.PhotoUseCase,
@@ -35,71 +35,71 @@ func NewPhotoGRPCHandler(server *grpc.Server, photoUseCase usecase.PhotoUseCase,
 		checkoutUseCase:         checkoutUseCase,
 	}
 
-	pb.RegisterPhotoServiceServer(server, handler)
+	photopb.RegisterPhotoServiceServer(server, handler)
 }
 
-func (h *PhotoGRPCHandler) CreatePhoto(ctx context.Context, pbReq *pb.CreatePhotoRequest) (
-	*pb.CreatePhotoResponse, error) {
+func (h *PhotoGRPCHandler) CreatePhoto(ctx context.Context, pbReq *photopb.CreatePhotoRequest) (
+	*photopb.CreatePhotoResponse, error) {
 	log.Println("----  CreatePhoto Requets via GRPC in photo-svc ------")
 	if err := h.photoUseCase.CreatePhoto(context.Background(), pbReq); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.CreatePhotoResponse{
+	return &photopb.CreatePhotoResponse{
 		Status: int64(codes.OK),
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) CreateUserSimilar(ctx context.Context, pbReq *pb.CreateUserSimilarPhotoRequest) (
-	*pb.CreateUserSimilarPhotoResponse, error) {
+func (h *PhotoGRPCHandler) CreateUserSimilar(ctx context.Context, pbReq *photopb.CreateUserSimilarPhotoRequest) (
+	*photopb.CreateUserSimilarPhotoResponse, error) {
 	log.Println("----  CreatePhoto user similar Requets via GRPC in photo-svc ------")
 	if err := h.userSimilarPhotoUseCase.CreateUserSimilar(context.Background(), pbReq); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.CreateUserSimilarPhotoResponse{
+	return &photopb.CreateUserSimilarPhotoResponse{
 		Status: int64(codes.OK),
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) UpdatePhotoDetail(ctx context.Context, pbReq *pb.UpdatePhotoDetailRequest) (
-	*pb.UpdatePhotoDetailResponse, error) {
+func (h *PhotoGRPCHandler) UpdatePhotoDetail(ctx context.Context, pbReq *photopb.UpdatePhotoDetailRequest) (
+	*photopb.UpdatePhotoDetailResponse, error) {
 	log.Println("----  UpdatePhoto Requets via GRPC in photo-svc ------")
 	if err := h.photoUseCase.UpdatePhotoDetail(context.Background(), pbReq); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.UpdatePhotoDetailResponse{
+	return &photopb.UpdatePhotoDetailResponse{
 		Status: int64(codes.OK),
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) CreateFacecam(ctx context.Context, pbReq *pb.CreateFacecamRequest) (
-	*pb.CreateFacecamResponse, error) {
+func (h *PhotoGRPCHandler) CreateFacecam(ctx context.Context, pbReq *photopb.CreateFacecamRequest) (
+	*photopb.CreateFacecamResponse, error) {
 	log.Println("----  Create facecam Requets via GRPC in photo-svc ------")
 	if err := h.facecamUseCase.CreateFacecam(context.Background(), pbReq); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.CreateFacecamResponse{
+	return &photopb.CreateFacecamResponse{
 		Status: int64(codes.OK),
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) CreateUserSimilarFacecam(ctx context.Context, pbReq *pb.CreateUserSimilarFacecamRequest) (
-	*pb.CreateUserSimilarFacecamResponse, error) {
+func (h *PhotoGRPCHandler) CreateUserSimilarFacecam(ctx context.Context, pbReq *photopb.CreateUserSimilarFacecamRequest) (
+	*photopb.CreateUserSimilarFacecamResponse, error) {
 	log.Println("----  CreatePhoto user similar Requets via GRPC in photo-svc ------")
 	if err := h.userSimilarPhotoUseCase.CreateUserFacecam(context.Background(), pbReq); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.CreateUserSimilarFacecamResponse{
+	return &photopb.CreateUserSimilarFacecamResponse{
 		Status: int64(codes.OK),
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) CreateCreator(ctx context.Context, pbReq *pb.CreateCreatorRequest) (
-	*pb.CreateCreatorResponse, error) {
+func (h *PhotoGRPCHandler) CreateCreator(ctx context.Context, pbReq *photopb.CreateCreatorRequest) (
+	*photopb.CreateCreatorResponse, error) {
 	log.Println("----  CreatePhoto user similar Requets via GRPC in photo-svc ------")
 
 	request := &model.CreateCreatorRequest{
@@ -111,7 +111,7 @@ func (h *PhotoGRPCHandler) CreateCreator(ctx context.Context, pbReq *pb.CreateCr
 		return nil, helper.ErrGRPC(err)
 	}
 
-	creatorPb := &pb.Creator{
+	creatorPb := &photopb.Creator{
 		Id:     response.Id,
 		UserId: response.UserId,
 		CreatedAt: &timestamppb.Timestamp{
@@ -124,14 +124,14 @@ func (h *PhotoGRPCHandler) CreateCreator(ctx context.Context, pbReq *pb.CreateCr
 		},
 	}
 
-	return &pb.CreateCreatorResponse{
+	return &photopb.CreateCreatorResponse{
 		Status:  int64(codes.OK),
 		Creator: creatorPb,
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) GetCreator(ctx context.Context, pbReq *pb.GetCreatorRequest) (
-	*pb.GetCreatorResponse, error) {
+func (h *PhotoGRPCHandler) GetCreator(ctx context.Context, pbReq *photopb.GetCreatorRequest) (
+	*photopb.GetCreatorResponse, error) {
 	log.Println("----  GetCreator Requets via GRPC in photo-svc ------")
 
 	request := &model.GetCreatorRequest{
@@ -143,7 +143,7 @@ func (h *PhotoGRPCHandler) GetCreator(ctx context.Context, pbReq *pb.GetCreatorR
 		return nil, helper.ErrGRPC(err)
 	}
 
-	creatorPb := &pb.Creator{
+	creatorPb := &photopb.Creator{
 		Id:     response.Id,
 		UserId: response.UserId,
 		CreatedAt: &timestamppb.Timestamp{
@@ -156,14 +156,14 @@ func (h *PhotoGRPCHandler) GetCreator(ctx context.Context, pbReq *pb.GetCreatorR
 		},
 	}
 
-	return &pb.GetCreatorResponse{
+	return &photopb.GetCreatorResponse{
 		Status:  int64(codes.OK),
 		Creator: creatorPb,
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) CalculatePhotoPrice(ctx context.Context, pbReq *pb.CalculatePhotoPriceRequest) (
-	*pb.CalculatePhotoPriceResponse, error) {
+func (h *PhotoGRPCHandler) CalculatePhotoPrice(ctx context.Context, pbReq *photopb.CalculatePhotoPriceRequest) (
+	*photopb.CalculatePhotoPriceResponse, error) {
 	log.Println("----  Calcualte Photo Price Requets via GRPC in photo-svc ------")
 
 	request := &model.PreviewCheckoutRequest{
@@ -176,9 +176,9 @@ func (h *PhotoGRPCHandler) CalculatePhotoPrice(ctx context.Context, pbReq *pb.Ca
 		return nil, helper.ErrGRPC(err)
 	}
 
-	pbItemReponses := make([]*pb.CheckoutItem, 0)
+	pbItemReponses := make([]*photopb.CheckoutItem, 0)
 	for _, item := range *items {
-		pbResponse := &pb.CheckoutItem{
+		pbResponse := &photopb.CheckoutItem{
 			PhotoId:             item.PhotoId,
 			CreatorId:           item.CreatorId,
 			Title:               item.Title,
@@ -195,50 +195,50 @@ func (h *PhotoGRPCHandler) CalculatePhotoPrice(ctx context.Context, pbReq *pb.Ca
 		pbItemReponses = append(pbItemReponses, pbResponse)
 	}
 
-	totalPbResponse := &pb.Total{
+	totalPbResponse := &photopb.Total{
 		Price:    total.Price,
 		Discount: total.Discount,
 	}
 
-	return &pb.CalculatePhotoPriceResponse{
+	return &photopb.CalculatePhotoPriceResponse{
 		Status: int64(codes.OK),
 		Items:  pbItemReponses,
 		Total:  totalPbResponse,
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) OwnerOwnPhotos(ctx context.Context, pbReq *pb.OwnerOwnPhotosRequest) (
-	*pb.OwnerOwnPhotosResponse, error) {
+func (h *PhotoGRPCHandler) OwnerOwnPhotos(ctx context.Context, pbReq *photopb.OwnerOwnPhotosRequest) (
+	*photopb.OwnerOwnPhotosResponse, error) {
 	log.Println("----  OwnerOwnPhotos Requets via GRPC in photo-svc ------")
 	if err := h.checkoutUseCase.OwnerOwnPhotos(context.Background(), pbReq.GetOwnerId(), pbReq.GetPhotoIds()); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.OwnerOwnPhotosResponse{
+	return &photopb.OwnerOwnPhotosResponse{
 		Status: int64(codes.OK),
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) CreateBulkPhoto(ctx context.Context, pbReq *pb.CreateBulkPhotoRequest) (
-	*pb.CreateBulkPhotoResponse, error) {
+func (h *PhotoGRPCHandler) CreateBulkPhoto(ctx context.Context, pbReq *photopb.CreateBulkPhotoRequest) (
+	*photopb.CreateBulkPhotoResponse, error) {
 	log.Println("----  CreatePhoto Bulk Photo Requets via GRPC in photo-svc ------")
 	if err := h.photoUseCase.CreateBulkPhoto(context.Background(), pbReq); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.CreateBulkPhotoResponse{
+	return &photopb.CreateBulkPhotoResponse{
 		Status: int64(codes.OK),
 	}, nil
 }
 
-func (h *PhotoGRPCHandler) CreateBulkUserSimilarPhotos(ctx context.Context, pbReq *pb.CreateBulkUserSimilarPhotoRequest) (
-	*pb.CreateBulkUserSimilarPhotoResponse, error) {
+func (h *PhotoGRPCHandler) CreateBulkUserSimilarPhotos(ctx context.Context, pbReq *photopb.CreateBulkUserSimilarPhotoRequest) (
+	*photopb.CreateBulkUserSimilarPhotoResponse, error) {
 	log.Println("----  Create Bulk User Similar Photos Requets via GRPC in photo-svc ------")
 	if err := h.userSimilarPhotoUseCase.CreateBulkUserSimilarPhotos(context.Background(), pbReq); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
-	return &pb.CreateBulkUserSimilarPhotoResponse{
+	return &photopb.CreateBulkUserSimilarPhotoResponse{
 		Status: int64(codes.OK),
 	}, nil
 }

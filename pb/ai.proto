@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ai;
 
-option go_package = ".pkg/pb";
+option go_package = ".pkg/ai;aipb";
 
 service AiService{
   rpc ProcessPhoto(ProcessPhotoRequest) returns (ProcessPhotoResponse);
@@ -42,8 +42,8 @@ message AIPhoto {
 }
 
 message ProcessBulkPhotoRequest {
-  AIBulkPhoto process_bulk_photo = 1;
-  repeated AIPhoto process_photo = 2;
+  AIBulkPhoto process_bulk_ai = 1;
+  repeated AIPhoto process_ai = 2;
 }
 
 message ProcessBulkPhotoResponse{

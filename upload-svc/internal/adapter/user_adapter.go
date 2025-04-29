@@ -4,18 +4,18 @@ import (
 	"be-yourmoments/upload-svc/internal/helper"
 	"be-yourmoments/upload-svc/internal/helper/discovery"
 
-	"github.com/be-yourmoments/pb"
+	userpb "github.com/be-yourmoments/pb/user"
 
 	"context"
 	"log"
 )
 
 type UserAdapter interface {
-	AuthenticateUser(ctx context.Context, token string) (*pb.AuthenticateResponse, error)
+	AuthenticateUser(ctx context.Context, token string) (*userpb.AuthenticateResponse, error)
 }
 
 type userAdapter struct {
-	client pb.UserServiceClient
+	client userpb.UserServiceClient
 }
 
 func NewUserAdapter(ctx context.Context, registry discovery.Registry) (UserAdapter, error) {
@@ -25,15 +25,15 @@ func NewUserAdapter(ctx context.Context, registry discovery.Registry) (UserAdapt
 	}
 
 	log.Print("successfuly connected to user-svc-grpc")
-	client := pb.NewUserServiceClient(conn)
+	client := userpb.NewUserServiceClient(conn)
 
 	return &userAdapter{
 		client: client,
 	}, nil
 }
 
-func (a *userAdapter) AuthenticateUser(ctx context.Context, token string) (*pb.AuthenticateResponse, error) {
-	processPhotoRequest := &pb.AuthenticateRequest{
+func (a *userAdapter) AuthenticateUser(ctx context.Context, token string) (*userpb.AuthenticateResponse, error) {
+	processPhotoRequest := &userpb.AuthenticateRequest{
 		Token: token,
 	}
 

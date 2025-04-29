@@ -7,7 +7,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/be-yourmoments/pb"
+	transcationpb "github.com/be-yourmoments/pb/transaction"
 )
 
 type TransactionAdapter interface {
@@ -16,7 +16,7 @@ type TransactionAdapter interface {
 }
 
 type transactionAdapter struct {
-	client pb.TransactionServiceClient
+	client transcationpb.TransactionServiceClient
 }
 
 func NewTransactionAdapter(ctx context.Context, registry discovery.Registry) (TransactionAdapter, error) {
@@ -26,7 +26,7 @@ func NewTransactionAdapter(ctx context.Context, registry discovery.Registry) (Tr
 	}
 
 	log.Print("transaction-svc-grpc")
-	client := pb.NewTransactionServiceClient(conn)
+	client := transcationpb.NewTransactionServiceClient(conn)
 
 	return &transactionAdapter{
 		client: client,
@@ -34,7 +34,7 @@ func NewTransactionAdapter(ctx context.Context, registry discovery.Registry) (Tr
 }
 
 func (a *transactionAdapter) CreateWallet(ctx context.Context, creatorId string) (*entity.Wallet, error) {
-	pbRequest := &pb.CreateWalletRequest{
+	pbRequest := &transcationpb.CreateWalletRequest{
 		CreatorId: creatorId,
 	}
 
@@ -53,7 +53,7 @@ func (a *transactionAdapter) CreateWallet(ctx context.Context, creatorId string)
 }
 
 func (a *transactionAdapter) GetWallet(ctx context.Context, creatorId string) (*entity.Wallet, error) {
-	pbRequest := &pb.GetWalletRequest{
+	pbRequest := &transcationpb.GetWalletRequest{
 		CreatorId: creatorId,
 	}
 

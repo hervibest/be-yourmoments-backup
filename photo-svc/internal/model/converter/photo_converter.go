@@ -3,10 +3,10 @@ package converter
 import (
 	"be-yourmoments/photo-svc/internal/model"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 )
 
-func GrpcToCreateRequest(req *pb.UpdatePhotographerPhotoRequest) *model.RequestUpdateProcessedPhoto {
+func GrpcToCreateRequest(req *photopb.UpdatePhotographerPhotoRequest) *model.RequestUpdateProcessedPhoto {
 
 	userId := make([]string, len(req.UserId))
 	for _, value := range req.UserId {

@@ -2,7 +2,9 @@ syntax = "proto3";
 
 package user;
 
-option go_package = ".pkg/pb";
+option go_package = "github.com/hervibest/be-yourmoments-backup/pb/user;userpb";
+
+import "photo/photo.proto";
 
 service UserService{
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
@@ -25,4 +27,19 @@ message User {
   string 	phone_number = 4;
   string  creator_id = 5;
   string  wallet_id = 6;
+}
+
+
+
+
+service NotificationService {
+  rpc SendBulkPhotoNotification(SendBulkPhotoNotificationRequest) returns (SendBulkPhotoNotificationResponse);
+}
+
+message SendBulkPhotoNotificationRequest {
+  repeated photo.BulkUserSimilarPhoto bulk_user_similar_photo = 1;
+}
+
+message SendBulkPhotoNotificationResponse {
+  int64 status = 1;
 }

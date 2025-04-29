@@ -6,7 +6,7 @@ import (
 	discovery "be-yourmoments/user-svc/internal/helper/discovery"
 	"context"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 )
 
 type PhotoAdapter interface {
@@ -15,7 +15,7 @@ type PhotoAdapter interface {
 }
 
 type photoAdapter struct {
-	client pb.PhotoServiceClient
+	client photopb.PhotoServiceClient
 }
 
 func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAdapter, error) {
@@ -23,7 +23,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAda
 	if err != nil {
 		return nil, err
 	}
-	client := pb.NewPhotoServiceClient(conn)
+	client := photopb.NewPhotoServiceClient(conn)
 
 	return &photoAdapter{
 		client: client,
@@ -31,7 +31,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAda
 }
 
 func (a *photoAdapter) CreateCreator(ctx context.Context, userId string) (*entity.Creator, error) {
-	pbRequest := &pb.CreateCreatorRequest{
+	pbRequest := &photopb.CreateCreatorRequest{
 		UserId: userId,
 	}
 
@@ -48,7 +48,7 @@ func (a *photoAdapter) CreateCreator(ctx context.Context, userId string) (*entit
 }
 
 func (a *photoAdapter) GetCreator(ctx context.Context, userId string) (*entity.Creator, error) {
-	pbRequest := &pb.GetCreatorRequest{
+	pbRequest := &photopb.GetCreatorRequest{
 		UserId: userId,
 	}
 

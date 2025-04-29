@@ -8,7 +8,7 @@ import (
 	"be-yourmoments/upload-svc/internal/helper/nullable"
 	"context"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -21,7 +21,7 @@ type PhotoAdapter interface {
 }
 
 type photoAdapter struct {
-	client pb.PhotoServiceClient
+	client photopb.PhotoServiceClient
 	logs   *logger.Log
 }
 
@@ -31,7 +31,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs *log
 		return nil, err
 	}
 	logs.Log("successfuly connected to photo-svc-grpc")
-	client := pb.NewPhotoServiceClient(conn)
+	client := photopb.NewPhotoServiceClient(conn)
 
 	return &photoAdapter{
 		client: client,
@@ -40,7 +40,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs *log
 }
 
 func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, facecam *entity.PhotoDetail) error {
-	photoDetailPb := &pb.PhotoDetail{
+	photoDetailPb := &photopb.PhotoDetail{
 		Id:              facecam.Id,
 		PhotoId:         facecam.PhotoId,
 		FileName:        facecam.FileName,
@@ -62,7 +62,7 @@ func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, fac
 		},
 	}
 
-	photoPb := &pb.Photo{
+	photoPb := &photopb.Photo{
 		Id:            photo.Id,
 		UserId:        photo.UserId,
 		CreatorId:     photo.CreatorId,
@@ -90,7 +90,7 @@ func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, fac
 		Description: nullable.SQLToProtoString(photo.Description),
 	}
 
-	pbRequest := &pb.CreatePhotoRequest{
+	pbRequest := &photopb.CreatePhotoRequest{
 		Photo: photoPb,
 	}
 
@@ -103,7 +103,7 @@ func (a *photoAdapter) CreatePhoto(ctx context.Context, photo *entity.Photo, fac
 }
 
 func (a *photoAdapter) UpdatePhotoDetail(ctx context.Context, facecam *entity.PhotoDetail) error {
-	photoDetailPb := &pb.PhotoDetail{
+	photoDetailPb := &photopb.PhotoDetail{
 		Id:              facecam.Id,
 		PhotoId:         facecam.PhotoId,
 		FileName:        facecam.FileName,
@@ -124,7 +124,7 @@ func (a *photoAdapter) UpdatePhotoDetail(ctx context.Context, facecam *entity.Ph
 			Nanos:   int32(facecam.UpdatedAt.Nanosecond()),
 		},
 	}
-	pbRequest := &pb.UpdatePhotoDetailRequest{
+	pbRequest := &photopb.UpdatePhotoDetailRequest{
 		PhotoDetail: photoDetailPb,
 	}
 
@@ -137,7 +137,7 @@ func (a *photoAdapter) UpdatePhotoDetail(ctx context.Context, facecam *entity.Ph
 }
 
 func (a *photoAdapter) CreateFacecam(ctx context.Context, facecam *entity.Facecam) error {
-	facecamPb := &pb.Facecam{
+	facecamPb := &photopb.Facecam{
 		Id:       facecam.Id,
 		UserId:   facecam.UserId,
 		FileName: facecam.FileName,
@@ -155,7 +155,7 @@ func (a *photoAdapter) CreateFacecam(ctx context.Context, facecam *entity.Faceca
 		},
 	}
 
-	pbRequest := &pb.CreateFacecamRequest{
+	pbRequest := &photopb.CreateFacecamRequest{
 		Facecam: facecamPb,
 	}
 
@@ -168,9 +168,9 @@ func (a *photoAdapter) CreateFacecam(ctx context.Context, facecam *entity.Faceca
 }
 
 func (a *photoAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo, photoDetails *[]*entity.PhotoDetail) error {
-	photoPbs := make([]*pb.Photo, 0)
+	photoPbs := make([]*photopb.Photo, 0)
 
-	photoBukPb := &pb.BulkPhoto{
+	photoBukPb := &photopb.BulkPhoto{
 		Id:              bulkPhoto.Id,
 		CreatorId:       bulkPhoto.CreatorId,
 		BulkPhotoStatus: string(bulkPhoto.BulkPhotoStatus),
@@ -185,7 +185,7 @@ func (a *photoAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkP
 	}
 
 	for idx, photoDetail := range *photoDetails {
-		photoDetailPb := &pb.PhotoDetail{
+		photoDetailPb := &photopb.PhotoDetail{
 			Id:              photoDetail.Id,
 			PhotoId:         photoDetail.PhotoId,
 			FileName:        photoDetail.FileName,
@@ -207,7 +207,7 @@ func (a *photoAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkP
 			},
 		}
 
-		photoPb := &pb.Photo{
+		photoPb := &photopb.Photo{
 			Id:            (*photos)[idx].Id,
 			UserId:        (*photos)[idx].UserId,
 			CreatorId:     (*photos)[idx].CreatorId,
@@ -239,7 +239,7 @@ func (a *photoAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkP
 		photoPbs = append(photoPbs, photoPb)
 	}
 
-	pbRequest := &pb.CreateBulkPhotoRequest{
+	pbRequest := &photopb.CreateBulkPhotoRequest{
 		BulkPhoto: photoBukPb,
 		Photos:    photoPbs,
 	}

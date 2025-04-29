@@ -6,15 +6,15 @@ import (
 	"context"
 	"log"
 
-	"github.com/be-yourmoments/pb"
+	transcationpb "github.com/be-yourmoments/pb/transaction"
 )
 
 type TransactionAdapter interface {
-	CreateWallet(ctx context.Context, creatorId string) (*pb.CreateWalletResponse, error)
+	CreateWallet(ctx context.Context, creatorId string) (*transcationpb.CreateWalletResponse, error)
 }
 
 type transactionAdapter struct {
-	client pb.TransactionServiceClient
+	client transcationpb.TransactionServiceClient
 }
 
 func NewTransactionAdapter(ctx context.Context, registry discovery.Registry) (TransactionAdapter, error) {
@@ -24,15 +24,15 @@ func NewTransactionAdapter(ctx context.Context, registry discovery.Registry) (Tr
 	}
 
 	log.Print("successfuly connected to transaction-svc-grpc")
-	client := pb.NewTransactionServiceClient(conn)
+	client := transcationpb.NewTransactionServiceClient(conn)
 
 	return &transactionAdapter{
 		client: client,
 	}, nil
 }
 
-func (a *transactionAdapter) CreateWallet(ctx context.Context, creatorId string) (*pb.CreateWalletResponse, error) {
-	processPhotoRequest := &pb.CreateWalletRequest{
+func (a *transactionAdapter) CreateWallet(ctx context.Context, creatorId string) (*transcationpb.CreateWalletResponse, error) {
+	processPhotoRequest := &transcationpb.CreateWalletRequest{
 		CreatorId: creatorId,
 	}
 

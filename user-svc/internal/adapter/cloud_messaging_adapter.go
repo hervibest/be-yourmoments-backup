@@ -8,16 +8,16 @@ import (
 	"firebase.google.com/go/messaging"
 )
 
-type MessagingClientAdapter interface {
+type CloudMessagingAdapter interface {
 	Send(ctx context.Context, message *messaging.Message) (string, error)
 }
 
-func NewMessagingClientAdapter(app *firebase.App) MessagingClientAdapter {
+func NewCloudMessagingAdapter(app *firebase.App) CloudMessagingAdapter {
 	ctx := context.Background()
-	messagingClientAdapter, err := app.Messaging(ctx)
+	cloudMessagingAdapter, err := app.Messaging(ctx)
 	if err != nil {
 		log.Fatalf("error initializing firebase messaging: %v", err)
 	}
 
-	return messagingClientAdapter
+	return cloudMessagingAdapter
 }

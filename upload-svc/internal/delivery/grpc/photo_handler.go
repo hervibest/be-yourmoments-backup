@@ -4,7 +4,7 @@ import (
 	"be-yourmoments/upload-svc/internal/usecase"
 	"context"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -13,7 +13,7 @@ import (
 
 type PhotoGRPCHandler struct {
 	usecase usecase.PhotoUsecase
-	pb.UnimplementedPhotoServiceServer
+	photopb.UnimplementedPhotoServiceServer
 }
 
 func NewPhotoGRPCHandler(server *grpc.Server, usecase usecase.PhotoUsecase) {
@@ -21,18 +21,18 @@ func NewPhotoGRPCHandler(server *grpc.Server, usecase usecase.PhotoUsecase) {
 		usecase: usecase,
 	}
 
-	pb.RegisterPhotoServiceServer(server, handler)
+	photopb.RegisterPhotoServiceServer(server, handler)
 }
 
 func (h *PhotoGRPCHandler) UpdatePhotographerPhoto(ctx context.Context,
-	pbReq *pb.UpdatePhotographerPhotoRequest) (
-	*pb.UpdatePhotographerPhotoResponse, error) {
+	pbReq *photopb.UpdatePhotographerPhotoRequest) (
+	*photopb.UpdatePhotographerPhotoResponse, error) {
 
 	// req := converter.GrpcToCreateRequest(pbReq)
 	// h.usecase.UpdatePhoto(ctx, req)
 
 	return nil, nil
 }
-func (h *PhotoGRPCHandler) UpdateFaceRecogPhoto(ctx context.Context, req *pb.UpdateFaceRecogPhotoRequest) (*pb.UpdateFaceRecogPhotoResponse, error) {
+func (h *PhotoGRPCHandler) UpdateFaceRecogPhoto(ctx context.Context, req *photopb.UpdateFaceRecogPhotoRequest) (*photopb.UpdateFaceRecogPhotoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateFaceRecogPhoto not implemented")
 }

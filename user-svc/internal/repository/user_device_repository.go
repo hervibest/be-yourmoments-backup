@@ -3,10 +3,14 @@ package repository
 import (
 	"be-yourmoments/user-svc/internal/entity"
 	"context"
+
+	"github.com/lib/pq"
 )
 
 type UserDeviceRepository interface {
 	Create(ctx context.Context, tx Querier, userDevice *entity.UserDevice) (*entity.UserDevice, error)
+	FetchFCMTokensFromPostgre(ctx context.Context, tx Querier, userIDs []string) (*[]*entity.UserDevice, error)
+	DeleteByUserID(ctx context.Context, tx Querier, userID string) error
 }
 type userDeviceRepository struct{}
 
@@ -25,4 +29,33 @@ func (r *userDeviceRepository) Create(ctx context.Context, tx Querier, userDevic
 		return nil, err
 	}
 	return userDevice, err
+}
+
+func (r *userDeviceRepository) FetchFCMTokensFromPostgre(ctx context.Context, tx Querier, userIDs []string) (*[]*entity.UserDevice, error) {
+	userDevices := make([]*entity.UserDevice, 0)
+	query := `
+	SELECT * from user_devices 
+	WHERE user_id = ANY($1)
+	`
+
+	if err := tx.SelectContext(ctx, userDevices, query, pq.Array(userIDs)); err != nil {
+		return nil, err
+	}
+
+	return &userDevices, nil
+}
+
+func (r *userDeviceRepository) DeleteByUserID(ctx context.Context, tx Querier, userID string) error {
+	query := `
+	DELETE 
+	FROM user_devices
+	WHERE user_id = $1
+	`
+
+	_, err := tx.ExecContext(ctx, query, userID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

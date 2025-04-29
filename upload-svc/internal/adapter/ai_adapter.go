@@ -6,7 +6,7 @@ import (
 	discovery "be-yourmoments/upload-svc/internal/helper/discovery"
 	"be-yourmoments/upload-svc/internal/helper/logger"
 
-	"github.com/be-yourmoments/pb"
+	aipb "github.com/be-yourmoments/pb/ai"
 
 	"context"
 	"log"
@@ -18,7 +18,7 @@ type AiAdapter interface {
 }
 
 type aiAdapter struct {
-	client pb.AiServiceClient
+	client aipb.AiServiceClient
 	logs   *logger.Log
 }
 
@@ -28,7 +28,7 @@ func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs *logger
 		return nil, err
 	}
 	logs.Log("successfuly connected to ai-svc-grpc")
-	client := pb.NewAiServiceClient(conn)
+	client := aipb.NewAiServiceClient(conn)
 
 	return &aiAdapter{
 		client: client,
@@ -37,7 +37,7 @@ func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs *logger
 }
 
 func (a *aiAdapter) ProcessPhoto(ctx context.Context, userId, fileUrl string) error {
-	processPhotoRequest := &pb.ProcessPhotoRequest{
+	processPhotoRequest := &aipb.ProcessPhotoRequest{
 		Id:  userId,
 		Url: fileUrl,
 	}
@@ -52,7 +52,7 @@ func (a *aiAdapter) ProcessPhoto(ctx context.Context, userId, fileUrl string) er
 
 func (a *aiAdapter) ProcessFacecam(ctx context.Context, fileId, fileUrl string) error {
 	log.Println("REQUESTED PROCESS FACECAM VIA GRPC TO AI SERVER")
-	processPhotoRequest := &pb.ProcessFacecamRequest{
+	processPhotoRequest := &aipb.ProcessFacecamRequest{
 		Id:  fileId,
 		Url: fileUrl,
 	}
@@ -66,23 +66,23 @@ func (a *aiAdapter) ProcessFacecam(ctx context.Context, fileId, fileUrl string) 
 }
 
 func (a *aiAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error {
-	pbAIPhotos := make([]*pb.AIPhoto, len(*photos))
+	pbAIPhotos := make([]*aipb.AIPhoto, len(*photos))
 	for _, photo := range *photos {
-		pbAIPhoto := &pb.AIPhoto{
+		pbAIPhoto := &aipb.AIPhoto{
 			Id:            photo.Id,
 			CollectionUrl: photo.CollectionUrl,
 		}
 		pbAIPhotos = append(pbAIPhotos, pbAIPhoto)
 	}
 
-	pbAIBulkPhoto := &pb.AIBulkPhoto{
+	pbAIBulkPhoto := &aipb.AIBulkPhoto{
 		Id:        bulkPhoto.Id,
 		CreatorId: bulkPhoto.CreatorId,
 	}
 
-	pbRequest := &pb.ProcessBulkPhotoRequest{
-		ProcessBulkPhoto: pbAIBulkPhoto,
-		ProcessPhoto:     pbAIPhotos,
+	pbRequest := &aipb.ProcessBulkPhotoRequest{
+		ProcessBulkAi: pbAIBulkPhoto,
+		ProcessAi:     pbAIPhotos,
 	}
 
 	_, err := a.client.ProcessBulkPhoto(ctx, pbRequest)

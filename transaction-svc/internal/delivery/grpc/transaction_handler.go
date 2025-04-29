@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/be-yourmoments/pb"
+	transactionpb "github.com/be-yourmoments/pb/transaction"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -16,7 +16,7 @@ import (
 
 type TransactionGRPCHandler struct {
 	walletUseCase usecase.WalletUsecase
-	pb.UnimplementedTransactionServiceServer
+	transactionpb.UnimplementedTransactionServiceServer
 }
 
 func NewTransactionGRPCHandler(server *grpc.Server, walletUseCase usecase.WalletUsecase) {
@@ -24,15 +24,15 @@ func NewTransactionGRPCHandler(server *grpc.Server, walletUseCase usecase.Wallet
 		walletUseCase: walletUseCase,
 	}
 
-	pb.RegisterTransactionServiceServer(server, handler)
+	transactionpb.RegisterTransactionServiceServer(server, handler)
 
 	if walletUseCase == nil {
 		log.Print("wallet didnt initialized in constructor")
 	}
 }
 
-func (h *TransactionGRPCHandler) CreateWallet(ctx context.Context, pbReq *pb.CreateWalletRequest) (
-	*pb.CreateWalletResponse, error) {
+func (h *TransactionGRPCHandler) CreateWallet(ctx context.Context, pbReq *transactionpb.CreateWalletRequest) (
+	*transactionpb.CreateWalletResponse, error) {
 	log.Println("----  Create Wallet GRPC in transaction-svc ------")
 
 	request := &model.CreateWalletRequest{
@@ -44,7 +44,7 @@ func (h *TransactionGRPCHandler) CreateWallet(ctx context.Context, pbReq *pb.Cre
 		return nil, helper.ErrGRPC(err)
 	}
 
-	pbWallet := &pb.Wallet{
+	pbWallet := &transactionpb.Wallet{
 		Id:        wallet.Id,
 		CreatorId: wallet.CreatorId,
 		CreatedAt: &timestamppb.Timestamp{
@@ -57,14 +57,14 @@ func (h *TransactionGRPCHandler) CreateWallet(ctx context.Context, pbReq *pb.Cre
 		},
 	}
 
-	return &pb.CreateWalletResponse{
+	return &transactionpb.CreateWalletResponse{
 		Status: http.StatusCreated,
 		Wallet: pbWallet,
 	}, nil
 }
 
-func (h *TransactionGRPCHandler) GetWallet(ctx context.Context, pbReq *pb.GetWalletRequest) (
-	*pb.GetWalletResponse, error) {
+func (h *TransactionGRPCHandler) GetWallet(ctx context.Context, pbReq *transactionpb.GetWalletRequest) (
+	*transactionpb.GetWalletResponse, error) {
 	log.Println("----  Get Wallet Requets via GRPC in transaction-svc ------")
 
 	request := &model.GetWalletRequest{
@@ -76,12 +76,12 @@ func (h *TransactionGRPCHandler) GetWallet(ctx context.Context, pbReq *pb.GetWal
 		return nil, helper.ErrGRPC(err)
 	}
 
-	pbWallet := &pb.Wallet{
+	pbWallet := &transactionpb.Wallet{
 		Id:        wallet.Id,
 		CreatorId: wallet.CreatorId,
 	}
 
-	return &pb.GetWalletResponse{
+	return &transactionpb.GetWalletResponse{
 		Status: http.StatusCreated,
 		Wallet: pbWallet,
 	}, nil

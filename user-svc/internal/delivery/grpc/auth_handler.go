@@ -3,31 +3,16 @@ package grpc
 import (
 	"be-yourmoments/user-svc/internal/helper"
 	"be-yourmoments/user-svc/internal/model"
-	"be-yourmoments/user-svc/internal/usecase"
 	"context"
 	"log"
 
-	"github.com/be-yourmoments/pb"
+	userpb "github.com/be-yourmoments/pb/user"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
 
-type PhotoGRPCHandler struct {
-	usecase usecase.AuthUseCase
-	pb.UnimplementedUserServiceServer
-}
-
-func NewPhotoGRPCHandler(server *grpc.Server, usecase usecase.AuthUseCase) {
-	handler := &PhotoGRPCHandler{
-		usecase: usecase,
-	}
-
-	pb.RegisterUserServiceServer(server, handler)
-}
-
-func (h *PhotoGRPCHandler) Authenticate(ctx context.Context,
-	pbReq *pb.AuthenticateRequest) (*pb.AuthenticateResponse, error) {
+func (h *UserGRPCHandler) Authenticate(ctx context.Context,
+	pbReq *userpb.AuthenticateRequest) (*userpb.AuthenticateResponse, error) {
 
 	log.Println("---- Authenticate User via gRPC in user-svc ------")
 
@@ -40,7 +25,7 @@ func (h *PhotoGRPCHandler) Authenticate(ctx context.Context,
 		return nil, helper.ErrGRPC(err)
 	}
 
-	userPb := &pb.User{
+	userPb := &userpb.User{
 		UserId:      response.UserId,
 		Username:    response.Username,
 		Email:       response.Email,
@@ -49,7 +34,7 @@ func (h *PhotoGRPCHandler) Authenticate(ctx context.Context,
 		WalletId:    response.WalletId,
 	}
 
-	return &pb.AuthenticateResponse{
+	return &userpb.AuthenticateResponse{
 		Status: int64(codes.OK),
 		User:   userPb,
 	}, nil

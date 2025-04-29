@@ -6,7 +6,7 @@ import (
 	"be-yourmoments/transaction-svc/internal/model"
 	"context"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 )
 
 type PhotoAdapter interface {
@@ -15,7 +15,7 @@ type PhotoAdapter interface {
 }
 
 type photoAdapter struct {
-	client pb.PhotoServiceClient
+	client photopb.PhotoServiceClient
 }
 
 func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAdapter, error) {
@@ -24,7 +24,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAda
 		return nil, err
 	}
 
-	client := pb.NewPhotoServiceClient(conn)
+	client := photopb.NewPhotoServiceClient(conn)
 
 	return &photoAdapter{
 		client: client,
@@ -32,7 +32,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAda
 }
 
 func (a *photoAdapter) CalculatePhotoPrice(ctx context.Context, userId string, photoIds []string) (*[]*model.CheckoutItem, *model.Total, error) {
-	processPhotoRequest := &pb.CalculatePhotoPriceRequest{
+	processPhotoRequest := &photopb.CalculatePhotoPriceRequest{
 		UserId:   userId,
 		PhotoIds: photoIds,
 	}
@@ -69,7 +69,7 @@ func (a *photoAdapter) CalculatePhotoPrice(ctx context.Context, userId string, p
 }
 
 func (a *photoAdapter) OwnerOwnPhotos(ctx context.Context, ownerId string, photoIds []string) error {
-	ownerOwnPhotosRequest := &pb.OwnerOwnPhotosRequest{
+	ownerOwnPhotosRequest := &photopb.OwnerOwnPhotosRequest{
 		OwnerId:  ownerId,
 		PhotoIds: photoIds,
 	}

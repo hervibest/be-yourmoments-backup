@@ -11,16 +11,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/be-yourmoments/pb"
+	photopb "github.com/be-yourmoments/pb/photo"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/oklog/ulid/v2"
 )
 
 type UserSimilarUsecase interface {
-	CreateUserSimilar(ctx context.Context, request *pb.CreateUserSimilarPhotoRequest) error
-	CreateUserFacecam(ctx context.Context, request *pb.CreateUserSimilarFacecamRequest) error
-	CreateBulkUserSimilarPhotos(ctx context.Context, request *pb.CreateBulkUserSimilarPhotoRequest) error
+	CreateUserSimilar(ctx context.Context, request *photopb.CreateUserSimilarPhotoRequest) error
+	CreateUserFacecam(ctx context.Context, request *photopb.CreateUserSimilarFacecamRequest) error
+	CreateBulkUserSimilarPhotos(ctx context.Context, request *photopb.CreateBulkUserSimilarPhotoRequest) error
 }
 
 type userSimilarUsecase struct {
@@ -48,7 +48,7 @@ func NewUserSimilarUsecase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	}
 }
 
-func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pb.CreateUserSimilarPhotoRequest) error {
+func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *photopb.CreateUserSimilarPhotoRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -126,7 +126,7 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pb.
 
 }
 
-func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pb.CreateUserSimilarFacecamRequest) error {
+func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *photopb.CreateUserSimilarFacecamRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -172,7 +172,8 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pb.
 
 	return nil
 }
-func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, request *pb.CreateBulkUserSimilarPhotoRequest) error {
+
+func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, request *photopb.CreateBulkUserSimilarPhotoRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err

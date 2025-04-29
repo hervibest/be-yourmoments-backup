@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package photo;
 
-option go_package = ".pkg/pb";
+option go_package = ".pkg/photo;photopb";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
@@ -21,7 +21,7 @@ service PhotoService{
   rpc CalculatePhotoPrice(CalculatePhotoPriceRequest) returns (CalculatePhotoPriceResponse);
   rpc OwnerOwnPhotos(OwnerOwnPhotosRequest) returns (OwnerOwnPhotosResponse);
   rpc CreateBulkPhoto(CreateBulkPhotoRequest) returns (CreateBulkPhotoResponse);
-
+  // rpc SendBulkPhotoNotification(SendBulkPhotoNotificationRequest) returns (SendBulkPhotoNotificationResponse);
 }
 
 
@@ -278,3 +278,13 @@ message CreateBulkUserSimilarPhotoResponse {
   int64 status = 1;
   string error = 2;
 }
+
+// message SendBulkPhotoNotificationRequest {
+//   BulkPhoto bulk_photo = 1;
+//   repeated BulkUserSimilarPhoto bulk_user_similar_photo = 2;
+// }
+
+// message SendBulkPhotoNotificationResponse {
+//   int64 status = 1;
+//   string error = 2;
+// }
