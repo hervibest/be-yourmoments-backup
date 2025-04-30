@@ -39,7 +39,7 @@ func logFailure(key string, sources []string) {
 	logger.Errorw("Failed to get key-value pair", "failed sources", sources, "key", key)
 }
 
-func GetEnv(key string) string {
+func GetEnv(key string, values ...string) string {
 	var failedSources []string
 
 	if value := getOSEnv(key, &failedSources); value != "" {
@@ -55,7 +55,11 @@ func GetEnv(key string) string {
 	// }
 
 	logFailure(key, failedSources)
-	return ""
+	if values[0] != "" {
+		return values[0]
+	} else {
+		return ""
+	}
 }
 
 func getOSEnv(key string, failedSources *[]string) string {

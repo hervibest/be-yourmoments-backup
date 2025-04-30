@@ -8,13 +8,15 @@ import (
 )
 
 type UserGRPCHandler struct {
-	usecase usecase.AuthUseCase
+	authUseCase         usecase.AuthUseCase
+	notificationUseCase usecase.NotificationUseCase
 	userpb.UnimplementedUserServiceServer
 }
 
-func NewUserGRPCHandler(server *grpc.Server, usecase usecase.AuthUseCase) {
+func NewUserGRPCHandler(server *grpc.Server, authUseCase usecase.AuthUseCase, notificationUseCase usecase.NotificationUseCase) {
 	handler := &UserGRPCHandler{
-		usecase: usecase,
+		authUseCase:         authUseCase,
+		notificationUseCase: notificationUseCase,
 	}
 
 	userpb.RegisterUserServiceServer(server, handler)

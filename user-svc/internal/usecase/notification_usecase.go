@@ -13,15 +13,18 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
+	"google.golang.org/api/googleapi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"firebase.google.com/go/messaging"
-	"github.com/hervibest/be-yourmoments-backup/pb"
+	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )
 
 type NotificationUseCase interface {
-	ProcessAndSendNotifications(ctx context.Context, datas []*pb.BulkUserSimilarPhoto) error
+	ProcessAndSendNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error
 }
 
 type notificationUseCase struct {
@@ -47,7 +50,7 @@ func NewNotificationUseCase(db *sqlx.DB, redisClient *redis.Client, userDeviceRe
 // --- Fungsi untuk parallel counting users dari photos ---
 // pemanfaatan pararel computation untuk handle I/O bottleneck
 // proyeksi kalau creator upload 100 foto sekaligus dan each poto bisa sekitar 100 hingga 1000 user
-func (u *notificationUseCase) countUsersParallel(datas []*pb.BulkUserSimilarPhoto) map[string]int {
+func (u *notificationUseCase) countUsersParallel(datas []*photopb.BulkUserSimilarPhoto) map[string]int {
 	countMap := make(map[string]int)
 	var mu sync.Mutex
 
@@ -55,12 +58,15 @@ func (u *notificationUseCase) countUsersParallel(datas []*pb.BulkUserSimilarPhot
 	chunkSize := (len(datas) + numWorkers - 1) / numWorkers
 
 	var wg sync.WaitGroup
-	for i := range numWorkers {
+	for i := 0; i < numWorkers; i++ {
 		start := i * chunkSize
 		end := min(start+chunkSize, len(datas))
+		if start >= len(datas) {
+			continue
+		}
 
 		wg.Add(1)
-		go func(part []*pb.BulkUserSimilarPhoto) {
+		go func(part []*photopb.BulkUserSimilarPhoto) {
 			defer wg.Done()
 			localCount := make(map[string]int)
 
@@ -140,10 +146,12 @@ func (u *notificationUseCase) fetchFCMTokens(ctx context.Context, userIDs []stri
 		finalResult = append(finalResult, *dbResults...)
 	}
 
+	log.Print("[FETCHFCM][LEN]", len(finalResult))
+
 	return &finalResult, nil
 }
 
-func (u *notificationUseCase) ProcessAndSendNotifications(ctx context.Context, datas []*pb.BulkUserSimilarPhoto) error {
+func (u *notificationUseCase) ProcessAndSendNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error {
 	countMap := u.countUsersParallel(datas)
 
 	lenCountMap := len(countMap)
@@ -180,13 +188,17 @@ func (u *notificationUseCase) sendFCMWithRetry(ctx context.Context, userID, fcmT
 	var backoff = time.Millisecond * 500 // 500ms backoff awal
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		log.Printf("[TOKEN][sendFCMWithRetry]fcm happen trom fcm error %s", fcmToken)
 		err := u.sendFCM(ctx, fcmToken, message)
 
 		if err == nil {
 			return nil // sukses
 		}
+		log.Printf("[ERROR][sendFCMWithRetry]Error happen trom fcm error %v", err)
+		u.removeUserToken(ctx, userID)
 
 		if helper.IsFCMInvalidTokenError(err) {
+			log.Printf("[ERROR][sendFCMWithRetry]Error happen trom fcm error %v", err)
 			// Token rusak, hapus
 			u.removeUserToken(ctx, userID)
 			return fmt.Errorf("invalid token for userID %s: %w", userID, err)
@@ -207,8 +219,7 @@ func (u *notificationUseCase) sendFCMWithRetry(ctx context.Context, userID, fcmT
 	return fmt.Errorf("failed to send FCM to userID=%s after %d attempts", userID, maxRetries)
 }
 
-// --- Simulasi hapus token user ---
-func (u *notificationUseCase) removeUserToken(ctx context.Context, userID string) error {
+func (u *notificationUseCase) removeUserToken(ctx context.Context, userID string) (err error) {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -218,11 +229,18 @@ func (u *notificationUseCase) removeUserToken(ctx context.Context, userID string
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
+	// Hapus dari DB
 	if err := u.userDeviceRepository.DeleteByUserID(ctx, tx, userID); err != nil {
 		return err
 	}
 	log.Printf("Removing FCM token for user: %s", userID)
 
+	// Hapus dari Redis hash "fcm_tokens"
+	if err := u.redisClient.HDel(ctx, "fcm_tokens", userID).Err(); err != nil {
+		return fmt.Errorf("redis HDEL error: %w", err)
+	}
+
+	// Commit DB transaction
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
@@ -231,6 +249,7 @@ func (u *notificationUseCase) removeUserToken(ctx context.Context, userID string
 }
 
 func (u *notificationUseCase) sendFCM(ctx context.Context, fcmToken, message string) error {
+	log.Print("[REQUESTED][sendFCM")
 	msg := &messaging.Message{
 		Token: fcmToken,
 		Notification: &messaging.Notification{
@@ -245,7 +264,25 @@ func (u *notificationUseCase) sendFCM(ctx context.Context, fcmToken, message str
 
 	response, err := u.cloudMessagingAdapter.Send(ctx, msg)
 	if err != nil {
-		log.Printf("⚠️  Error sending FCM to %s: %v", fcmToken, err)
+
+		if status.Code(err) == codes.NotFound {
+			fmt.Println("User not found")
+		} else {
+			fmt.Println("Error getting user:", err)
+		}
+		// Type assertion untuk memeriksa apakah error merupakan *googleapi.Error
+		if gErr, ok := err.(*googleapi.Error); ok {
+			// Menangani error dari Google API secara spesifik
+			log.Printf("Google API error - Code: %v, Message: %v", gErr.Code, gErr.Message)
+
+			// Misalnya, jika error 404 (Not Found)
+			if gErr.Code == 404 {
+				log.Println("Resource not found")
+			}
+		} else {
+			// Jika bukan error dari Google API, cetak error biasa
+			log.Printf("Error sending FCM to %s: %v", fcmToken, err)
+		}
 		return err
 	}
 

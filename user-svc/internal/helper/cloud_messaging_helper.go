@@ -26,3 +26,7 @@ func IsFCMRetryableError(err error) bool {
 		return false
 	}
 }
+
+// type FirebaseError struct {
+// 	Code
+// }

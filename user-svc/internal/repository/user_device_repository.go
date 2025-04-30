@@ -23,7 +23,10 @@ func (r *userDeviceRepository) Create(ctx context.Context, tx Querier, userDevic
 	query := `
 	INSERT INTO user_devices
 	(id, user_id, token, platform, created_at) 
-	VALUES $1, $2, $3, $4, $5
+	VALUES ($1, $2, $3, $4, $5) 
+	ON CONFLICT (user_id, token) DO UPDATE
+	SET platform = EXCLUDED.platform,
+    created_at = current_timestamp;
 	`
 	_, err := tx.ExecContext(ctx, query, userDevice.Id, userDevice.UserId, userDevice.Token, userDevice.Platform, userDevice.CreatedAt)
 	if err != nil {
@@ -39,7 +42,7 @@ func (r *userDeviceRepository) FetchFCMTokensFromPostgre(ctx context.Context, tx
 	WHERE user_id = ANY($1)
 	`
 
-	if err := tx.SelectContext(ctx, userDevices, query, pq.Array(userIDs)); err != nil {
+	if err := tx.SelectContext(ctx, &userDevices, query, pq.Array(userIDs)); err != nil {
 		return nil, err
 	}
 

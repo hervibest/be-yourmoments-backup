@@ -184,8 +184,7 @@ func webServer() error {
 		logs.Log(fmt.Sprintf("gRPC server started on %s", serverConfig.GRPC))
 		defer l.Close()
 
-		grpcHandler.NewUserGRPCHandler(grpcServer, authUseCase)
-		grpcHandler.NewNotificationGRPCHandler(grpcServer, notificationUseCase)
+		grpcHandler.NewUserGRPCHandler(grpcServer, authUseCase, notificationUseCase)
 
 		if err := grpcServer.Serve(l); err != nil {
 			logs.Error(fmt.Sprintf("Failed to start gRPC category server: %v", err))

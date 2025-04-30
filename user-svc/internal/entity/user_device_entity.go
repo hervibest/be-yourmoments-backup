@@ -7,9 +7,9 @@ import (
 )
 
 type UserDevice struct {
-	Id        string
-	UserId    string
-	Token     string
-	Platform  enum.PlatformTypeEnum
-	CreatedAt *time.Time
+	Id        string                `db:"id"`
+	UserId    string                `db:"user_id"`
+	Token     string                `db:"token"`
+	Platform  enum.PlatformTypeEnum `db:"platform"`
+	CreatedAt *time.Time            `db:"created_at"`
 }
