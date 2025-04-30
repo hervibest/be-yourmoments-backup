@@ -20,7 +20,7 @@ service PhotoService{
   rpc CalculatePhotoPrice(CalculatePhotoPriceRequest) returns (CalculatePhotoPriceResponse);
   rpc OwnerOwnPhotos(OwnerOwnPhotosRequest) returns (OwnerOwnPhotosResponse);
   rpc CreateBulkPhoto(CreateBulkPhotoRequest) returns (CreateBulkPhotoResponse);
-
+  rpc CreateBulkUserSimilarPhotos(CreateBulkUserSimilarPhotoRequest) returns (CreateBulkUserSimilarPhotoResponse);
 }
 
 

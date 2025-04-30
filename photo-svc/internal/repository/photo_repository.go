@@ -179,7 +179,7 @@ func (r *photoRepository) UpdateProcessedUrlBulk(tx Querier, photos []*entity.Ph
 		args = append(args, photo.Id, photo.YourMomentsUrl.String)
 		argPos += 2
 
-		caseUpdatedAt += fmt.Sprintf(" WHEN $%d THEN $%d", argPos, argPos+1)
+		caseUpdatedAt += fmt.Sprintf(" WHEN $%d THEN $%d::timestamptz", argPos, argPos+1)
 		args = append(args, photo.Id, photo.UpdatedAt)
 		argPos += 2
 

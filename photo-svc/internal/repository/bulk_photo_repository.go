@@ -18,8 +18,8 @@ func NewBulkPhotoRepository() BulkPhotoRepository {
 }
 
 func (r *bulkPhotoRepository) Create(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (*entity.BulkPhoto, error) {
-	query := "INSERT INTO bulk_photos (id, creator_id, bulk_photo_status, created_at, uploaded_at) VALUES ($1, $2, $3, $4, $5)"
-	_, err := tx.ExecContext(ctx, query)
+	query := "INSERT INTO bulk_photos (id, creator_id, bulk_photo_status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)"
+	_, err := tx.ExecContext(ctx, query, bulkPhoto.Id, bulkPhoto.CreatorId, bulkPhoto.BulkPhotoStatus, bulkPhoto.CreatedAt, bulkPhoto.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (r *bulkPhotoRepository) FindDetailById(ctx context.Context, tx Querier, bu
 }
 
 func (r *bulkPhotoRepository) Update(ctx context.Context, tx Querier, bulkPhoto *entity.BulkPhoto) (*entity.BulkPhoto, error) {
-	query := "UPDATE bulk_photos SET bulk_photo_status = $1, updated_at = $2 WHERE bulk_photo_id = $3 AND creator_id = $4"
+	query := "UPDATE bulk_photos SET bulk_photo_status = $1, updated_at = $2 WHERE id = $3 AND creator_id = $4"
 	_, err := tx.ExecContext(ctx, query, bulkPhoto.BulkPhotoStatus, bulkPhoto.UpdatedAt, bulkPhoto.Id, bulkPhoto.CreatorId)
 	if err != nil {
 		return nil, err

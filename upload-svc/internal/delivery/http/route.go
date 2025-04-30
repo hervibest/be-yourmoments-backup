@@ -9,6 +9,8 @@ import (
 func (c *photoController) PhotoRoute(app *fiber.App, authMiddleware fiber.Handler) {
 	api := app.Group(config.EndpointPrefix, authMiddleware)
 	api.Post("/single", c.UploadPhoto)
+	api.Post("/bulk", c.BulkUploadPhoto)
+
 }
 
 func (c *facecamController) FacecamRoute(app *fiber.App, authMiddleware fiber.Handler) {

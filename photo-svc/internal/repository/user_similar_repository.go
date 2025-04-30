@@ -163,20 +163,20 @@ func (r *userSimilarRepository) InsertOrUpdateBulk(ctx context.Context, tx Queri
 		for _, userSimilar := range userSimilars {
 			insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", counter, counter+1, counter+2, counter+3, counter+4))
 			insertArgs = append(insertArgs,
-				userSimilar.Id,
 				photoID,
 				userSimilar.UserId,
 				userSimilar.Similarity,
 				now,
+				now,
 			)
-			counter += 9
+			counter += 5 // ✅ benar
 		}
 	}
 
 	if len(insertValues) > 0 {
 		insertQuery := `
 			INSERT INTO user_similar_photos 
-			(id, photo_id, user_id, similarity, created_at)
+			(photo_id, user_id, similarity, created_at, updated_at)
 			VALUES ` + strings.Join(insertValues, ", ") + `
 			ON CONFLICT (user_id, photo_id) 
 			DO UPDATE SET

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/textproto"
 	"os"
@@ -340,7 +341,9 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 	}
 
 	go func() {
-
+		if err := u.aiAdapter.ProcessBulkPhoto(ctx, bulkPhoto, &photoEntities); err != nil {
+			log.Printf("failed to process bulk photo via grpc : %v", err)
+		}
 	}()
 
 	return nil

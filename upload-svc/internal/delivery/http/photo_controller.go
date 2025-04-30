@@ -65,6 +65,10 @@ func (c *photoController) UploadPhoto(ctx *fiber.Ctx) error {
 }
 
 // -- NOT IMPLEMENTING COMPRESS PHOTO (DEFAULT)
+/*  CONCERN
+1. User bisa saja berhasil upload semua foto tetapi kalau semisal ada validasi bisnis logic (metadata dan harga) gagal apa yang terjadi
+2. Perlukah untuk menyimpan resumable upload ? Mengingat bisa sangat bulk alias besar
+*/
 func (c *photoController) BulkUploadPhoto(ctx *fiber.Ctx) error {
 	form, err := ctx.MultipartForm()
 	if err != nil || form.File["photo"] == nil {

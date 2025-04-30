@@ -21,7 +21,7 @@ func (h *UserGRPCHandler) Authenticate(ctx context.Context,
 		Token: pbReq.GetToken(),
 	}
 
-	response, err := h.usecase.Verify(ctx, request)
+	response, err := h.authUseCase.Verify(ctx, request)
 	if err != nil {
 		return nil, helper.ErrGRPC(err)
 	}

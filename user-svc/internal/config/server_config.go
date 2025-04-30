@@ -7,7 +7,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 )
 
-var EndpointPrefix = utils.GetEnv("ENDPOINT_PREFIX")
+var EndpointPrefix = utils.GetEnv("ENDPOINT_PREFIX", "/api/user")
 
 type ServerConfig struct {
 	HTTP       string

@@ -15,16 +15,16 @@ import (
 func NewDB() *sqlx.DB {
 	// Load database configuration from environment variables
 
-	dbHost := utils.GetEnv("DB_HOST")
-	dbPort := utils.GetEnv("DB_PORT")
-	dbUser := utils.GetEnv("DB_USERNAME")
-	dbPass := utils.GetEnv("DB_PASSWORD")
-	dbName := utils.GetEnv("DB_NAME")
-	dbSSLMode := utils.GetEnv("DB_SSLMODE")
-	minConns := utils.GetEnv("DB_MIN_CONNS")
-	maxConns := utils.GetEnv("DB_MAX_CONNS")
-	maxIdleTime := utils.GetEnv("DB_MAX_IDLE_TIME")
-	timeZone := utils.GetEnv("TZ")
+	dbHost := utils.GetEnv("DB_HOST", "localhost")
+	dbPort := utils.GetEnv("DB_PORT", "5432")
+	dbUser := utils.GetEnv("DB_USERNAME", "postgres")
+	dbPass := utils.GetEnv("DB_PASSWORD", "postgres")
+	dbName := utils.GetEnv("DB_NAME", "user_svc")
+	dbSSLMode := utils.GetEnv("DB_SSLMODE", "")
+	minConns := utils.GetEnv("DB_MIN_CONNS", "5")
+	maxConns := utils.GetEnv("DB_MAX_CONNS", "100")
+	maxIdleTime := utils.GetEnv("DB_MAX_IDLE_TIME", "5m")
+	timeZone := utils.GetEnv("TZ", "Asia/Jakarta")
 
 	// Construct the connection string
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s&timezone=%s", dbUser, dbPass, dbHost, dbPort, dbName, dbSSLMode, timeZone)

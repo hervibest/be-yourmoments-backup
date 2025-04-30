@@ -11,6 +11,7 @@ import (
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
@@ -31,7 +32,7 @@ type AuthUseCase interface {
 	Login(ctx context.Context, request *model.LoginUserRequest) (*model.UserResponse, *model.TokenResponse, error)
 	Logout(ctx context.Context, request *model.LogoutUserRequest) (bool, error)
 	RegisterByEmail(ctx context.Context, request *model.RegisterByEmailRequest) (*model.UserResponse, error)
-	RegisterByGoogleSignIn(ctx context.Context, request *model.RegisterByGoogleRequest) (*model.UserResponse, *model.TokenResponse, error)
+	RegisterOrLoginByGoogle(ctx context.Context, request *model.RegisterByGoogleRequest) (*model.UserResponse, *model.TokenResponse, error)
 	RegisterByPhoneNumber(ctx context.Context, request *model.RegisterByPhoneRequest) (*model.UserResponse, error)
 	RequestResetPassword(ctx context.Context, email string) error
 	ResendEmailVerification(ctx context.Context, email string) error
@@ -159,7 +160,13 @@ func (u *authUseCase) RegisterByPhoneNumber(ctx context.Context, request *model.
 }
 
 // TODO EFICIENT QUERY ISSUE (COUNT COUNT AND COUNT)
-func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model.RegisterByGoogleRequest) (*model.UserResponse, *model.TokenResponse, error) {
+func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *model.RegisterByGoogleRequest) (*model.UserResponse, *model.TokenResponse, error) {
+	if request.Platform != enum.PlatformTypeWeb &&
+		request.Platform != enum.PlatformTypeIOS &&
+		request.Platform != enum.PlatformTypeAndroid {
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid Platform Type")
+	}
+
 	claims, err := u.googleTokenAdapter.ValidateGoogleToken(ctx, request.Token)
 	if err != nil {
 		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, err.Error())
@@ -205,6 +212,25 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 			PhoneNumber: user.PhoneNumber.String,
 			CreatorId:   creator.Id,
 			WalletId:    wallet.Id,
+		}
+
+		now := time.Now()
+
+		userDevice := &entity.UserDevice{
+			Id:        ulid.Make().String(),
+			UserId:    user.Id,
+			Token:     request.DeviceToken,
+			Platform:  request.Platform,
+			CreatedAt: &now,
+		}
+
+		_, err = u.userDeviceRepository.Create(ctx, u.db, userDevice)
+		if err != nil {
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
+		}
+
+		if err := u.cacheAdapter.HSet(ctx, "fcm_tokens", user.Id, request.DeviceToken); err != nil {
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to HSet redis", err)
 		}
 
 		token, err := u.generateToken(ctx, auth)
@@ -277,6 +303,10 @@ func (u *authUseCase) RegisterByGoogleSignIn(ctx context.Context, request *model
 
 		if err := repository.Commit(tx, u.logs); err != nil {
 			return nil, nil, err
+		}
+
+		if err := u.cacheAdapter.HSet(ctx, "fcm_tokens", user.Id, request.DeviceToken); err != nil {
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to HSet redis", err)
 		}
 
 		//TODO apakah bisa dirapikan atau diwrap ke dalam adapter ?

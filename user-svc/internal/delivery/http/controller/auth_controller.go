@@ -17,7 +17,7 @@ type AuthController interface {
 	Login(ctx *fiber.Ctx) error
 	Logout(ctx *fiber.Ctx) error
 	RegisterByEmail(ctx *fiber.Ctx) error
-	RegisterByGoogleSignIn(ctx *fiber.Ctx) error
+	RegisterOrLoginByGoogle(ctx *fiber.Ctx) error
 	RegisterByPhoneNumber(ctx *fiber.Ctx) error
 	RequestAccessToken(ctx *fiber.Ctx) error
 	RequestResetPassword(ctx *fiber.Ctx) error
@@ -62,7 +62,7 @@ func (c *authController) RegisterByPhoneNumber(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *authController) RegisterByGoogleSignIn(ctx *fiber.Ctx) error {
+func (c *authController) RegisterOrLoginByGoogle(ctx *fiber.Ctx) error {
 	request := new(model.RegisterByGoogleRequest)
 	if err := helper.StrictBodyParser(ctx, request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
@@ -72,7 +72,7 @@ func (c *authController) RegisterByGoogleSignIn(ctx *fiber.Ctx) error {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}
 
-	response, token, err := c.authUseCase.RegisterByGoogleSignIn(ctx.Context(), request)
+	response, token, err := c.authUseCase.RegisterOrLoginByGoogle(ctx.Context(), request)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Register by google sign in error : ", err, c.logs)
 	}

@@ -7,7 +7,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 )
 
-var logLevel = utils.GetEnv("LOG_LEVEL")
+var logLevel = utils.GetEnv("LOG_LEVEL", "DEBUG")
 
 type Log struct {
 	stdout *log.Logger

@@ -1,10 +1,10 @@
 package grpc
 
 import (
-	"be-yourmoments/upload-svc/internal/usecase"
 	"context"
 
-	photopb "github.com/be-yourmoments/pb/photo"
+	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/usecase"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

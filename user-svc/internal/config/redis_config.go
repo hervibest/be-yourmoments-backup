@@ -11,8 +11,8 @@ import (
 
 func NewRedisClient() *redis.Client {
 
-	host := utils.GetEnv("REDIS_HOST")
-	port := utils.GetEnv("REDIS_PORT")
+	host := utils.GetEnv("REDIS_HOST", "localhost")
+	port := utils.GetEnv("REDIS_PORT", "6379")
 	address := host + ":" + port
 
 	// password := utils.GetEnv("REDIS_PASSWORD")

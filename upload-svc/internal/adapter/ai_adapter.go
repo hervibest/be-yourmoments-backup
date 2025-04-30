@@ -15,6 +15,7 @@ import (
 type AiAdapter interface {
 	ProcessPhoto(ctx context.Context, fileId, fileUrl string) error
 	ProcessFacecam(ctx context.Context, userId, fileUrl string) error
+	ProcessBulkPhoto(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error
 }
 
 type aiAdapter struct {
@@ -65,14 +66,17 @@ func (a *aiAdapter) ProcessFacecam(ctx context.Context, fileId, fileUrl string) 
 	return nil
 }
 
-func (a *aiAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error {
+func (a *aiAdapter) ProcessBulkPhoto(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error {
+	log.Println("REQUESTED PROCESS  BULK PHOTO VIA GRPC TO AI SERVER")
+
+	log.Println(len(*photos))
 	pbAIPhotos := make([]*aipb.AIPhoto, len(*photos))
-	for _, photo := range *photos {
-		pbAIPhoto := &aipb.AIPhoto{
+	for i, photo := range *photos {
+		pbAIPhotos[i] = &aipb.AIPhoto{
 			Id:            photo.Id,
 			CollectionUrl: photo.CollectionUrl,
 		}
-		pbAIPhotos = append(pbAIPhotos, pbAIPhoto)
+		log.Println(pbAIPhotos[i])
 	}
 
 	pbAIBulkPhoto := &aipb.AIBulkPhoto{
@@ -84,6 +88,10 @@ func (a *aiAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhot
 		ProcessBulkAi: pbAIBulkPhoto,
 		ProcessAi:     pbAIPhotos,
 	}
+
+	log.Println("ini adalah total pb ai photos")
+
+	log.Println(pbAIPhotos)
 
 	_, err := a.client.ProcessBulkPhoto(ctx, pbRequest)
 	if err != nil {

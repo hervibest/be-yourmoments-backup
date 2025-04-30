@@ -11,6 +11,9 @@ type CacheAdapter interface {
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
 	Get(ctx context.Context, key string) (string, error)
 	Del(ctx context.Context, keys ...string) error
+	HMGet(ctx context.Context, key string, fields ...string) ([]interface{}, error)
+	HDel(ctx context.Context, key string, fields ...string) error
+	HSet(ctx context.Context, key string, values ...interface{}) error
 }
 
 type cacheAdapter struct {
@@ -33,4 +36,16 @@ func (a *cacheAdapter) Get(ctx context.Context, key string) (string, error) {
 
 func (a *cacheAdapter) Del(ctx context.Context, keys ...string) error {
 	return a.redisClient.Del(ctx, keys...).Err()
+}
+
+func (a *cacheAdapter) HMGet(ctx context.Context, key string, fields ...string) ([]interface{}, error) {
+	return a.redisClient.HMGet(ctx, key, fields...).Result()
+}
+
+func (a *cacheAdapter) HSet(ctx context.Context, key string, values ...interface{}) error {
+	return a.redisClient.HSet(ctx, key, values...).Err()
+}
+
+func (a *cacheAdapter) HDel(ctx context.Context, key string, fields ...string) error {
+	return a.redisClient.HDel(ctx, key, fields...).Err()
 }

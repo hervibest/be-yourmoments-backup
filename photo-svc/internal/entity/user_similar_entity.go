@@ -8,7 +8,6 @@ import (
 )
 
 type UserSimilarPhoto struct {
-	Id         string                   `db:"id"`
 	PhotoId    string                   `db:"photo_id"`
 	UserId     string                   `db:"user_id"`
 	Similarity enum.SimilarityLevelEnum `db:"similarity"`

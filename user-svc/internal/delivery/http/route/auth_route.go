@@ -4,7 +4,7 @@ func (c *RouteConfig) SetupAuthRoute() {
 
 	userRoutes := c.App.Group("/api/user")
 	userRoutes.Post("/register/email", c.AuthController.RegisterByEmail)
-	userRoutes.Post("/register/google", c.AuthController.RegisterByGoogleSignIn)
+	userRoutes.Post("/register/google", c.AuthController.RegisterOrLoginByGoogle)
 	userRoutes.Post("/register/phone", c.AuthController.RegisterByPhoneNumber)
 	userRoutes.Post("/request-resend-email", c.AuthController.ResendEmailVerification)
 	userRoutes.Post("/verify/:token", c.AuthController.VerifyEmail)

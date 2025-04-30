@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
@@ -31,13 +32,14 @@ type userSimilarUsecase struct {
 	facecamRepo     repository.FacecamRepository
 	userSimilarRepo repository.UserSimilarRepository
 	bulkPhotoRepo   repository.BulkPhotoRepository
+	userAdapter     adapter.UserAdapter
 	logs            *logger.Log
 }
 
 func NewUserSimilarUsecase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	photoDetailRepo repository.PhotoDetailRepository, facecamRepo repository.FacecamRepository,
 	userSimilarRepo repository.UserSimilarRepository, bulkPhotoRepo repository.BulkPhotoRepository,
-	logs *logger.Log) UserSimilarUsecase {
+	userAdapter adapter.UserAdapter, logs *logger.Log) UserSimilarUsecase {
 	return &userSimilarUsecase{
 		db:              db,
 		photoRepo:       photoRepo,
@@ -45,6 +47,7 @@ func NewUserSimilarUsecase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 		facecamRepo:     facecamRepo,
 		userSimilarRepo: userSimilarRepo,
 		bulkPhotoRepo:   bulkPhotoRepo,
+		userAdapter:     userAdapter,
 		logs:            logs,
 	}
 }
@@ -99,7 +102,6 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 	userSimilarPhotos := make([]*entity.UserSimilarPhoto, 0, len(request.GetUserSimilarPhoto()))
 	for _, userSimilarPhotoRequest := range request.GetUserSimilarPhoto() {
 		userSimilarPhoto := &entity.UserSimilarPhoto{
-			Id:         ulid.Make().String(),
 			PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
 			UserId:     userSimilarPhotoRequest.GetUserId(),
 			Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
@@ -108,7 +110,6 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		}
 
 		userSimilarPhotos = append(userSimilarPhotos, userSimilarPhoto)
-		log.Println("id : " + userSimilarPhoto.Id)
 		log.Println("photo id : " + userSimilarPhoto.PhotoId)
 		log.Println("user id : " + userSimilarPhoto.UserId)
 		log.Println("similarity : " + userSimilarPhoto.Similarity)
@@ -152,7 +153,6 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pho
 	for _, userSimilarPhotoRequest := range request.GetUserSimilarPhoto() {
 		u.logs.Log("UPDATE UserSimilarPhoto from facecams")
 		userSimilarPhoto := &entity.UserSimilarPhoto{
-			Id:         ulid.Make().String(),
 			PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
 			UserId:     userSimilarPhotoRequest.GetUserId(),
 			Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
@@ -240,7 +240,6 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 		userSimilarPhotos := make([]*entity.UserSimilarPhoto, 0, len(bulkUserSimilar.GetUserSimilarPhoto()))
 		for _, userSimilarPhotoRequest := range bulkUserSimilar.GetUserSimilarPhoto() {
 			userSimilarPhotos = append(userSimilarPhotos, &entity.UserSimilarPhoto{
-				Id:         ulid.Make().String(),
 				PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
 				UserId:     userSimilarPhotoRequest.GetUserId(),
 				Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
@@ -261,5 +260,10 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 		return err
 	}
 
+	go func() {
+		if _, err := u.userAdapter.SendBulkPhotoNotification(ctx, request.GetBulkUserSimilarPhoto()); err != nil {
+			u.logs.Error(err)
+		}
+	}()
 	return nil
 }
