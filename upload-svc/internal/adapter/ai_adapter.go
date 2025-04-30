@@ -68,8 +68,6 @@ func (a *aiAdapter) ProcessFacecam(ctx context.Context, fileId, fileUrl string) 
 
 func (a *aiAdapter) ProcessBulkPhoto(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error {
 	log.Println("REQUESTED PROCESS  BULK PHOTO VIA GRPC TO AI SERVER")
-
-	log.Println(len(*photos))
 	pbAIPhotos := make([]*aipb.AIPhoto, len(*photos))
 	for i, photo := range *photos {
 		pbAIPhotos[i] = &aipb.AIPhoto{
@@ -88,10 +86,6 @@ func (a *aiAdapter) ProcessBulkPhoto(ctx context.Context, bulkPhoto *entity.Bulk
 		ProcessBulkAi: pbAIBulkPhoto,
 		ProcessAi:     pbAIPhotos,
 	}
-
-	log.Println("ini adalah total pb ai photos")
-
-	log.Println(pbAIPhotos)
 
 	_, err := a.client.ProcessBulkPhoto(ctx, pbRequest)
 	if err != nil {
