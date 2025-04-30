@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 )
 
-func (l *Log) Debug(message interface{}, options ...*Options) {
+func (l *logImpl) Debug(message interface{}, options ...*Options) {
 	if logLevel == "DEBUG" {
 		msg := []interface{}{message}
 
@@ -26,7 +26,7 @@ func (l *Log) Debug(message interface{}, options ...*Options) {
 	}
 }
 
-func (l *Log) CustomDebug(title string, message interface{}, options ...*Options) {
+func (l *logImpl) CustomDebug(title string, message interface{}, options ...*Options) {
 	if logLevel == "DEBUG" {
 		msg := []interface{}{}
 		msg = append(msg, title)

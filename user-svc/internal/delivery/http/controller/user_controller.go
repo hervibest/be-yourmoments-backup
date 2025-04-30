@@ -24,10 +24,10 @@ type UserController interface {
 type userController struct {
 	userUseCase     usecase.UserUseCase
 	customValidator helper.CustomValidator
-	logs            *logger.Log
+	logs            logger.Log
 }
 
-func NewUserController(userUseCase usecase.UserUseCase, customValidator helper.CustomValidator, logs *logger.Log) UserController {
+func NewUserController(userUseCase usecase.UserUseCase, customValidator helper.CustomValidator, logs logger.Log) UserController {
 	return &userController{userUseCase: userUseCase, customValidator: customValidator, logs: logs}
 }
 

@@ -212,9 +212,10 @@ func (u *photoUsecase) CreateBulkPhoto(ctx context.Context, request *photopb.Cre
 	for _, pbPhoto := range request.GetPhotos() {
 
 		photo := &entity.Photo{
-			Id:        pbPhoto.GetId(),
-			CreatorId: pbPhoto.GetCreatorId(),
-			Title:     pbPhoto.GetTitle(),
+			Id:          pbPhoto.GetId(),
+			CreatorId:   pbPhoto.GetCreatorId(),
+			Title:       pbPhoto.GetTitle(),
+			BulkPhotoId: nullable.GRPCtoSQLString(pbPhoto.GetBulkPhotoId()),
 			CollectionUrl: sql.NullString{
 				Valid:  true,
 				String: pbPhoto.GetCollectionUrl(),

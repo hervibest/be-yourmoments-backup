@@ -24,11 +24,11 @@ type PhotoResponse struct {
 	Id             string    `json:"id"`
 	CreatorId      string    `json:"creator_id"`
 	Title          string    `json:"title"`
-	OwnedByUserId  *string   `json:"owned_by_user_id"`
-	CompressedUrl  *string   `json:"compressed_url"`
-	IsThisYouURL   *string   `json:"is_this_you_url"`
-	YourMomentsUrl *string   `json:"your_moments_url"`
-	CollectionUrl  *string   `json:"collection_url"`
+	OwnedByUserId  *string   `json:"owned_by_user_id,omitempty"`
+	CompressedUrl  *string   `json:"compressed_url,omitempty"`
+	IsThisYouURL   *string   `json:"is_this_you_url,omitempty"`
+	YourMomentsUrl *string   `json:"your_moments_url,omitempty"`
+	CollectionUrl  *string   `json:"collection_url,omitempty"`
 	Price          int32     `json:"price"`
 	PriceStr       string    `json:"price_str"`
 	Latitude       *float64  `json:"latitude"`

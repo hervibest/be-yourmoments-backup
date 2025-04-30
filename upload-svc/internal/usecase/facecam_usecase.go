@@ -30,12 +30,12 @@ type facecamUseCase struct {
 	photoAdapter    adapter.PhotoAdapter
 	storageAdapter  adapter.StorageAdapter
 	compressAdapter adapter.CompressAdapter
-	logs            *logger.Log
+	logs            logger.Log
 }
 
 func NewFacecamUseCase(aiAdapter adapter.AiAdapter, photoAdapter adapter.PhotoAdapter,
 	storageAdapter adapter.StorageAdapter, compressAdapter adapter.CompressAdapter,
-	logs *logger.Log) FacecamUseCase {
+	logs logger.Log) FacecamUseCase {
 	return &facecamUseCase{
 		aiAdapter:       aiAdapter,
 		photoAdapter:    photoAdapter,

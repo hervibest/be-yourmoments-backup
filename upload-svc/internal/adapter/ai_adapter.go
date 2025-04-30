@@ -20,10 +20,10 @@ type AiAdapter interface {
 
 type aiAdapter struct {
 	client aipb.AiServiceClient
-	logs   *logger.Log
+	logs   logger.Log
 }
 
-func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs *logger.Log) (AiAdapter, error) {
+func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (AiAdapter, error) {
 	conn, err := discovery.ServiceConnection(ctx, "ai-svc-grpc", registry)
 	if err != nil {
 		return nil, err

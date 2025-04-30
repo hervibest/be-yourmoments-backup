@@ -58,7 +58,7 @@ type authUseCase struct {
 	photoAdapter          adapter.PhotoAdapter
 	transactionAdapter    adapter.TransactionAdapter
 
-	logs *logger.Log
+	logs logger.Log
 }
 
 func NewAuthUseCase(db repository.BeginTx, userRepository repository.UserRepository, userProfileRepository repository.UserProfileRepository,
@@ -66,7 +66,7 @@ func NewAuthUseCase(db repository.BeginTx, userRepository repository.UserReposit
 	userDeviceRepository repository.UserDeviceRepository, googleTokenAdapter adapter.GoogleTokenAdapter,
 	emailAdapter adapter.EmailAdapter, jwtAdapter adapter.JWTAdapter, securityAdapter adapter.SecurityAdapter,
 	cacheAdapter adapter.CacheAdapter, firestoreAdapter adapter.FirestoreClientAdapter,
-	photoAdapter adapter.PhotoAdapter, transactionAdapter adapter.TransactionAdapter, logs *logger.Log) AuthUseCase {
+	photoAdapter adapter.PhotoAdapter, transactionAdapter adapter.TransactionAdapter, logs logger.Log) AuthUseCase {
 	return &authUseCase{
 		db:                    db,
 		userRepository:        userRepository,

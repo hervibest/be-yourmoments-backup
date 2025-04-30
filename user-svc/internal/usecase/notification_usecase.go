@@ -33,11 +33,11 @@ type notificationUseCase struct {
 	userDeviceRepository  repository.UserDeviceRepository
 	cloudMessagingAdapter adapter.CloudMessagingAdapter
 
-	logs *logger.Log
+	logs logger.Log
 }
 
 func NewNotificationUseCase(db *sqlx.DB, redisClient *redis.Client, userDeviceRepository repository.UserDeviceRepository,
-	cloudMessagingAdapter adapter.CloudMessagingAdapter, logs *logger.Log) NotificationUseCase {
+	cloudMessagingAdapter adapter.CloudMessagingAdapter, logs logger.Log) NotificationUseCase {
 	return &notificationUseCase{
 		db:                    db,
 		redisClient:           redisClient,

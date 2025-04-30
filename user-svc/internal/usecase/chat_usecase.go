@@ -26,11 +26,11 @@ type chatUseCase struct {
 	authClientAdapter      adapter.AuthClientAdapter
 	cloudMessagingAdapter  adapter.CloudMessagingAdapter
 	perspectiveAdapter     adapter.PerspectiveAdapter
-	logs                   *logger.Log
+	logs                   logger.Log
 }
 
 func NewChatUseCase(firestoreClientAdapter adapter.FirestoreClientAdapter, authClientAdapter adapter.AuthClientAdapter,
-	cloudMessagingAdapter adapter.CloudMessagingAdapter, perspectiveAdapter adapter.PerspectiveAdapter, logs *logger.Log) ChatUseCase {
+	cloudMessagingAdapter adapter.CloudMessagingAdapter, perspectiveAdapter adapter.PerspectiveAdapter, logs logger.Log) ChatUseCase {
 	return &chatUseCase{
 		firestoreClientAdapter: firestoreClientAdapter,
 		authClientAdapter:      authClientAdapter,

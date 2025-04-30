@@ -39,7 +39,7 @@ type TransactionTx interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 
-func BeginTxx(db BeginTx, ctx context.Context, logs *logger.Log) (*sqlx.Tx, error) {
+func BeginTxx(db BeginTx, ctx context.Context, logs logger.Log) (*sqlx.Tx, error) {
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		logs.Error(fmt.Sprintf("failed begin transaction %s", err.Error()), &logger.Options{
@@ -50,7 +50,7 @@ func BeginTxx(db BeginTx, ctx context.Context, logs *logger.Log) (*sqlx.Tx, erro
 	return tx, nil
 }
 
-func Rollback(err error, tx *sqlx.Tx, ctx context.Context, logs *logger.Log) {
+func Rollback(err error, tx *sqlx.Tx, ctx context.Context, logs logger.Log) {
 	if err != nil {
 		if tx != nil {
 			_ = tx.Rollback() // abaikan error rollback
@@ -58,7 +58,7 @@ func Rollback(err error, tx *sqlx.Tx, ctx context.Context, logs *logger.Log) {
 	}
 }
 
-func Commit(tx *sqlx.Tx, logs *logger.Log) error {
+func Commit(tx *sqlx.Tx, logs logger.Log) error {
 	if err := tx.Commit(); err != nil {
 		logs.Error(fmt.Sprintf("failed to commit transaction %s", err.Error()), &logger.Options{
 			IsPrintStack: true,

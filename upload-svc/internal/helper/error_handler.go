@@ -97,14 +97,14 @@ func (e *AppError) GRPCErrorCode() error {
 	}
 }
 
-func WrapInternalServerError(logs *logger.Log, internalMsg string, err error) error {
+func WrapInternalServerError(logs logger.Log, internalMsg string, err error) error {
 	logs.Error(fmt.Sprintf("%s %s", internalMsg, err.Error()), &logger.Options{
 		IsPrintStack: true,
 	})
 	return NewAppError(errorcode.ErrInternal, "Something went wrong. Please try again later", err)
 }
 
-func WrapExternalServiceUnavailable(logs *logger.Log, internalMsg string, err error) error {
+func WrapExternalServiceUnavailable(logs logger.Log, internalMsg string, err error) error {
 	logs.Error(fmt.Sprintf("%s %s", internalMsg, err.Error()), &logger.Options{
 		IsPrintStack: true,
 	})

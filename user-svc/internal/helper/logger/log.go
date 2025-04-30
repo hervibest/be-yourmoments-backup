@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 )
 
-func (l *Log) Log(message interface{}, options ...*Options) {
+func (l *logImpl) Log(message interface{}, options ...*Options) {
 	msg := []interface{}{message}
 
 	if len(options) > 0 && options[0].IsPrintStack {
@@ -15,7 +15,7 @@ func (l *Log) Log(message interface{}, options ...*Options) {
 	l.stdout.Println(msg...)
 }
 
-func (l *Log) CustomLog(title string, message interface{}, options ...*Options) {
+func (l *logImpl) CustomLog(title string, message interface{}, options ...*Options) {
 	msg := []interface{}{}
 	msg = append(msg, title)
 	msg = append(msg, message)

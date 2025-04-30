@@ -12,6 +12,7 @@ type RouteConfig struct {
 	HealthCheckController    http.HealthCheckController
 	CheckoutController       http.CheckoutController
 	CreatorDiscountControler http.CreatorDiscountController
+	PhotoController          http.PhotoController
 	AuthMiddleware           fiber.Handler
 	CreatorMiddleware        fiber.Handler //TODO doesnt used
 }
@@ -21,4 +22,6 @@ func (r *RouteConfig) Setup() {
 	r.SetupHealtCheckRoute()
 	r.SetupDiscountRoute()
 	r.SetupCheckoutRoute()
+	r.SetupPhotoRoute()
+
 }

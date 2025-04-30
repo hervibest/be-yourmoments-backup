@@ -23,10 +23,10 @@ type PhotoAdapter interface {
 
 type photoAdapter struct {
 	client photopb.PhotoServiceClient
-	logs   *logger.Log
+	logs   logger.Log
 }
 
-func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs *logger.Log) (PhotoAdapter, error) {
+func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (PhotoAdapter, error) {
 	conn, err := discovery.ServiceConnection(ctx, "photo-svc-grpc", registry)
 	if err != nil {
 		return nil, err

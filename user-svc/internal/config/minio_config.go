@@ -15,7 +15,7 @@ type Minio struct {
 	MinioClient     *minio.Client
 	minioBucketName string
 	enpoint         string
-	Logs            *logger.Log
+	Logs            logger.Log
 }
 
 func NewMinio() *Minio {

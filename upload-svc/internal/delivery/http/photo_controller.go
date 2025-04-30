@@ -21,11 +21,11 @@ type PhotoController interface {
 
 type photoController struct {
 	photoUsecase    usecase.PhotoUsecase
-	logs            *logger.Log
+	logs            logger.Log
 	customValidator helper.CustomValidator
 }
 
-func NewPhotoController(photoUsecase usecase.PhotoUsecase, logs *logger.Log, customValidator helper.CustomValidator) PhotoController {
+func NewPhotoController(photoUsecase usecase.PhotoUsecase, logs logger.Log, customValidator helper.CustomValidator) PhotoController {
 	return &photoController{
 		photoUsecase:    photoUsecase,
 		logs:            logs,
@@ -47,6 +47,7 @@ func (c *photoController) UploadPhoto(ctx *fiber.Ctx) error {
 
 	auth := middleware.GetUser(ctx)
 	request.UserId = auth.UserId
+	request.CreatorId = auth.CreatorId
 	priceStr := strconv.Itoa(request.Price)
 	request.PriceStr = priceStr
 

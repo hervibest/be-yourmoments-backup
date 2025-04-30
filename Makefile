@@ -55,10 +55,9 @@ transaction-svc-migrate-up:
 
 transaction-svc-migrate-reset:
 	cd transaction-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" down-to 0 &&  goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" up
-
 	
 proto:
 	cd pb && protoc --go_out=. --go-grpc_out=. $(PROTO_FILE)
 
-mockgen:
-	mockgen -source=./repository/reset_password_repository.go -destination=./mocks/repository/mock_reset_password_repository.go -package=mockrepository
+mockgen-upload-svc:
+	cd upload-svc/internal && mockgen -source=./adapter/user_adapter.go -destination=./mocks/adapter/mock_user_adapter.go -package=mockadapter

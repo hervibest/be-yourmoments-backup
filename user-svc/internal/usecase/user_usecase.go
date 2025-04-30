@@ -37,11 +37,11 @@ type userUseCase struct {
 	userProfileRepository repository.UserProfileRepository
 	userImageRepository   repository.UserImageRepository
 	uploadAdapter         adapter.UploadAdapter
-	logs                  *logger.Log
+	logs                  logger.Log
 }
 
 func NewUserUseCase(db repository.BeginTx, userRepository repository.UserRepository, userProfileRepository repository.UserProfileRepository,
-	userImageRepository repository.UserImageRepository, uploadAdapter adapter.UploadAdapter, logs *logger.Log) UserUseCase {
+	userImageRepository repository.UserImageRepository, uploadAdapter adapter.UploadAdapter, logs logger.Log) UserUseCase {
 	return &userUseCase{
 		db:                    db,
 		userRepository:        userRepository,

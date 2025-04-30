@@ -174,6 +174,7 @@ func webServer() error {
 	creatorDiscountController := http.NewCreatorDiscountController(creatorDiscountUseCase, customValidator, logs)
 	healthCheckController := http.NewHealthCheckController()
 	checkoutController := http.NewCheckoutController(checkoutUseCase, customValidator, logs)
+	photoController := http.NewPhotoController(photoUseCase, customValidator, logs)
 
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 	creatorMiddleware := middleware.NewCreatorMiddleware(creatorUseCase, tracer, logs)
@@ -201,6 +202,7 @@ func webServer() error {
 		ExploreController:        exploreController,
 		HealthCheckController:    healthCheckController,
 		CreatorDiscountControler: creatorDiscountController,
+		PhotoController:          photoController,
 		AuthMiddleware:           authMiddleware,
 		CreatorMiddleware:        creatorMiddleware,
 		CheckoutController:       checkoutController,

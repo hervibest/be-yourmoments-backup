@@ -13,7 +13,7 @@ import (
 )
 
 // TODO SHOULD TOKEN VALIDATED ?
-func NewUserAuth(authUseCase usecase.AuthUseCase, validator helper.CustomValidator, logs *logger.Log) fiber.Handler {
+func NewUserAuth(authUseCase usecase.AuthUseCase, validator helper.CustomValidator, logs logger.Log) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		token := strings.TrimPrefix(ctx.Get("Authorization", ""), "Bearer ")
 		if token == "" || token == "NOT_FOUND" {

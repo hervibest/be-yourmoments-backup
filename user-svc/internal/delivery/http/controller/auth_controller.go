@@ -30,10 +30,10 @@ type AuthController interface {
 type authController struct {
 	authUseCase     usecase.AuthUseCase
 	customValidator helper.CustomValidator
-	logs            *logger.Log
+	logs            logger.Log
 }
 
-func NewAuthController(authUseCase usecase.AuthUseCase, customValidator helper.CustomValidator, logs *logger.Log) AuthController {
+func NewAuthController(authUseCase usecase.AuthUseCase, customValidator helper.CustomValidator, logs logger.Log) AuthController {
 	return &authController{
 		authUseCase:     authUseCase,
 		customValidator: customValidator,

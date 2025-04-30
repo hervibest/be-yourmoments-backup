@@ -40,12 +40,12 @@ type photoUsecase struct {
 	photoAdapter    adapter.PhotoAdapter
 	storageAdapter  adapter.StorageAdapter
 	compressAdapter adapter.CompressAdapter
-	logs            *logger.Log
+	logs            logger.Log
 }
 
 func NewPhotoUsecase(aiAdapter adapter.AiAdapter, photoAdapter adapter.PhotoAdapter,
 	storageAdapter adapter.StorageAdapter, compressAdapter adapter.CompressAdapter,
-	logs *logger.Log) PhotoUsecase {
+	logs logger.Log) PhotoUsecase {
 	return &photoUsecase{
 		aiAdapter:       aiAdapter,
 		photoAdapter:    photoAdapter,
@@ -219,6 +219,7 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 }
 
 // Define pool 1MB buffer
+// ISSUE #3 SHOULD I MAKE DIFFERENT bufPool ?
 var bufPool = sync.Pool{
 	New: func() interface{} {
 		return make([]byte, 1*1024*1024) // 1MB buffer

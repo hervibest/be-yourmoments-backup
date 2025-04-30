@@ -63,7 +63,7 @@ func (r *bulkPhotoRepository) FindDetailById(ctx context.Context, tx Querier, bu
 	AND
 	bp.creator_id = $2
 	`
-	if err := tx.SelectContext(ctx, bulkPhotoDetails, query, bulkPhotoID, creatorID); err != nil {
+	if err := tx.SelectContext(ctx, &bulkPhotoDetails, query, bulkPhotoID, creatorID); err != nil {
 		return nil, err
 	}
 	return &bulkPhotoDetails, nil

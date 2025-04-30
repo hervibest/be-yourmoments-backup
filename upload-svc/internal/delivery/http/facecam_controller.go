@@ -19,10 +19,10 @@ type FacecamController interface {
 
 type facecamController struct {
 	facecamUseCase usecase.FacecamUseCase
-	logs           *logger.Log
+	logs           logger.Log
 }
 
-func NewFacecamController(facecamUseCase usecase.FacecamUseCase, logs *logger.Log) FacecamController {
+func NewFacecamController(facecamUseCase usecase.FacecamUseCase, logs logger.Log) FacecamController {
 	return &facecamController{
 		facecamUseCase: facecamUseCase,
 		logs:           logs,

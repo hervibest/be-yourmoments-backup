@@ -34,7 +34,7 @@ func ErrValidationResponseJSON(ctx *fiber.Ctx, validatonErrs *UseCaseValError) e
 	})
 }
 
-func ErrUseCaseResponseJSON(ctx *fiber.Ctx, msg string, err error, logs *logger.Log) error {
+func ErrUseCaseResponseJSON(ctx *fiber.Ctx, msg string, err error, logs logger.Log) error {
 	if appErr, ok := err.(*AppError); ok {
 		if appErr.Err != nil {
 			logs.Error(fmt.Sprintf("Internal error in controller : %s [%s]: %v", msg, appErr.Code, appErr.Err.Error()))

@@ -21,10 +21,10 @@ type ChatController interface {
 type chatController struct {
 	chatUseCase     usecase.ChatUseCase
 	customValidator helper.CustomValidator
-	logs            *logger.Log
+	logs            logger.Log
 }
 
-func NewChatController(chatUseCase usecase.ChatUseCase, customValidator helper.CustomValidator, logs *logger.Log) ChatController {
+func NewChatController(chatUseCase usecase.ChatUseCase, customValidator helper.CustomValidator, logs logger.Log) ChatController {
 	return &chatController{chatUseCase: chatUseCase, customValidator: customValidator, logs: logs}
 }
 
