@@ -46,47 +46,6 @@ func NewNotificationUseCase(db *sqlx.DB, redisClient *redis.Client, userDeviceRe
 	}
 }
 
-// func (u *notificationUseCase) ProcessAndSendSingleNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error {
-// 	devices, err := u.getTokenFromRedis(ctx, userId)
-// 	if err != nil || len(devices) == 0 {
-// 		if err != nil {
-// 			u.logs.Log(fmt.Sprintf("Redis error for userID %s: %v", userId, err))
-// 		}
-
-// 		dbResults, err := u.userDeviceRepository.FetchFCMTokensFromPostgre(ctx, u.db, []string{userId})
-// 		if err != nil {
-// 			return fmt.Errorf("postgres fetch error: %w", err)
-// 		}
-
-// 		devices = append(devices, *dbResults...)
-
-// 		pipe := u.redisClient.Pipeline()
-// 		for _, ua := range *dbResults {
-// 			key := fmt.Sprintf("fcm_tokens:%s", ua.UserId)
-// 			pipe.SAdd(ctx, key, ua.Token)
-// 		}
-// 		_, err = pipe.Exec(ctx)
-// 		if err != nil {
-// 			u.logs.Log(fmt.Sprintf("Redis cache update error: %v", err))
-// 		}
-// 	}
-
-// 	var tokens []string
-
-// 	for _, device := range devices {
-// 		tokens = append(tokens, device.Token)
-// 	}
-
-// 	go func() {
-// 		message := "Anda memiliki 1 foto yang mirip"
-// 		if err := u.sendFCMMulticastWithRetry(ctx, userId, tokens, message); err != nil {
-// 			u.logs.Log(fmt.Sprintf("[Singe Notification] ❌ Failed send to userID=%s: %v", userId, err))
-// 		}
-// 	}()
-
-// 	return nil
-// }
-
 func (u *notificationUseCase) ProcessAndSendSingleNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error {
 	log.Println("[USER][NOTIFICATION USECASE]Process and send single notficitaon")
 	lenData := len(datas)
