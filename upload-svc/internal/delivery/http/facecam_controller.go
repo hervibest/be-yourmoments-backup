@@ -33,7 +33,7 @@ func (c *facecamController) UploadFacecam(ctx *fiber.Ctx) error {
 	log.Println("Upload facecam via http")
 	file, err := ctx.FormFile("facecam")
 	if err != nil {
-		return fiber.NewError(http.StatusBadRequest, "invalid facecam")
+		return helper.ErrFormParserResponseJSON(ctx, "Make sure you have provided facecam file", err, c.logs)
 	}
 
 	auth := middleware.GetUser(ctx)

@@ -12,6 +12,7 @@ type UserDeviceRepository interface {
 	Create(ctx context.Context, tx Querier, userDevice *entity.UserDevice) (*entity.UserDevice, error)
 	FetchFCMTokensFromPostgre(ctx context.Context, tx Querier, userIDs []string) (*[]*entity.UserDevice, error)
 	DeleteByUserID(ctx context.Context, tx Querier, userID string) error
+	DeleteByUserIdAndToken(ctx context.Context, tx Querier, userID, token string) error
 }
 type userDeviceRepository struct{}
 
@@ -57,6 +58,21 @@ func (r *userDeviceRepository) DeleteByUserID(ctx context.Context, tx Querier, u
 	`
 
 	_, err := tx.ExecContext(ctx, query, userID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *userDeviceRepository) DeleteByUserIdAndToken(ctx context.Context, tx Querier, userID, token string) error {
+	query := `
+	DELETE 
+	FROM user_devices
+	WHERE user_id = $1 AND token = $2
+	`
+
+	_, err := tx.ExecContext(ctx, query, userID, token)
 	if err != nil {
 		return err
 	}

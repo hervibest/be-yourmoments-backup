@@ -14,6 +14,7 @@ import (
 type UserAdapter interface {
 	AuthenticateUser(ctx context.Context, token string) (*userpb.AuthenticateResponse, error)
 	SendBulkPhotoNotification(ctx context.Context, request []*photopb.BulkUserSimilarPhoto) (*userpb.SendBulkPhotoNotificationResponse, error)
+	SendSinglePhotoNotification(ctx context.Context, request []*photopb.UserSimilarPhoto) (*userpb.SendSinglePhotoNotificationResponse, error)
 }
 
 type userAdapter struct {
@@ -53,6 +54,19 @@ func (a *userAdapter) SendBulkPhotoNotification(ctx context.Context, request []*
 	}
 
 	response, err := a.client.SendBulkPhotoNotification(ctx, sendBulkPhotoNotificationReq)
+	if err != nil {
+		return nil, helper.FromGRPCError(err)
+	}
+
+	return response, nil
+}
+
+func (a *userAdapter) SendSinglePhotoNotification(ctx context.Context, request []*photopb.UserSimilarPhoto) (*userpb.SendSinglePhotoNotificationResponse, error) {
+	sendBulkPhotoNotificationReq := &userpb.SendSinglePhotoNotificationRequest{
+		UserSimilarPhoto: request,
+	}
+
+	response, err := a.client.SendSinglePhotoNotification(ctx, sendBulkPhotoNotificationReq)
 	if err != nil {
 		return nil, helper.FromGRPCError(err)
 	}

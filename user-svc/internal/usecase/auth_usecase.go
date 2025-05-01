@@ -229,8 +229,9 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
 		}
 
-		if err := u.cacheAdapter.HSet(ctx, "fcm_tokens", user.Id, request.DeviceToken); err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to HSet redis", err)
+		setKey := fmt.Sprintf("fcm_tokens:%s", user.Id)
+		if err := u.cacheAdapter.SAdd(ctx, setKey, request.DeviceToken); err != nil {
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to SAdd redis set", err)
 		}
 
 		token, err := u.generateToken(ctx, auth)
@@ -305,8 +306,9 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			return nil, nil, err
 		}
 
-		if err := u.cacheAdapter.HSet(ctx, "fcm_tokens", user.Id, request.DeviceToken); err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to HSet redis", err)
+		setKey := fmt.Sprintf("fcm_tokens:%s", user.Id)
+		if err := u.cacheAdapter.SAdd(ctx, setKey, request.DeviceToken); err != nil {
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to SAdd redis set", err)
 		}
 
 		//TODO apakah bisa dirapikan atau diwrap ke dalam adapter ?

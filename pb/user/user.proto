@@ -10,6 +10,7 @@ import "photo/photo.proto";
 service UserService{
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
   rpc SendBulkPhotoNotification(SendBulkPhotoNotificationRequest) returns (SendBulkPhotoNotificationResponse);
+  rpc SendSinglePhotoNotification(SendSinglePhotoNotificationRequest) returns (SendSinglePhotoNotificationResponse);
 }
 
 message AuthenticateRequest{
@@ -37,4 +38,15 @@ message SendBulkPhotoNotificationRequest {
 
 message SendBulkPhotoNotificationResponse {
   int64 status = 1;
+  string error = 2;
+}
+
+
+message SendSinglePhotoNotificationRequest {
+  repeated photo.UserSimilarPhoto user_similar_photo = 1;
+}
+
+message SendSinglePhotoNotificationResponse {
+  int64 status = 1;
+  string error = 2;
 }

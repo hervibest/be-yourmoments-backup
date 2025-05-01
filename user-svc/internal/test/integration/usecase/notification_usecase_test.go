@@ -5,7 +5,7 @@ import (
 	"log"
 	"testing"
 
-	"firebase.google.com/go/messaging"
+	"firebase.google.com/go/v4/messaging"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
 )

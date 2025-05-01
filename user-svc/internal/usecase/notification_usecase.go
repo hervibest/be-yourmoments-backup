@@ -8,23 +8,22 @@ import (
 	"sync"
 	"time"
 
+	"firebase.google.com/go/v4/messaging"
+
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
-	"google.golang.org/api/googleapi"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
-	"firebase.google.com/go/messaging"
 	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )
 
 type NotificationUseCase interface {
-	ProcessAndSendNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error
+	ProcessAndSendBulkNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error
+	ProcessAndSendSingleNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error
 }
 
 type notificationUseCase struct {
@@ -47,8 +46,85 @@ func NewNotificationUseCase(db *sqlx.DB, redisClient *redis.Client, userDeviceRe
 	}
 }
 
+// func (u *notificationUseCase) ProcessAndSendSingleNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error {
+// 	devices, err := u.getTokenFromRedis(ctx, userId)
+// 	if err != nil || len(devices) == 0 {
+// 		if err != nil {
+// 			u.logs.Log(fmt.Sprintf("Redis error for userID %s: %v", userId, err))
+// 		}
+
+// 		dbResults, err := u.userDeviceRepository.FetchFCMTokensFromPostgre(ctx, u.db, []string{userId})
+// 		if err != nil {
+// 			return fmt.Errorf("postgres fetch error: %w", err)
+// 		}
+
+// 		devices = append(devices, *dbResults...)
+
+// 		pipe := u.redisClient.Pipeline()
+// 		for _, ua := range *dbResults {
+// 			key := fmt.Sprintf("fcm_tokens:%s", ua.UserId)
+// 			pipe.SAdd(ctx, key, ua.Token)
+// 		}
+// 		_, err = pipe.Exec(ctx)
+// 		if err != nil {
+// 			u.logs.Log(fmt.Sprintf("Redis cache update error: %v", err))
+// 		}
+// 	}
+
+// 	var tokens []string
+
+// 	for _, device := range devices {
+// 		tokens = append(tokens, device.Token)
+// 	}
+
+// 	go func() {
+// 		message := "Anda memiliki 1 foto yang mirip"
+// 		if err := u.sendFCMMulticastWithRetry(ctx, userId, tokens, message); err != nil {
+// 			u.logs.Log(fmt.Sprintf("[Singe Notification] ❌ Failed send to userID=%s: %v", userId, err))
+// 		}
+// 	}()
+
+// 	return nil
+// }
+
+func (u *notificationUseCase) ProcessAndSendSingleNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error {
+	log.Println("[USER][NOTIFICATION USECASE]Process and send single notficitaon")
+	lenData := len(datas)
+	userIDs := make([]string, 0, lenData)
+	for _, data := range datas {
+		userIDs = append(userIDs, data.UserId)
+	}
+
+	const batchSize = 5000
+
+	var outerError error
+	for i := 0; i < lenData; i += batchSize {
+		end := min(i+batchSize, lenData)
+		batch := userIDs[i:end]
+
+		userAuthentications, err := u.fetchFCMTokens(ctx, batch)
+		if err != nil {
+			outerError = err
+			log.Println("Error fetching tokens:", err)
+			continue
+		}
+		u.sendFCMWorkerPool(ctx, false, userAuthentications, nil, 10)
+	}
+
+	if outerError != nil {
+		return outerError
+	}
+	return nil
+}
+
+func (u *notificationUseCase) alertAdminFCMAuthIssue(userID string, err *helper.ErrorFCM) {
+	u.logs.Log(fmt.Sprintf("[ALERT] Admin needs to investigate auth issue for userID=%s: %s (%s)", userID, err.Code, err.Details))
+	// Bisa kirim ke Sentry, Email, atau channel Discord internal kamu
+}
+
 // --- Fungsi untuk parallel counting users dari photos ---
 // pemanfaatan pararel computation untuk handle I/O bottleneck
+// ATTENTION ! THIS CODE IS CPU BOUNDED !!
 // proyeksi kalau creator upload 100 foto sekaligus dan each poto bisa sekitar 100 hingga 1000 user
 func (u *notificationUseCase) countUsersParallel(datas []*photopb.BulkUserSimilarPhoto) map[string]int {
 	countMap := make(map[string]int)
@@ -89,16 +165,30 @@ func (u *notificationUseCase) countUsersParallel(datas []*photopb.BulkUserSimila
 	return countMap
 }
 
-// --- Fungsi utama: fetch dari Redis dulu, fallback Postgre ---
-func (u *notificationUseCase) fetchFCMTokens(ctx context.Context, userIDs []string) (*[]*entity.UserDevice, error) {
-	if len(userIDs) == 0 {
+func (u *notificationUseCase) getTokenFromRedis(ctx context.Context, userID string) ([]*entity.UserDevice, error) {
+	key := fmt.Sprintf("fcm_tokens:%s", userID)
+	tokens, err := u.redisClient.SMembers(ctx, key).Result()
+	if err != nil {
+		return nil, fmt.Errorf("redis error for userID %s: %w", userID, err)
+	}
+	if len(tokens) == 0 {
 		return nil, nil
 	}
 
-	// 1. Coba ambil dari Redis
-	fcmTokens, err := u.redisClient.HMGet(ctx, "fcm_tokens", userIDs...).Result()
-	if err != nil {
-		return nil, fmt.Errorf("redis HMGET error: %w", err)
+	var devices []*entity.UserDevice
+	for _, token := range tokens {
+		devices = append(devices, &entity.UserDevice{
+			UserId: userID,
+			Token:  token,
+		})
+	}
+	return devices, nil
+}
+
+// ISSUE Redis Lookup N+1 Problem (Satu per User)
+func (u *notificationUseCase) fetchFCMTokens(ctx context.Context, userIDs []string) (*[]*entity.UserDevice, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
 	}
 
 	var (
@@ -106,52 +196,60 @@ func (u *notificationUseCase) fetchFCMTokens(ctx context.Context, userIDs []stri
 		finalResult    []*entity.UserDevice
 	)
 
-	for idx, raw := range fcmTokens {
-		if raw == nil {
-			// Token tidak ditemukan di Redis
-			missingUserIDs = append(missingUserIDs, userIDs[idx])
-		} else {
-			// Token ditemukan di Redis
-			tokenStr, ok := raw.(string)
-			if !ok {
-				log.Printf("Invalid token format for userID: %s", userIDs[idx])
-				missingUserIDs = append(missingUserIDs, userIDs[idx])
-				continue
+	for _, userID := range userIDs {
+		devices, err := u.getTokenFromRedis(ctx, userID)
+		if err != nil || len(devices) == 0 {
+			missingUserIDs = append(missingUserIDs, userID)
+			if err != nil {
+				u.logs.Log(fmt.Sprintf("Redis error for userID %s: %v", userID, err))
 			}
-			finalResult = append(finalResult, &entity.UserDevice{
-				UserId: userIDs[idx],
-				Token:  tokenStr,
-			})
+			continue
 		}
+
+		finalResult = append(finalResult, devices...)
 	}
 
-	// 2. Kalau ada missing, fallback ke PostgreSQL
+	// Fallback: ambil dari PostgreSQL untuk user yang tidak ditemukan di Redis
 	if len(missingUserIDs) > 0 {
 		dbResults, err := u.userDeviceRepository.FetchFCMTokensFromPostgre(ctx, u.db, missingUserIDs)
 		if err != nil {
 			return nil, fmt.Errorf("postgres fetch error: %w", err)
 		}
 
-		// Update Redis cache untuk yang baru didapat
+		// Simpan hasil dari PostgreSQL ke Redis (SADD per user)
 		pipe := u.redisClient.Pipeline()
 		for _, ua := range *dbResults {
-			pipe.HSet(ctx, "fcm_tokens", ua.UserId, ua.Token)
+			key := fmt.Sprintf("fcm_tokens:%s", ua.UserId)
+			pipe.SAdd(ctx, key, ua.Token)
 		}
 		_, err = pipe.Exec(ctx)
 		if err != nil {
-			log.Printf("Redis cache update error: %v", err)
+			u.logs.Log(fmt.Sprintf("Redis cache update error: %v", err))
 		}
 
-		// Gabungkan hasil dari PostgreSQL ke final result
 		finalResult = append(finalResult, *dbResults...)
 	}
 
-	log.Print("[FETCHFCM][LEN]", len(finalResult))
-
+	u.logs.Log(fmt.Sprintf("[FETCHFCM][TOTAL_TOKENS] %d", len(finalResult)))
 	return &finalResult, nil
 }
 
-func (u *notificationUseCase) ProcessAndSendNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error {
+/* Process and Send Bulk Notification Logic
+1. Count user by leveraging concurent computation
+2. The total of usersIDS will be divided base on each batch size, then fetch every token
+3. Fetch token first done by taking a SMembers Redis (Set Data Structure in redis)
+4. For every user id if there are no token, save to missing UserIDs
+5. Then 2nd step of fetch token is get missing UserIDs token from postgre (fallback to db)
+6. Call Send FCM Worker pool then dispatchWorker using gorotoutine
+7. Map every user device token into group by user id then send to channel
+8. For every worker, block/wait the usertoken that come from channel
+10. Get tokens and count from user device map then send to sendFCMWithRetry
+11. Check every cond, if there is business logic error, remove the token
+12. If error is external (such as fcm down, ratte limit or max quota) retry is conducted
+13. Done
+*/
+
+func (u *notificationUseCase) ProcessAndSendBulkNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error {
 	countMap := u.countUsersParallel(datas)
 
 	lenCountMap := len(countMap)
@@ -173,7 +271,7 @@ func (u *notificationUseCase) ProcessAndSendNotifications(ctx context.Context, d
 			log.Println("Error fetching tokens:", err)
 			continue
 		}
-		u.sendFCMWorkerPool(ctx, userAuthentications, countMap, 10)
+		u.sendFCMWorkerPool(ctx, true, userAuthentications, countMap, 10)
 	}
 
 	if outerError != nil {
@@ -182,44 +280,8 @@ func (u *notificationUseCase) ProcessAndSendNotifications(ctx context.Context, d
 	return nil
 }
 
-// --- sendFCMWithRetry function ---
-func (u *notificationUseCase) sendFCMWithRetry(ctx context.Context, userID, fcmToken, message string) error {
-	const maxRetries = 3
-	var backoff = time.Millisecond * 500 // 500ms backoff awal
-
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		log.Printf("[TOKEN][sendFCMWithRetry]fcm happen trom fcm error %s", fcmToken)
-		err := u.sendFCM(ctx, fcmToken, message)
-
-		if err == nil {
-			return nil // sukses
-		}
-		log.Printf("[ERROR][sendFCMWithRetry]Error happen trom fcm error %v", err)
-		u.removeUserToken(ctx, userID)
-
-		if helper.IsFCMInvalidTokenError(err) {
-			log.Printf("[ERROR][sendFCMWithRetry]Error happen trom fcm error %v", err)
-			// Token rusak, hapus
-			u.removeUserToken(ctx, userID)
-			return fmt.Errorf("invalid token for userID %s: %w", userID, err)
-		}
-
-		if helper.IsFCMRetryableError(err) {
-			log.Printf("Retryable error sending FCM to userID=%s, attempt=%d, err=%v", userID, attempt, err)
-			time.Sleep(backoff)
-			backoff *= 2 // exponential backoff
-			continue
-		}
-
-		// Unknown error, log saja
-		log.Printf("Unexpected error sending FCM to userID=%s: %v", userID, err)
-		return err
-	}
-
-	return fmt.Errorf("failed to send FCM to userID=%s after %d attempts", userID, maxRetries)
-}
-
-func (u *notificationUseCase) removeUserToken(ctx context.Context, userID string) (err error) {
+func (u *notificationUseCase) removeUserToken(ctx context.Context, userID, token string) (err error) {
+	u.logs.Log(fmt.Sprintf("remove user token called with token : %s and user %s", token, userID))
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -229,18 +291,18 @@ func (u *notificationUseCase) removeUserToken(ctx context.Context, userID string
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	// Hapus dari DB
-	if err := u.userDeviceRepository.DeleteByUserID(ctx, tx, userID); err != nil {
+	if err := u.userDeviceRepository.DeleteByUserIdAndToken(ctx, tx, userID, token); err != nil {
 		return err
 	}
-	log.Printf("Removing FCM token for user: %s", userID)
+	u.logs.Log(fmt.Sprintf("Removed FCM token from DB: user=%s, token=%s", userID, token))
 
-	// Hapus dari Redis hash "fcm_tokens"
-	if err := u.redisClient.HDel(ctx, "fcm_tokens", userID).Err(); err != nil {
-		return fmt.Errorf("redis HDEL error: %w", err)
+	setKey := fmt.Sprintf("fcm_tokens:%s", userID)
+	if err := u.redisClient.SRem(ctx, setKey, token).Err(); err != nil {
+		u.logs.Log(fmt.Sprintf("Redis SREM error: user=%s, token=%s: %v", userID, token, err))
+	} else {
+		u.logs.Log(fmt.Sprintf("Removed FCM token from Redis Set: user=%s, token=%s", userID, token))
 	}
 
-	// Commit DB transaction
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
@@ -248,13 +310,12 @@ func (u *notificationUseCase) removeUserToken(ctx context.Context, userID string
 	return nil
 }
 
-func (u *notificationUseCase) sendFCM(ctx context.Context, fcmToken, message string) error {
-	log.Print("[REQUESTED][sendFCM")
-	msg := &messaging.Message{
-		Token: fcmToken,
+func (u *notificationUseCase) sendMulticast(ctx context.Context, userID string, tokens []string, message string) error {
+	msg := &messaging.MulticastMessage{
+		Tokens: tokens,
 		Notification: &messaging.Notification{
 			Title: "Foto Mirip Terdeteksi",
-			Body:  message, // Contoh: "Terdapat 5 foto yang mirip dengan Anda!"
+			Body:  message,
 		},
 		Data: map[string]string{
 			"type":    "similar_photo",
@@ -262,40 +323,72 @@ func (u *notificationUseCase) sendFCM(ctx context.Context, fcmToken, message str
 		},
 	}
 
-	response, err := u.cloudMessagingAdapter.Send(ctx, msg)
+	res, err := u.cloudMessagingAdapter.SendEachForMulticast(ctx, msg)
 	if err != nil {
-
-		if status.Code(err) == codes.NotFound {
-			fmt.Println("User not found")
-		} else {
-			fmt.Println("Error getting user:", err)
-		}
-		// Type assertion untuk memeriksa apakah error merupakan *googleapi.Error
-		if gErr, ok := err.(*googleapi.Error); ok {
-			// Menangani error dari Google API secara spesifik
-			log.Printf("Google API error - Code: %v, Message: %v", gErr.Code, gErr.Message)
-
-			// Misalnya, jika error 404 (Not Found)
-			if gErr.Code == 404 {
-				log.Println("Resource not found")
-			}
-		} else {
-			// Jika bukan error dari Google API, cetak error biasa
-			log.Printf("Error sending FCM to %s: %v", fcmToken, err)
-		}
 		return err
 	}
 
-	log.Printf("✅ FCM sent to %s: %s", fcmToken, response)
+	for i, r := range res.Responses {
+		if !r.Success {
+			token := tokens[i]
+			fcmErr := helper.ParseFCMError(r.Error)
+
+			if fcmErr.IsInvalidToken() {
+				u.logs.Log(fmt.Sprintf("[MULTICAST][INVALID] userID=%s, token=%s, code=%s", userID, token, fcmErr.Code))
+				_ = u.removeUserToken(ctx, userID, token)
+			} else {
+				u.logs.Log(fmt.Sprintf("[MULTICAST][FAIL] userID=%s, token=%s, code=%s, detail=%s", userID, token, fcmErr.Code, fcmErr.Details))
+			}
+		}
+	}
+
+	u.logs.Log(fmt.Sprintf("✅ Sent multicast to userID=%s, success=%d, failed=%d", userID, res.SuccessCount, res.FailureCount))
 	return nil
 }
 
-func (u *notificationUseCase) sendFCMWorkerPool(ctx context.Context, userAuthentications *[]*entity.UserDevice, countMap map[string]int, workerCount int) {
-	jobChan := make(chan *entity.UserDevice)
+func (u *notificationUseCase) sendFCMMulticastWithRetry(ctx context.Context, userID string, tokens []string, message string) error {
+	const maxRetries = 3
+	backoff := 500 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := u.sendMulticast(ctx, userID, tokens, message)
+		if err == nil {
+			return nil
+		}
+
+		fcmErr := helper.ParseFCMError(err)
+		if fcmErr.IsRetryable() {
+			u.logs.Log(fmt.Sprintf("[MULTICAST][RETRY] userID=%s, retry attempt=%d, err=%v", userID, attempt, err))
+			time.Sleep(backoff)
+			backoff *= 2
+			continue
+		}
+
+		if fcmErr.IsAuthError() {
+			u.logs.Log(fmt.Sprintf("[AUTH ERROR] userID=%s, code=%s → admin action required", userID, fcmErr.Code))
+			u.alertAdminFCMAuthIssue(userID, fcmErr)
+			return fmt.Errorf("auth error sending FCM to userID=%s: %w", userID, err)
+		}
+
+		u.logs.Log(fmt.Sprintf("[MULTICAST][FATAL ERROR] userID=%s, err=%v", userID, err))
+		return err
+	}
+
+	return fmt.Errorf("failed multicast after retries for userID=%s", userID)
+}
+
+func (u *notificationUseCase) sendFCMWorkerPool(ctx context.Context, isBulk bool, userAuthentications *[]*entity.UserDevice, countMap map[string]int, workerCount int) {
+	// 1. Group tokens per userID
+	userTokensMap := make(map[string][]string)
+	for _, ua := range *userAuthentications {
+		userTokensMap[ua.UserId] = append(userTokensMap[ua.UserId], ua.Token)
+	}
+
+	// 2. Job channel per userID
+	jobChan := make(chan string)
 	var wg sync.WaitGroup
 
-	// Start workerCount workers
-	for i := range workerCount {
+	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
@@ -303,36 +396,46 @@ func (u *notificationUseCase) sendFCMWorkerPool(ctx context.Context, userAuthent
 				select {
 				case <-ctx.Done():
 					return
-				case userAuth, ok := <-jobChan:
+				case userID, ok := <-jobChan:
 					if !ok {
 						return
 					}
 
-					count := countMap[userAuth.UserId]
-					if count == 0 {
+					tokens := userTokensMap[userID]
+					count := 1
+					if isBulk {
+						count = countMap[userID]
+						if count == 0 {
+							continue
+						}
+					}
+
+					if len(tokens) == 0 {
 						continue
 					}
 
 					message := fmt.Sprintf("Terdapat %d foto yang mirip dengan Anda!", count)
-					if err := u.sendFCMWithRetry(ctx, userAuth.UserId, userAuth.Token, message); err != nil {
-						log.Printf("[Worker %d] Failed send to %s: %v", workerID, userAuth.UserId, err)
+					if err := u.sendFCMMulticastWithRetry(ctx, userID, tokens, message); err != nil {
+						u.logs.Log(fmt.Sprintf("[Worker %d] ❌ Failed send to userID=%s: %v", workerID, userID, err))
 					}
 				}
 			}
 		}(i)
 	}
 
-loop:
-	for _, userAuth := range *userAuthentications {
-		select {
-		case <-ctx.Done():
-			break loop
-		case jobChan <- userAuth:
+	// 3. Kirim pekerjaan ke worker
+	go func() {
+		for userID := range userTokensMap {
+			select {
+			case <-ctx.Done():
+				close(jobChan)
+				return
+			case jobChan <- userID:
+			}
 		}
-	}
+		close(jobChan)
+	}()
 
-	close(jobChan)
-
-	// Wait all workers finish
+	// 4. Tunggu semua worker selesai
 	wg.Wait()
 }

@@ -4,12 +4,13 @@ import (
 	"context"
 	"log"
 
-	firebase "firebase.google.com/go"
-	"firebase.google.com/go/messaging"
+	firebase "firebase.google.com/go/v4"
+	"firebase.google.com/go/v4/messaging"
 )
 
 type CloudMessagingAdapter interface {
 	Send(ctx context.Context, message *messaging.Message) (string, error)
+	SendEachForMulticast(ctx context.Context, message *messaging.MulticastMessage) (*messaging.BatchResponse, error)
 }
 
 func NewCloudMessagingAdapter(app *firebase.App) CloudMessagingAdapter {

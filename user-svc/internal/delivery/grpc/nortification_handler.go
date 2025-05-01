@@ -16,11 +16,25 @@ func (h *UserGRPCHandler) SendBulkPhotoNotification(ctx context.Context,
 
 	log.Println("---- Send Bulk Photo Notification User via gRPC in user-svc ------")
 
-	if err := h.notificationUseCase.ProcessAndSendNotifications(ctx, pbReq.GetBulkUserSimilarPhoto()); err != nil {
+	if err := h.notificationUseCase.ProcessAndSendBulkNotifications(ctx, pbReq.GetBulkUserSimilarPhoto()); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
 	return &userpb.SendBulkPhotoNotificationResponse{
+		Status: int64(codes.OK),
+	}, nil
+}
+
+// TODO (URGENT) FIX API CONTRACT SendBulk is in PhotoContract not user contract
+func (h *UserGRPCHandler) SendSinglePhotoNotification(ctx context.Context, pbReq *userpb.SendSinglePhotoNotificationRequest) (*userpb.SendSinglePhotoNotificationResponse, error) {
+
+	log.Println("---- Send Bulk Photo Notification User via gRPC in user-svc ------")
+
+	if err := h.notificationUseCase.ProcessAndSendSingleNotifications(ctx, pbReq.GetUserSimilarPhoto()); err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	return &userpb.SendSinglePhotoNotificationResponse{
 		Status: int64(codes.OK),
 	}, nil
 }

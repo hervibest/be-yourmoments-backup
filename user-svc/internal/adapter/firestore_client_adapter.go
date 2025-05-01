@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"cloud.google.com/go/firestore"
-	firebase "firebase.google.com/go"
+	firebase "firebase.google.com/go/v4"
 )
 
 type FirestoreClientAdapter interface {

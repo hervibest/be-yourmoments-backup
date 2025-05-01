@@ -124,6 +124,12 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		return err
 	}
 
+	go func() {
+		if _, err := u.userAdapter.SendSinglePhotoNotification(ctx, request.GetUserSimilarPhoto()); err != nil {
+			u.logs.Error(err)
+		}
+	}()
+
 	return nil
 
 }

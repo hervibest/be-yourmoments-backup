@@ -14,6 +14,7 @@ type CacheAdapter interface {
 	HMGet(ctx context.Context, key string, fields ...string) ([]interface{}, error)
 	HDel(ctx context.Context, key string, fields ...string) error
 	HSet(ctx context.Context, key string, values ...interface{}) error
+	SAdd(ctx context.Context, key string, members ...interface{}) error
 }
 
 type cacheAdapter struct {
@@ -48,4 +49,8 @@ func (a *cacheAdapter) HSet(ctx context.Context, key string, values ...interface
 
 func (a *cacheAdapter) HDel(ctx context.Context, key string, fields ...string) error {
 	return a.redisClient.HDel(ctx, key, fields...).Err()
+}
+
+func (a *cacheAdapter) SAdd(ctx context.Context, key string, members ...interface{}) error {
+	return a.redisClient.SAdd(ctx, key, members...).Err()
 }
