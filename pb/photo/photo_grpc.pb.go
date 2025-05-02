@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v3.21.12
-// source: photo/photo.proto
+// source: pb/photo/photo.proto
 
 package photopb
 
@@ -573,5 +573,5 @@ var PhotoService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "photo/photo.proto",
+	Metadata: "pb/photo/photo.proto",
 }

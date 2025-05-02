@@ -11,6 +11,8 @@ service UserService{
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
   rpc SendBulkPhotoNotification(SendBulkPhotoNotificationRequest) returns (SendBulkPhotoNotificationResponse);
   rpc SendSinglePhotoNotification(SendSinglePhotoNotificationRequest) returns (SendSinglePhotoNotificationResponse);
+  rpc SendBulkNotification(SendBulkNotificationRequest) returns (SendBulkNotificationResponse);
+  rpc SendSingleFacecamNotification(SendSingleFacecamNotificationRequest) returns (SendSingleFacecamNotificationResponse);
 }
 
 message AuthenticateRequest{
@@ -32,6 +34,17 @@ message User {
   string  wallet_id = 6;
 }
 
+//COUNT USER IN PHOTO SVC
+
+message SendBulkNotificationRequest {
+  map<string, int32> count_map = 1;
+}
+
+message SendBulkNotificationResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
 message SendBulkPhotoNotificationRequest {
   repeated photo.BulkUserSimilarPhoto bulk_user_similar_photo = 1;
 }
@@ -41,12 +54,20 @@ message SendBulkPhotoNotificationResponse {
   string error = 2;
 }
 
-
 message SendSinglePhotoNotificationRequest {
   repeated photo.UserSimilarPhoto user_similar_photo = 1;
 }
 
 message SendSinglePhotoNotificationResponse {
+  int64 status = 1;
+  string error = 2;
+}
+
+message SendSingleFacecamNotificationRequest {
+  repeated photo.UserSimilarPhoto user_similar_photo = 1;
+}
+
+message SendSingleFacecamNotificationResponse {
   int64 status = 1;
   string error = 2;
 }
