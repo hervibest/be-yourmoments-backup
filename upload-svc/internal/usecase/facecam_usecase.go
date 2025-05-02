@@ -6,9 +6,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
-	"net/textproto"
-	"os"
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/adapter"
@@ -46,87 +45,60 @@ func NewFacecamUseCase(aiAdapter adapter.AiAdapter, photoAdapter adapter.PhotoAd
 }
 
 func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.FileHeader, userId string) error {
-	uploadFile, err := file.Open()
+	start := time.Now()
+
+	srcFile, err := file.Open()
 	if err != nil {
-		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot process uploaded file")
+		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot open uploaded file")
+	}
+	defer srcFile.Close()
+
+	// Ambil buffer 512KB dari pool
+	peekBuf := peekBufPool.Get().([]byte)
+	defer peekBufPool.Put(peekBuf)
+
+	// Baca sebagian file untuk seed + streaming awal
+	n, err := io.ReadFull(srcFile, peekBuf)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return helper.NewUseCaseWithInternalError(errorcode.ErrInvalidArgument, "Failed to peek image data", err)
 	}
 
-	data, err := io.ReadAll(uploadFile)
+	// Streaming hash & upload
+	hasher := sha256.New()
+	stream := io.TeeReader(io.MultiReader(bytes.NewReader(peekBuf[:n]), srcFile), hasher)
+
+	uploadPath := "facecam"
+	uploaded, err := u.storageAdapter.UploadFileWithoutMultipart(ctx, file, io.NopCloser(stream), uploadPath)
 	if err != nil {
-		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Cannot read uploaded file")
+		return helper.WrapInternalServerError(u.logs, "Failed to upload file", err)
 	}
 
-	uploadFile.Close()
+	checksum := fmt.Sprintf("%x", hasher.Sum(nil))
+	now := time.Now()
 
-	readerForUpload := bytes.NewReader(data)
-	wrappedReader := nopReadSeekCloser{readerForUpload}
+	log.Printf("Ini adalah uploaded file name %s", uploaded.Filename)
+	newFacecam := &entity.Facecam{
+		Id:         ulid.Make().String(),
+		UserId:     userId,
+		FileName:   uploaded.Filename,
+		FileKey:    uploaded.FileKey,
+		Title:      uploaded.Filename,
+		Size:       uploaded.Size,
+		Checksum:   checksum,
+		Url:        uploaded.URL,
+		OriginalAt: now,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
 
-	checksum := fmt.Sprintf("%x", sha256.Sum256(data))
+	if err := u.photoAdapter.CreateFacecam(ctx, newFacecam); err != nil {
+		return helper.WrapInternalServerError(u.logs, "Failed to save facecam metadata", err)
+	}
 
-	go func() {
-		_, filePath, err := u.compressAdapter.CompressImage(file, wrappedReader, "facecam")
-		if err != nil {
-			u.logs.CustomError("Error compressing images: %v", err)
-			return
-		}
+	u.logs.Log(fmt.Sprintf("✅ Facecam uploaded in %v: %s", time.Since(start), uploaded.URL))
 
-		fileComp, err := os.Open(filePath)
-		if err != nil {
-			u.logs.CustomError("Error opening file: %v", err)
-			return
-		}
-		defer fileComp.Close()
-
-		fileInfo, err := fileComp.Stat()
-		if err != nil {
-			u.logs.CustomError("Error stating file: %v", err)
-			return
-		}
-
-		mimeHeader := make(textproto.MIMEHeader)
-		mimeHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, fileInfo.Name()))
-
-		fileHeader := &multipart.FileHeader{
-			Filename: fileInfo.Name(),
-			Header:   mimeHeader,
-			Size:     fileInfo.Size(),
-		}
-
-		uploadPath := "facecam/compressed"
-		compressedPhoto, err := u.storageAdapter.UploadFile(ctx, fileHeader, fileComp, uploadPath)
-		if err != nil {
-			u.logs.CustomError("Error uploading file: %v", err)
-			return
-		}
-
-		newFacecam := &entity.Facecam{
-			Id:         ulid.Make().String(),
-			UserId:     userId,
-			FileName:   compressedPhoto.Filename,
-			FileKey:    compressedPhoto.FileKey,
-			Title:      compressedPhoto.Filename,
-			Size:       compressedPhoto.Size,
-			Checksum:   checksum,
-			Url:        compressedPhoto.URL,
-			OriginalAt: time.Now(),
-			CreatedAt:  time.Now(),
-			UpdatedAt:  time.Now(),
-		}
-
-		if err := u.photoAdapter.CreateFacecam(ctx, newFacecam); err != nil {
-			u.logs.CustomError("Error creating facecam: %v", err)
-			return
-		}
-
-		if err := os.Remove(filePath); err != nil {
-			u.logs.CustomError("Gagal menghapus file: %v", err)
-		} else {
-			u.logs.CustomLog("File sementara berhasil dihapus: %s", filePath)
-		}
-
-		u.aiAdapter.ProcessFacecam(ctx, userId, compressedPhoto.URL)
-	}()
+	// Optional: proses AI async
+	go u.aiAdapter.ProcessFacecam(ctx, userId, uploaded.URL)
 
 	return nil
-
 }

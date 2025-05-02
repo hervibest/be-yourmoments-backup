@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 
@@ -56,6 +57,9 @@ type PhotoRepository interface {
 	UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
 	BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) // UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
 	UpdateProcessedUrlBulk(tx Querier, photos []*entity.Photo) error
+	BulkIncrementTotal(ctx context.Context, tx Querier, photoIDs []string) error
+	BulkAddPhotoTotals(ctx context.Context, tx Querier, photoCountMap map[string]int32) error
+	AddPhotoTotal(ctx context.Context, tx Querier, photoID string, count int) error
 }
 
 type photoRepository struct {
@@ -204,6 +208,79 @@ func (r *photoRepository) UpdateProcessedUrlBulk(tx Querier, photos []*entity.Ph
 
 	if _, err := tx.Exec(query, args...); err != nil {
 		return fmt.Errorf("failed to bulk update photo: %w", err)
+	}
+	return nil
+}
+
+func (r *photoRepository) BulkIncrementTotal(ctx context.Context, tx Querier, photoIDs []string) error {
+	if len(photoIDs) == 0 {
+		return nil
+	}
+
+	valueStrings := make([]string, 0, len(photoIDs))
+	args := make([]interface{}, 0, len(photoIDs))
+
+	for i, id := range photoIDs {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, 1)", i+1))
+		args = append(args, id)
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE photos AS p
+		SET total_user_similar = p.total_user_similar + v.increment
+		FROM (
+			VALUES %s
+		) AS v(photo_id, increment)
+		WHERE p.id = v.photo_id;
+	`, strings.Join(valueStrings, ", "))
+
+	_, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *photoRepository) BulkAddPhotoTotals(ctx context.Context, tx Querier, photoCountMap map[string]int32) error {
+	if len(photoCountMap) == 0 {
+		return nil
+	}
+
+	valueStrings := make([]string, 0, len(photoCountMap))
+	args := make([]interface{}, 0, len(photoCountMap)*2)
+	i := 1
+
+	for photoID, count := range photoCountMap {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d::text, $%d::int)", i, i+1))
+		args = append(args, photoID, count)
+		i += 2
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE photos AS p
+		SET total_user_similar = p.total_user_similar + v.increment
+		FROM (
+			VALUES %s
+		) AS v(photo_id, increment)
+		WHERE p.id = v.photo_id;
+	`, strings.Join(valueStrings, ", "))
+
+	_, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *photoRepository) AddPhotoTotal(ctx context.Context, tx Querier, photoID string, count int) error {
+	query := `
+		UPDATE photos
+		SET total_user_similar = total_user_similar + $1
+		WHERE id = $2;
+	`
+	_, err := tx.ExecContext(ctx, query, count, photoID)
+	if err != nil {
+		return err
 	}
 	return nil
 }

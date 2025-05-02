@@ -140,6 +140,10 @@ func (r *userSimilarRepository) InsertOrUpdateBulk(ctx context.Context, tx Queri
 		return nil
 	}
 
+	if len(userPairs) == 0 {
+		return nil // Tidak ada data untuk dihapus atau diperbarui
+	}
+
 	// Hapus user_similar yang tidak ada dalam batch baru
 	deleteQuery := `
 		DELETE FROM user_similar_photos

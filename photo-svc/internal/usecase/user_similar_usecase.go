@@ -3,7 +3,10 @@ package usecase
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
@@ -74,7 +77,7 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		return helper.WrapInternalServerError(u.logs, "failed to update processed photo url in database", err)
 	}
 
-	//TODO TYPE , CHECKSUM, HEIGHT, WIOTH
+	//TODO ISSUE #3 TYPE , CHECKSUM, HEIGHT, WIOTH
 
 	//YourMoments Type (AI Result)
 	newPhotoDetail := &entity.PhotoDetail{
@@ -120,6 +123,11 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		return helper.WrapInternalServerError(u.logs, "failed to insert or update photo in database", err)
 	}
 
+	err = u.photoRepo.AddPhotoTotal(ctx, tx, request.GetPhotoDetail().PhotoId, len(request.GetUserSimilarPhoto()))
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to insert or update photo in database", err)
+	}
+
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
@@ -155,6 +163,7 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pho
 		return helper.WrapInternalServerError(u.logs, "failed to update processed facecam url in database", err)
 	}
 
+	photoIDs := make([]string, 0, len(request.GetUserSimilarPhoto()))
 	userSimilarPhotos := make([]*entity.UserSimilarPhoto, 0, len(request.GetUserSimilarPhoto()))
 	for _, userSimilarPhotoRequest := range request.GetUserSimilarPhoto() {
 		u.logs.Log("UPDATE UserSimilarPhoto from facecams")
@@ -166,6 +175,7 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pho
 			UpdatedAt:  userSimilarPhotoRequest.GetUpdatedAt().AsTime(),
 		}
 		userSimilarPhotos = append(userSimilarPhotos, userSimilarPhoto)
+		photoIDs = append(photoIDs, userSimilarPhotoRequest.PhotoId)
 	}
 
 	err = u.userSimilarRepo.InserOrUpdateByUserId(tx, request.GetFacecam().UserId, &userSimilarPhotos)
@@ -173,9 +183,21 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pho
 		return helper.WrapInternalServerError(u.logs, "failed to insert or update user facececam in database", err)
 	}
 
+	err = u.photoRepo.BulkIncrementTotal(ctx, tx, photoIDs)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to bulk increment total photos in database", err)
+	}
+
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
+
+	go func() {
+		u.logs.Log("[SEND SINGLE FACECAM] Initiate in go routine")
+		if _, err := u.userAdapter.SendSingleFacecamNotificaton(ctx, request.GetUserSimilarPhoto()); err != nil {
+			u.logs.Error(err)
+		}
+	}()
 
 	return nil
 }
@@ -262,14 +284,103 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 		return helper.WrapInternalServerError(u.logs, "failed to insert or update bulk user similar photos in database", err)
 	}
 
+	photoCountMap := u.countPhotosParallel(request.GetBulkUserSimilarPhoto())
+	err = u.photoRepo.BulkAddPhotoTotals(ctx, tx, photoCountMap)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to update add photos total in database", err)
+	}
+
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 
+	countMap := u.countUsersParallel(request.GetBulkUserSimilarPhoto())
+
 	go func() {
-		if _, err := u.userAdapter.SendBulkPhotoNotification(ctx, request.GetBulkUserSimilarPhoto()); err != nil {
+		if _, err := u.userAdapter.SendBulkNotification(ctx, countMap); err != nil {
 			u.logs.Error(err)
 		}
 	}()
 	return nil
+}
+
+func (u *userSimilarUsecase) countUsersParallel(datas []*photopb.BulkUserSimilarPhoto) map[string]int32 {
+	u.logs.Log("[CountUsersParallel] Count user in photo service")
+	countMap := make(map[string]int32)
+	var mu sync.Mutex
+
+	numWorkers := runtime.NumCPU()
+	chunkSize := (len(datas) + numWorkers - 1) / numWorkers
+
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		start := i * chunkSize
+		end := min(start+chunkSize, len(datas))
+		if start >= len(datas) {
+			continue
+		}
+
+		wg.Add(1)
+		go func(part []*photopb.BulkUserSimilarPhoto) {
+			defer wg.Done()
+			localCount := make(map[string]int32)
+
+			for _, photo := range part {
+				for _, user := range photo.GetUserSimilarPhoto() {
+					localCount[user.UserId]++
+				}
+			}
+
+			// Merge localCount ke global countMap
+			mu.Lock()
+			for id, cnt := range localCount {
+				countMap[id] += cnt
+			}
+			mu.Unlock()
+		}(datas[start:end])
+	}
+
+	wg.Wait()
+
+	return countMap
+}
+
+func (u *userSimilarUsecase) countPhotosParallel(datas []*photopb.BulkUserSimilarPhoto) map[string]int32 {
+	u.logs.Log("[CountUsersParallel] Count user in photo service")
+	countMap := make(map[string]int32)
+	var mu sync.Mutex
+
+	numWorkers := runtime.NumCPU()
+	chunkSize := (len(datas) + numWorkers - 1) / numWorkers
+
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		start := i * chunkSize
+		end := min(start+chunkSize, len(datas))
+		if start >= len(datas) {
+			continue
+		}
+
+		wg.Add(1)
+		go func(part []*photopb.BulkUserSimilarPhoto) {
+			defer wg.Done()
+			localCount := make(map[string]int32)
+
+			for _, photo := range part {
+				localCount[photo.PhotoDetail.PhotoId] += int32(len(photo.GetUserSimilarPhoto()))
+			}
+
+			// Merge localCount ke global countMap
+			mu.Lock()
+			for id, cnt := range localCount {
+				countMap[id] += cnt
+				u.logs.Log(fmt.Sprintf("COUNT MAP ID %s memiliki CNT %d", id, cnt))
+			}
+			mu.Unlock()
+		}(datas[start:end])
+	}
+
+	wg.Wait()
+
+	return countMap
 }

@@ -17,13 +17,17 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
 
 	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
+	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )
 
 type NotificationUseCase interface {
+	ProcessAndSendSingleFacecamNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error
+
 	ProcessAndSendBulkNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error
 	ProcessAndSendSingleNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error
+	ProcessAndSendBulkNotificationsV2(ctx context.Context, datas *userpb.SendBulkNotificationRequest) error
 }
 
 type notificationUseCase struct {
@@ -46,8 +50,22 @@ func NewNotificationUseCase(db *sqlx.DB, redisClient *redis.Client, userDeviceRe
 	}
 }
 
+func (u *notificationUseCase) ProcessAndSendSingleFacecamNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error {
+	log.Println("[USER][NOTIFICATION USECASE]Process and send single facecam notification")
+	lenData := len(datas)
+
+	userAuthentications, err := u.fetchFCMTokens(ctx, []string{datas[0].GetUserId()})
+	if err != nil {
+		log.Println("Error fetching tokens:", err)
+		return err
+	}
+	u.sendFCMWorkerPool(ctx, false, true, userAuthentications, nil, lenData, 1)
+
+	return nil
+}
+
 func (u *notificationUseCase) ProcessAndSendSingleNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error {
-	log.Println("[USER][NOTIFICATION USECASE]Process and send single notficitaon")
+	log.Println("[USER][NOTIFICATION USECASE]Process and send single notification")
 	lenData := len(datas)
 	userIDs := make([]string, 0, lenData)
 	for _, data := range datas {
@@ -67,7 +85,7 @@ func (u *notificationUseCase) ProcessAndSendSingleNotifications(ctx context.Cont
 			log.Println("Error fetching tokens:", err)
 			continue
 		}
-		u.sendFCMWorkerPool(ctx, false, userAuthentications, nil, 10)
+		u.sendFCMWorkerPool(ctx, false, false, userAuthentications, nil, 0, 10)
 	}
 
 	if outerError != nil {
@@ -208,9 +226,8 @@ func (u *notificationUseCase) fetchFCMTokens(ctx context.Context, userIDs []stri
 13. Done
 */
 
-func (u *notificationUseCase) ProcessAndSendBulkNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error {
-	countMap := u.countUsersParallel(datas)
-
+func (u *notificationUseCase) ProcessAndSendBulkNotificationsV2(ctx context.Context, datas *userpb.SendBulkNotificationRequest) error {
+	countMap := datas.GetCountMap()
 	lenCountMap := len(countMap)
 	userIDs := make([]string, 0, lenCountMap)
 	for idx := range countMap {
@@ -230,7 +247,38 @@ func (u *notificationUseCase) ProcessAndSendBulkNotifications(ctx context.Contex
 			log.Println("Error fetching tokens:", err)
 			continue
 		}
-		u.sendFCMWorkerPool(ctx, true, userAuthentications, countMap, 10)
+		u.sendFCMWorkerPool(ctx, true, false, userAuthentications, countMap, 0, 10)
+	}
+
+	if outerError != nil {
+		return outerError
+	}
+	return nil
+}
+
+func (u *notificationUseCase) ProcessAndSendBulkNotifications(ctx context.Context, datas []*photopb.BulkUserSimilarPhoto) error {
+	countMap := u.countUsersParallel(datas)
+
+	lenCountMap := len(countMap)
+	userIDs := make([]string, 0, lenCountMap)
+	for idx := range countMap {
+		userIDs = append(userIDs, idx)
+	}
+
+	const batchSize = 5000
+
+	var outerError error
+	for i := 0; i < lenCountMap; i += batchSize {
+		end := min(i+batchSize, lenCountMap)
+		batch := userIDs[i:end]
+
+		_, err := u.fetchFCMTokens(ctx, batch)
+		if err != nil {
+			outerError = err
+			log.Println("Error fetching tokens:", err)
+			continue
+		}
+		// u.sendFCMWorkerPool(ctx, true, userAuthentications, countMap, 10)
 	}
 
 	if outerError != nil {
@@ -336,7 +384,7 @@ func (u *notificationUseCase) sendFCMMulticastWithRetry(ctx context.Context, use
 	return fmt.Errorf("failed multicast after retries for userID=%s", userID)
 }
 
-func (u *notificationUseCase) sendFCMWorkerPool(ctx context.Context, isBulk bool, userAuthentications *[]*entity.UserDevice, countMap map[string]int, workerCount int) {
+func (u *notificationUseCase) sendFCMWorkerPool(ctx context.Context, isBulk bool, isSingleFacecam bool, userAuthentications *[]*entity.UserDevice, countMap map[string]int32, countPhotos int, workerCount int) {
 	// 1. Group tokens per userID
 	userTokensMap := make(map[string][]string)
 	for _, ua := range *userAuthentications {
@@ -361,12 +409,16 @@ func (u *notificationUseCase) sendFCMWorkerPool(ctx context.Context, isBulk bool
 					}
 
 					tokens := userTokensMap[userID]
-					count := 1
+					var count int32 = 1
 					if isBulk {
 						count = countMap[userID]
 						if count == 0 {
 							continue
 						}
+					}
+
+					if isSingleFacecam {
+						count = int32(countPhotos)
 					}
 
 					if len(tokens) == 0 {

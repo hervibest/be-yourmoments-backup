@@ -23,5 +23,4 @@ func (r *RouteConfig) Setup() {
 	r.SetupDiscountRoute()
 	r.SetupCheckoutRoute()
 	r.SetupPhotoRoute()
-
 }

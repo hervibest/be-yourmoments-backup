@@ -15,6 +15,8 @@ type UserAdapter interface {
 	AuthenticateUser(ctx context.Context, token string) (*userpb.AuthenticateResponse, error)
 	SendBulkPhotoNotification(ctx context.Context, request []*photopb.BulkUserSimilarPhoto) (*userpb.SendBulkPhotoNotificationResponse, error)
 	SendSinglePhotoNotification(ctx context.Context, request []*photopb.UserSimilarPhoto) (*userpb.SendSinglePhotoNotificationResponse, error)
+	SendBulkNotification(ctx context.Context, countMap map[string]int32) (*userpb.SendBulkNotificationResponse, error)
+	SendSingleFacecamNotificaton(ctx context.Context, request []*photopb.UserSimilarPhoto) (*userpb.SendSingleFacecamNotificationResponse, error)
 }
 
 type userAdapter struct {
@@ -62,11 +64,38 @@ func (a *userAdapter) SendBulkPhotoNotification(ctx context.Context, request []*
 }
 
 func (a *userAdapter) SendSinglePhotoNotification(ctx context.Context, request []*photopb.UserSimilarPhoto) (*userpb.SendSinglePhotoNotificationResponse, error) {
-	sendBulkPhotoNotificationReq := &userpb.SendSinglePhotoNotificationRequest{
+	sendSinglePhotoNotificationReq := &userpb.SendSinglePhotoNotificationRequest{
 		UserSimilarPhoto: request,
 	}
 
-	response, err := a.client.SendSinglePhotoNotification(ctx, sendBulkPhotoNotificationReq)
+	response, err := a.client.SendSinglePhotoNotification(ctx, sendSinglePhotoNotificationReq)
+	if err != nil {
+		return nil, helper.FromGRPCError(err)
+	}
+
+	return response, nil
+}
+
+func (a *userAdapter) SendSingleFacecamNotificaton(ctx context.Context, request []*photopb.UserSimilarPhoto) (*userpb.SendSingleFacecamNotificationResponse, error) {
+	sendSingleFacecamNotificationReq := &userpb.SendSingleFacecamNotificationRequest{
+		UserSimilarPhoto: request,
+	}
+
+	response, err := a.client.SendSingleFacecamNotification(ctx, sendSingleFacecamNotificationReq)
+	if err != nil {
+		return nil, helper.FromGRPCError(err)
+	}
+
+	return response, nil
+}
+
+// THIS IS THE NEWEST VERSION USING COUNT IN PHOTO SVC
+func (a *userAdapter) SendBulkNotification(ctx context.Context, countMap map[string]int32) (*userpb.SendBulkNotificationResponse, error) {
+	sendBulkPhotoNotificationReq := &userpb.SendBulkNotificationRequest{
+		CountMap: countMap,
+	}
+
+	response, err := a.client.SendBulkNotification(ctx, sendBulkPhotoNotificationReq)
 	if err != nil {
 		return nil, helper.FromGRPCError(err)
 	}

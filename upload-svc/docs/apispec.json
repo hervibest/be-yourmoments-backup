@@ -1,0 +1,224 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Photo Upload API",
+    "version": "1.0.0",
+    "description": "Upload endpoints for single and bulk photo handling with metadata and error handling."
+  },
+  "paths": {
+    "/api/upload/single": {
+      "post": {
+        "summary": "Upload a single photo",
+        "tags": ["Upload"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/CreatePhotoRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/Success" },
+          "400": { "$ref": "#/components/responses/BadRequestOneOf" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/upload/bulk": {
+      "post": {
+        "summary": "Upload multiple photos with shared metadata",
+        "tags": ["Upload"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/BulkPhotoRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/Success" },
+          "400": { "$ref": "#/components/responses/BadRequestOneOf" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "413": { "$ref": "#/components/responses/FileTooLarge" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "CreatePhotoRequest": {
+        "type": "object",
+        "required": ["photo", "price"],
+        "properties": {
+          "photo": { "type": "string", "format": "binary" },
+          "price": { "type": "integer", "example": 1000 },
+          "description": { "type": "string", "maxLength": 500 },
+          "latitude": { "type": "number", "format": "float", "minimum": -90, "maximum": 90 },
+          "longitude": { "type": "number", "format": "float", "minimum": -180, "maximum": 180 }
+        }
+      },
+      "BulkPhotoRequest": {
+        "type": "object",
+        "required": ["photo", "price"],
+        "properties": {
+          "photo": {
+            "type": "array",
+            "items": { "type": "string", "format": "binary" }
+          },
+          "price": { "type": "integer", "example": 1500 },
+          "description": { "type": "string", "maxLength": 500 },
+          "latitude": { "type": "number", "format": "float", "minimum": -90, "maximum": 90 },
+          "longitude": { "type": "number", "format": "float", "minimum": -180, "maximum": 180 }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string", "example": "price" },
+          "rule": { "type": "string", "example": "required" },
+          "message": { "type": "string", "example": "PRICE is required" }
+        }
+      },
+      "BodyParseError": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": {
+            "type": "string",
+            "example": "Failed to parse form fields. Please ensure all fields are sent in correct format."
+          }
+        }
+      },
+      "PhotoFileNotFound": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": {
+            "type": "string",
+            "example": "No photo file found in the request."
+          }
+        }
+      },
+      "PhotoFilesNotFound": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": {
+            "type": "string",
+            "example": "No photo files found in the request. Make sure to include at least one photo."
+          }
+        }
+      }
+    },
+    "responses": {
+      "Success": {
+        "description": "Successful upload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": true }
+              }
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": { "type": "string", "example": "Validation error" },
+                "errors": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ValidationError" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BadRequestOneOf": {
+        "description": "Bad request - either body parse failed or photo files are missing",
+        "content": {
+          "application/json": {
+            "schema": {
+              "oneOf": [
+                { "$ref": "#/components/schemas/BodyParseError" },
+                { "$ref": "#/components/schemas/PhotoFileNotFound" },
+                { "$ref": "#/components/schemas/PhotoFilesNotFound" }
+              ]
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized access",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": { "type": "string", "example": "Unauthorized" }
+              }
+            }
+          }
+        }
+      },
+      "FileTooLarge": {
+        "description": "File too large",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": {
+                  "type": "string",
+                  "example": "File size exceeds the 1MB limit"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": {
+                  "type": "string",
+                  "example": "Something went wrong. Please try again later"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
