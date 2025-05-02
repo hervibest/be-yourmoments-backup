@@ -19,4 +19,5 @@ func (c *RouteConfig) SetupUserRoute() {
 	userRoutes.Post("/send-message", c.ChatController.SendMessage)
 	// userRoutes.Post("/send-notification", sendNotification) // route baru untuk FCM
 
+	userRoutes.Put("/similarity", c.UserController.UpdateUserSimilarity)
 }

@@ -107,7 +107,7 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		userSimilarPhoto := &entity.UserSimilarPhoto{
 			PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
 			UserId:     userSimilarPhotoRequest.GetUserId(),
-			Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
+			Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity()),
 			CreatedAt:  userSimilarPhotoRequest.GetCreatedAt().AsTime(),
 			UpdatedAt:  userSimilarPhotoRequest.GetUpdatedAt().AsTime(),
 		}
@@ -115,7 +115,7 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		userSimilarPhotos = append(userSimilarPhotos, userSimilarPhoto)
 		log.Println("photo id : " + userSimilarPhoto.PhotoId)
 		log.Println("user id : " + userSimilarPhoto.UserId)
-		log.Println("similarity : " + userSimilarPhoto.Similarity)
+		log.Println("similarity : ", userSimilarPhoto.Similarity)
 	}
 
 	err = u.userSimilarRepo.InsertOrUpdateByPhotoId(tx, request.GetPhotoDetail().PhotoId, &userSimilarPhotos)
@@ -170,7 +170,7 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pho
 		userSimilarPhoto := &entity.UserSimilarPhoto{
 			PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
 			UserId:     userSimilarPhotoRequest.GetUserId(),
-			Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
+			Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity()),
 			CreatedAt:  userSimilarPhotoRequest.GetCreatedAt().AsTime(),
 			UpdatedAt:  userSimilarPhotoRequest.GetUpdatedAt().AsTime(),
 		}
@@ -270,7 +270,7 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 			userSimilarPhotos = append(userSimilarPhotos, &entity.UserSimilarPhoto{
 				PhotoId:    userSimilarPhotoRequest.GetPhotoId(),
 				UserId:     userSimilarPhotoRequest.GetUserId(),
-				Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity().String()),
+				Similarity: enum.SimilarityLevelEnum(userSimilarPhotoRequest.GetSimilarity()),
 				CreatedAt:  userSimilarPhotoRequest.GetCreatedAt().AsTime(),
 				UpdatedAt:  userSimilarPhotoRequest.GetUpdatedAt().AsTime(),
 			})

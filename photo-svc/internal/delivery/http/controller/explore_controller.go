@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/middleware"
@@ -46,11 +47,13 @@ func (c *exploreController) GetAllExploreSimilar(ctx *fiber.Ctx) error {
 	context, span := c.tracer.Start(ctx.Context(), "getUser", oteltrace.WithAttributes(attribute.String("id", auth.UserId)))
 	defer span.End()
 	request := &model.GetAllExploreSimilarRequest{
-		UserId: auth.UserId,
-		Page:   ctx.QueryInt("page", 1),
-		Size:   ctx.QueryInt("size", 10),
+		UserId:     auth.UserId,
+		Similarity: auth.Similarity,
+		Page:       ctx.QueryInt("page", 1),
+		Size:       ctx.QueryInt("size", 10),
 	}
 
+	log.Println("Ini adalah similarity", auth.Similarity)
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}

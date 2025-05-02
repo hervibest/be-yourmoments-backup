@@ -14,10 +14,12 @@ CREATE TABLE IF NOT EXISTS facecams (
     created_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
+CREATE INDEX IF NOT EXISTS idx_facecam_user_id ON facecams(user_id);
 
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE IF EXISTS facecams;
-
+DROP INDEX IF EXISTS idx_facecam_user_id;
 -- +goose StatementEnd
+

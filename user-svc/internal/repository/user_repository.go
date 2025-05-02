@@ -16,6 +16,7 @@ type userPreparedStmt struct {
 	findById             *sqlx.Stmt
 	findByEmail          *sqlx.Stmt
 	findByEmailNotGoogle *sqlx.Stmt
+	findDetailByEmail    *sqlx.Stmt
 	findByMultipleParam  *sqlx.Stmt
 
 	countByEmail          *sqlx.Stmt
@@ -38,6 +39,11 @@ func newUserPreparedStmt(db *sqlx.DB) (*userPreparedStmt, error) {
 	}
 
 	findByEmailNotStmt, err := db.Preparex("SELECT * FROM users WHERE email = $1")
+	if err != nil {
+		return nil, err
+	}
+
+	findDetailByEmail, err := db.Preparex("SELECT u.id, u.username, u.email, u.phone_number, up.similarity FROM users AS u JOIN user_profiles AS up ON up.user_id = u.id WHERE email = $1")
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +83,7 @@ func newUserPreparedStmt(db *sqlx.DB) (*userPreparedStmt, error) {
 		findById:              findByIdStmt,
 		findByEmail:           findByEmailNotStmt,
 		findByEmailNotGoogle:  findByEmailNotGoogleStmt,
+		findDetailByEmail:     findDetailByEmail,
 		findByMultipleParam:   findByMultipleParamStmt,
 		countByEmail:          countByEmailStmt,
 		countByUsername:       countByUsernameStmt,
@@ -101,6 +108,7 @@ type UserRepository interface {
 
 	FindById(ctx context.Context, userId string) (*entity.User, error)
 	FindByEmail(ctx context.Context, email string) (*entity.User, error)
+	FindDetailByEmail(ctx context.Context, email string) (*entity.UserDetail, error)
 	FindByEmailNotGoogle(ctx context.Context, email string) (*entity.User, error)
 	FindByMultipleParam(ctx context.Context, multipleParam string) (*entity.User, error)
 	FindAllPublicChat(ctx context.Context, tx Querier, page, size int, username string) ([]*entity.UserPublicChat, *model.PageMetadata, error)
@@ -291,6 +299,17 @@ func (r *userRepository) FindByMultipleParam(ctx context.Context, multipleParam 
 	}
 
 	return user, nil
+}
+
+func (r *userRepository) FindDetailByEmail(ctx context.Context, email string) (*entity.UserDetail, error) {
+	userDetail := new(entity.UserDetail)
+
+	row := r.userPreparedStmt.findDetailByEmail.QueryRowxContext(ctx, email)
+	if err := row.StructScan(userDetail); err != nil {
+		return nil, err
+	}
+
+	return userDetail, nil
 }
 
 func (r *userRepository) FindAllPublicChat(ctx context.Context, tx Querier, page, size int, username string) ([]*entity.UserPublicChat, *model.PageMetadata, error) {

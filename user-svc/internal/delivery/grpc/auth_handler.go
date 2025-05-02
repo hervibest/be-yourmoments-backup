@@ -31,6 +31,7 @@ func (h *UserGRPCHandler) Authenticate(ctx context.Context,
 		Username:    response.Username,
 		Email:       response.Email,
 		PhoneNumber: response.PhoneNumber,
+		Similarity:  uint32(response.Similarity),
 		CreatorId:   response.CreatorId,
 		WalletId:    response.WalletId,
 	}

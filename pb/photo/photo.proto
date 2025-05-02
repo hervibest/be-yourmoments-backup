@@ -107,18 +107,11 @@ message UpdateFaceRecogPhotoResponse {
   string error = 2;
 }
 
-enum SimilarityLevelEnum {
-  SIMILARITY_UNKNOWN = 0;
-  SIMILARITY_LOW = 1;
-  SIMILARITY_MEDIUM = 2;
-  SIMILARITY_HIGH = 3;
-}
-
 message UserSimilarPhoto {
   string id = 1;                     // ID unik (jika diperlukan dari client)
   string photo_id = 2;               // ID foto
   string user_id = 3;                // ID user
-  SimilarityLevelEnum similarity = 4;// Level kemiripan
+  uint32  similarity = 4;// Level kemiripan
   bool is_wishlist = 5;              // Flag wishlist
   bool is_resend = 6;                // Flag resend
   bool is_cart = 7;                  // Flag cart
@@ -276,4 +269,8 @@ message CreateBulkUserSimilarPhotoRequest {
 message CreateBulkUserSimilarPhotoResponse {
   int64 status = 1;
   string error = 2;
+}
+
+message CountMap {
+  map<string, int32> count_map = 1;
 }

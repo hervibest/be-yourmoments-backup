@@ -1,9 +1,5 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TYPE similarity_level AS ENUM (
-    '1','2','3','4','5','6'
-);
-
 CREATE TABLE IF NOT EXISTS user_profiles (
     id CHAR(26) PRIMARY KEY NOT NULL,
     user_id CHAR(26) UNIQUE NOT NULL ,
@@ -12,7 +8,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     biography TEXT,
     profile_url TEXT,
     profile_cover_url TEXT,
-    similarity similarity_level DEFAULT '3',
+    similarity SMALLINT CHECK (similarity BETWEEN 1 AND 9) NOT NULL DEFAULT 5,
     created_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     FOREIGN KEY(user_id) REFERENCES users(id)
@@ -22,5 +18,4 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE IF EXISTS user_profiles;
-DROP TYPE similarity_level;
 -- +goose StatementEnd

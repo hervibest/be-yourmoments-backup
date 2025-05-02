@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -36,6 +37,7 @@ type UserProfileRepository interface {
 	Create(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	Update(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	FindByUserId(ctx context.Context, userId string) (*entity.UserProfile, error)
+	UpdateSimilarity(ctx context.Context, tx Querier, similarity enum.SimilarityLevelEnum, userID string) error
 
 	// UpdateUserProfileImage(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	// UpdateUserProfileCover(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
@@ -107,6 +109,15 @@ func (r *userProfileRepository) Update(ctx context.Context, tx Querier, userProf
 	}
 
 	return userProfile, nil
+}
+
+func (r *userProfileRepository) UpdateSimilarity(ctx context.Context, tx Querier, similarity enum.SimilarityLevelEnum, userID string) error {
+	query := `UPDATE user_profiles set similarity = $1 WHERE user_id = $2 `
+	_, err := tx.ExecContext(ctx, query, similarity, userID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *userProfileRepository) FindByUserId(ctx context.Context, userId string) (*entity.UserProfile, error) {

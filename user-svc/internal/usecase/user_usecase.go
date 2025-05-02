@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"time"
 
+	"github.com/bytedance/sonic"
 	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
@@ -29,6 +30,7 @@ type UserUseCase interface {
 	UpdateUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
 	UpdateUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
 	GetPublicUserChat(ctx context.Context, request *model.RequestGetAllPublicUser) (*[]*model.GetAllPublicUserResponse, *model.PageMetadata, error)
+	UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error
 }
 
 type userUseCase struct {
@@ -37,17 +39,20 @@ type userUseCase struct {
 	userProfileRepository repository.UserProfileRepository
 	userImageRepository   repository.UserImageRepository
 	uploadAdapter         adapter.UploadAdapter
+	cacheAdapter          adapter.CacheAdapter
 	logs                  logger.Log
 }
 
 func NewUserUseCase(db repository.BeginTx, userRepository repository.UserRepository, userProfileRepository repository.UserProfileRepository,
-	userImageRepository repository.UserImageRepository, uploadAdapter adapter.UploadAdapter, logs logger.Log) UserUseCase {
+	userImageRepository repository.UserImageRepository, uploadAdapter adapter.UploadAdapter, cacheAdapter adapter.CacheAdapter,
+	logs logger.Log) UserUseCase {
 	return &userUseCase{
 		db:                    db,
 		userRepository:        userRepository,
 		userProfileRepository: userProfileRepository,
 		userImageRepository:   userImageRepository,
 		uploadAdapter:         uploadAdapter,
+		cacheAdapter:          cacheAdapter,
 		logs:                  logs,
 	}
 }
@@ -281,6 +286,53 @@ func (u *userUseCase) GetPublicUserChat(ctx context.Context, request *model.Requ
 	}
 
 	return &responses, pageMetadata, nil
+}
+
+func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	if err := u.userProfileRepository.UpdateSimilarity(ctx, tx, request.Similarity, request.UserID); err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to update similarity", err)
+	}
+
+	json, err := u.cacheAdapter.Get(ctx, request.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get auth cache in redis : %+v", err)
+	}
+
+	ttl, err := u.cacheAdapter.TTL(ctx, request.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get auth cache TTL in redis : %+v", err)
+	}
+
+	cachedAuth := new(entity.Auth)
+	if sonic.ConfigFastest.Unmarshal([]byte(json), cachedAuth); err != nil {
+		return fmt.Errorf("failed to unmarshal struct : %+v", err)
+	}
+
+	cachedAuth.Similarity = uint(request.Similarity)
+
+	updatedJSON, err := sonic.ConfigFastest.Marshal(cachedAuth)
+	if err != nil {
+		return fmt.Errorf("marshal updated auth: %+v", err)
+	}
+
+	if err := u.cacheAdapter.Set(ctx, request.UserID, updatedJSON, ttl); err != nil {
+		return fmt.Errorf("save user body into cache : %+v", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return err
+	}
+
+	return err
 }
 
 // func (u *userUseCase) UpdateUserProfileCover(ctx context.Context, userId string) (*model.UserProfileResponse, error) {

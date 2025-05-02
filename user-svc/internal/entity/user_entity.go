@@ -39,3 +39,11 @@ type UserPublicChat struct {
 	Username string         `db:"username"`
 	FileKey  sql.NullString `db:"file_key"`
 }
+
+type UserDetail struct {
+	Id          string         `json:"id" db:"id"`
+	Username    string         `json:"username" db:"username"`
+	Email       sql.NullString `json:"email" db:"email"`
+	PhoneNumber sql.NullString `json:"phone_number" db:"phone_number"`
+	Similarity  uint32         `json:"similarity" db:"similarity"`
+}

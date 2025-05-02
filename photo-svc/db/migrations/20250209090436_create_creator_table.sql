@@ -10,8 +10,12 @@ CREATE TABLE IF NOT EXISTS creators (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
 
+CREATE INDEX IF NOT EXISTS idx_creator_user_id ON creators (user_id);
+
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE IF EXISTS creators;
+DROP INDEX IF EXISTS idx_creator_user_id;
 -- +goose StatementEnd
+

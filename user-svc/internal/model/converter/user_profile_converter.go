@@ -10,7 +10,6 @@ func UserProfileToResponse(userProfile *entity.UserProfile, profileUrl, coverUrl
 		biographyPtr       *string
 		profileUrlPtr      *string
 		profileCoverUrlPtr *string
-		similarityPtr      *string
 	)
 
 	if userProfile.Biography.Valid {
@@ -22,9 +21,6 @@ func UserProfileToResponse(userProfile *entity.UserProfile, profileUrl, coverUrl
 	if userProfile.ProfileCoverUrl.Valid {
 		profileCoverUrlPtr = &userProfile.ProfileCoverUrl.String
 	}
-	if userProfile.Similarity.Valid {
-		profileCoverUrlPtr = &userProfile.Similarity.String
-	}
 
 	return &model.UserProfileResponse{
 		Id:              userProfile.Id,
@@ -34,7 +30,7 @@ func UserProfileToResponse(userProfile *entity.UserProfile, profileUrl, coverUrl
 		Biography:       biographyPtr,
 		ProfileUrl:      profileUrlPtr,
 		ProfileCoverUrl: profileCoverUrlPtr,
-		Similarity:      similarityPtr,
+		Similarity:      userProfile.Similarity,
 		CreatedAt:       userProfile.CreatedAt,
 		UpdatedAt:       userProfile.UpdatedAt,
 	}

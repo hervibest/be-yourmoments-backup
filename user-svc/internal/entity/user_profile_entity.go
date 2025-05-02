@@ -13,7 +13,7 @@ type UserProfile struct {
 	Biography       sql.NullString `db:"biography"`
 	ProfileUrl      sql.NullString `db:"profile_url"`
 	ProfileCoverUrl sql.NullString `db:"profile_cover_url"`
-	Similarity      sql.NullString `db:"similarity"`
+	Similarity      uint           `db:"similarity"`
 	CreatedAt       *time.Time     `db:"created_at"`
 	UpdatedAt       *time.Time     `db:"updated_at"`
 }

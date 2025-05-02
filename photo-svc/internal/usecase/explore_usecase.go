@@ -56,7 +56,7 @@ func (u *exploreUseCase) GetUserExploreSimilar(ctx context.Context, request *mod
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserExploreSimilar", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all explore similar in database", err)
 	}
@@ -68,7 +68,7 @@ func (u *exploreUseCase) GetUserWishlist(ctx context.Context, request *model.Get
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserWishlist", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllUserWishlist(ctx, u.db, request.Page, request.Size, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllUserWishlist(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user wishlist photo in database", err)
 	}
@@ -94,7 +94,7 @@ func (u *exploreUseCase) UserAddWishlist(ctx context.Context, request *model.Use
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserAddWishlist(ctx, tx, request.PhotoId, request.UserId); err != nil {
+	if err := u.exploreRepository.UserAddWishlist(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to add photo wishlist in database", err)
 	}
 
@@ -123,7 +123,7 @@ func (u *exploreUseCase) UserDeleteWishlist(ctx context.Context, request *model.
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserAddWishlist(ctx, tx, request.PhotoId, request.UserId); err != nil {
+	if err := u.exploreRepository.UserAddWishlist(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to delete wishlist in database", err)
 	}
 
@@ -138,7 +138,7 @@ func (u *exploreUseCase) GetUserFavorite(ctx context.Context, request *model.Get
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserFavorite", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllUserFavorite(ctx, u.db, request.Page, request.Size, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllUserFavorite(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user favorite photo in database", err)
 	}
@@ -164,7 +164,7 @@ func (u *exploreUseCase) UserAddFavorite(ctx context.Context, request *model.Use
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserAddFavorite(ctx, tx, request.PhotoId, request.UserId); err != nil {
+	if err := u.exploreRepository.UserAddFavorite(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to add user favorite photo in database", err)
 	}
 
@@ -193,7 +193,7 @@ func (u *exploreUseCase) UserDeleteFavorite(ctx context.Context, request *model.
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserDeleteFavorite(ctx, tx, request.PhotoId, request.UserId); err != nil {
+	if err := u.exploreRepository.UserDeleteFavorite(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to delete user favorite photo in database", err)
 	}
 
@@ -209,7 +209,7 @@ func (u *exploreUseCase) GetUserCart(ctx context.Context, request *model.GetAllC
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserCart", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllUserCart(ctx, u.db, request.Page, request.Size, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllUserCart(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user cart photo in database", err)
 	}
@@ -235,7 +235,7 @@ func (u *exploreUseCase) UserAddCart(ctx context.Context, request *model.UserAdd
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserAddCart(ctx, tx, request.PhotoId, request.UserId); err != nil {
+	if err := u.exploreRepository.UserAddCart(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to add user cart photo in database", err)
 	}
 
@@ -264,7 +264,7 @@ func (u *exploreUseCase) UserDeleteCart(ctx context.Context, request *model.User
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserDeleteCart(ctx, tx, request.PhotoId, request.UserId); err != nil {
+	if err := u.exploreRepository.UserDeleteCart(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to delete user cart photo in database", err)
 	}
 

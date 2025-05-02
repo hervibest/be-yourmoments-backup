@@ -20,4 +20,5 @@ CREATE INDEX IF NOT EXISTS idx_bulk_photo_status ON bulk_photos (bulk_photo_stat
 DROP INDEX IF EXISTS idx_creator_id;
 DROP INDEX IF EXISTS idx_bulk_photo_status;
 DROP TABLE IF EXISTS bulk_photos;
+DROP TYPE bulk_photo_status;
 -- +goose StatementEnd

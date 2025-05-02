@@ -13,7 +13,7 @@ func CreatorDiscountToResponse(discount *entity.CreatorDiscount) *model.CreatorD
 		MinQuantity:  discount.MinQuantity,
 		DiscountType: discount.DiscountType,
 		Value:        discount.Value,
-		Active:       discount.Active,
+		IsActive:     discount.IsActive,
 		CreatedAt:    discount.CreatedAt,
 		UpdatedAt:    discount.UpdatedAt,
 	}
@@ -29,7 +29,7 @@ func CreatorDiscountsToResponses(discounts []*entity.CreatorDiscount) *[]*model.
 			MinQuantity:  discount.MinQuantity,
 			DiscountType: discount.DiscountType,
 			Value:        discount.Value,
-			Active:       discount.Active,
+			IsActive:     discount.IsActive,
 			CreatedAt:    discount.CreatedAt,
 			UpdatedAt:    discount.UpdatedAt,
 		}

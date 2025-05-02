@@ -74,6 +74,7 @@ type AuthResponse struct {
 	Username    string
 	Email       string
 	PhoneNumber string
+	Similarity  uint
 	CreatorId   string
 	WalletId    string
 	Token       string

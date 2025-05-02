@@ -9,9 +9,10 @@ CREATE TABLE IF NOT EXISTS creator_discounts (
     min_quantity INT NOT NULL,
     discount_type discount_type NOT NULL,
     value INT NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT false,
+    is_active BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    FOREIGN KEY (creator_id) REFERENCES creators(id)
 );
 
 -- +goose StatementEnd

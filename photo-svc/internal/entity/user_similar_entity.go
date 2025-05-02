@@ -42,5 +42,5 @@ type Explore struct {
 	MinQuantity  sql.NullInt32  `db:"min_quantity"`
 	DiscountType sql.NullString `db:"discount_type"`
 	Value        sql.NullInt32  `db:"value"`
-	Active       sql.NullBool   `db:"active"`
+	IsActive     sql.NullBool   `db:"is_active"`
 }

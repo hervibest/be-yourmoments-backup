@@ -12,7 +12,7 @@ type CreateCreatorDiscountRequest struct {
 	MinQuantity  int               `json:"min_quantity" validate:"required"`
 	DiscountType enum.DiscountType `json:"discount_type" validate:"required"`
 	Value        int32             `json:"value" validate:"required"`
-	Active       bool              `json:"active" validate:"required"`
+	IsActive     bool              `json:"is_active" validate:"required"`
 }
 
 type CreatorDiscountResponse struct {
@@ -22,7 +22,7 @@ type CreatorDiscountResponse struct {
 	MinQuantity  int               `json:"min_quantity"`
 	DiscountType enum.DiscountType `json:"discount_type"`
 	Value        int32             `json:"value"`
-	Active       bool              `json:"active"`
+	IsActive     bool              `json:"is_active"`
 	CreatedAt    *time.Time        `json:"created_at"`
 	UpdatedAt    *time.Time        `json:"updated_at"`
 }

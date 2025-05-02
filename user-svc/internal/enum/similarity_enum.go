@@ -12,4 +12,6 @@ const (
 	SimilarityLevelSeven SimilarityLevelEnum = 7
 	SimilarityLevelEight SimilarityLevelEnum = 8
 	SimilarityLevelNine  SimilarityLevelEnum = 9
+
+	DefaultSimilarityLevel SimilarityLevelEnum = 5
 )

@@ -13,7 +13,7 @@ type CreatorDiscount struct {
 	MinQuantity  int               `db:"min_quantity"`
 	DiscountType enum.DiscountType `db:"discount_type"`
 	Value        int32             `db:"value"`
-	Active       bool              `db:"active"`
+	IsActive     bool              `db:"is_active"`
 	CreatedAt    *time.Time        `db:"created_at"`
 	UpdatedAt    *time.Time        `db:"updated_at"`
 }

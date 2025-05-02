@@ -14,7 +14,7 @@ func ToDiscountIfValid(explore *entity.Explore) *model.CreatorDiscountResponse {
 		Name:         explore.Name.String,
 		MinQuantity:  int(explore.MinQuantity.Int32),
 		DiscountType: enum.DiscountType(explore.DiscountType.String),
-		Active:       explore.Active.Bool,
+		IsActive:     explore.IsActive.Bool,
 		Value:        explore.Value.Int32,
 	}
 }

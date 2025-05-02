@@ -195,6 +195,15 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
 		}
 
+		// ISSUE #6
+		userProfile, err := u.userProfileRepository.FindByUserId(ctx, user.Id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
+			}
+			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
+		}
+
 		creator, err := u.photoAdapter.GetCreator(ctx, user.Id)
 		if err != nil {
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create creator", err)
@@ -212,6 +221,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			PhoneNumber: user.PhoneNumber.String,
 			CreatorId:   creator.Id,
 			WalletId:    wallet.Id,
+			Similarity:  userProfile.Similarity,
 		}
 
 		now := time.Now()
@@ -280,8 +290,9 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 				Valid:  true,
 				String: claims.ProfilePictureUrl,
 			},
-			CreatedAt: &now,
-			UpdatedAt: &now,
+			Similarity: uint(enum.DefaultSimilarityLevel),
+			CreatedAt:  &now,
+			UpdatedAt:  &now,
 		}
 
 		_, err = u.userProfileRepository.CreateWithProfileUrl(ctx, tx, userProfile)
@@ -349,6 +360,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			Username:    user.Username,
 			Email:       user.Email.String,
 			PhoneNumber: user.PhoneNumber.String,
+			Similarity:  userProfile.Similarity,
 			CreatorId:   creator.Id,
 			WalletId:    wallet.Id,
 		}
@@ -744,11 +756,20 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create wallet by creator id", err)
 	}
 
+	userProfile, err := u.userProfileRepository.FindByUserId(ctx, user.Id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
+		}
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
+	}
+
 	auth := &entity.Auth{
 		Id:          user.Id,
 		Username:    user.Username,
 		Email:       user.Email.String,
 		PhoneNumber: user.PhoneNumber.String,
+		Similarity:  userProfile.Similarity,
 		CreatorId:   creator.Id,
 		WalletId:    wallet.Id,
 	}
@@ -870,6 +891,7 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 		Username:    auth.Username,
 		Email:       auth.Email,
 		PhoneNumber: auth.PhoneNumber,
+		Similarity:  auth.Similarity,
 		CreatorId:   auth.CreatorId,
 		WalletId:    auth.WalletId,
 		Token:       request.Token,

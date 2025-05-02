@@ -5,6 +5,7 @@ type AuthResponse struct {
 	Username    string
 	Email       string
 	PhoneNumber string
+	Similarity  uint32
 	CreatorId   string
 	WalletId    string
 }

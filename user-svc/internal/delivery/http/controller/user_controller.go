@@ -19,6 +19,7 @@ type UserController interface {
 	UpdateUserProfileImage(ctx *fiber.Ctx) error
 	UpdateUserCoverImage(ctx *fiber.Ctx) error
 	GetAllPublicUserChat(ctx *fiber.Ctx) error
+	UpdateUserSimilarity(ctx *fiber.Ctx) error
 }
 
 type userController struct {
@@ -100,7 +101,6 @@ func (c *userController) UpdateUserProfileImage(ctx *fiber.Ctx) error {
 }
 
 func (c *userController) UpdateUserCoverImage(ctx *fiber.Ctx) error {
-
 	userProfId := ctx.Params("userProfId", "")
 	if userProfId == "" {
 		return fiber.NewError(http.StatusBadRequest, "userProfId is required")
@@ -149,5 +149,27 @@ func (c *userController) GetAllPublicUserChat(ctx *fiber.Ctx) error {
 		Success:      true,
 		Data:         response,
 		PageMetadata: pageMetadata,
+	})
+}
+
+func (c *userController) UpdateUserSimilarity(ctx *fiber.Ctx) error {
+	request := new(model.RequestUpdateSimilarity)
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	auth := middleware.GetUser(ctx)
+	request.UserID = auth.UserId
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	if err := c.userUseCase.UpdateUserSimilarity(ctx.Context(), request); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Update user profile : ", err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
 	})
 }

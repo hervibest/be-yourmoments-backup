@@ -63,7 +63,7 @@ func (u *creatorDiscountUseCase) CreateDiscount(ctx context.Context, request *mo
 		MinQuantity:  request.MinQuantity,
 		DiscountType: request.DiscountType,
 		Value:        request.Value,
-		Active:       request.Active,
+		IsActive:     request.IsActive,
 		CreatedAt:    &now,
 		UpdatedAt:    &now,
 	}

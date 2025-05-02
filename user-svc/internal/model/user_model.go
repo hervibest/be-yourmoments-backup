@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
 )
 
 type RequestGetUserProfile struct {
@@ -23,7 +25,7 @@ type UserProfileResponse struct {
 	Biography       *string    `json:"biography"`
 	ProfileUrl      *string    `json:"profile_url"`
 	ProfileCoverUrl *string    `json:"profile_cover_url"`
-	Similarity      *string    `json:"similarity"`
+	Similarity      uint       `json:"similarity"`
 	CreatedAt       *time.Time `json:"created_at,omitempty"`
 	UpdatedAt       *time.Time `json:"updated_at,omitempty"`
 }
@@ -38,4 +40,9 @@ type GetAllPublicUserResponse struct {
 	UserId     string `json:"user_id"`
 	Username   string `json:"username"`
 	ProfileUrl string `json:"profile_url,omitempty"`
+}
+
+type RequestUpdateSimilarity struct {
+	Similarity enum.SimilarityLevelEnum `json:"similarity" validate:"required,gte=1,lte=9"`
+	UserID     string                   `json:"user_id" validate:"required"`
 }
