@@ -20,6 +20,7 @@ func (r *RouteConfig) SetupExploreRoute() {
 func (r *RouteConfig) SetupDiscountRoute() {
 	exploreRoutes := r.App.Group("/api/discount", r.AuthMiddleware)
 	exploreRoutes.Get("/:discountId", r.CreatorDiscountControler.GetDiscount)
+	exploreRoutes.Get("/", r.CreatorDiscountControler.GetAllDiscount)
 	exploreRoutes.Post("/create", r.CreatorDiscountControler.CreateDiscount)
 	exploreRoutes.Put("/activate/:discountId", r.CreatorDiscountControler.ActivateDiscount)
 	exploreRoutes.Put("/deactivate/:discountId", r.CreatorDiscountControler.DeactivateDiscount)

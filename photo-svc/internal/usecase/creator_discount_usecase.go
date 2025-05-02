@@ -24,6 +24,7 @@ type CreatorDiscountUseCase interface {
 	ActivateDiscount(ctx context.Context, request *model.ActivateCreatorDiscountRequest) error
 	DeactivateDiscount(ctx context.Context, request *model.DeactivateCreatorDiscountRequest) error
 	GetDiscount(ctx context.Context, request *model.GetCreatorDiscountRequest) (*model.CreatorDiscountResponse, error)
+	GetAllDiscount(ctx context.Context, creatorId string) (*[]*model.CreatorDiscountResponse, error)
 }
 type creatorDiscountUseCase struct {
 	db                        *sqlx.DB
@@ -141,10 +142,18 @@ func (u *creatorDiscountUseCase) GetDiscount(ctx context.Context, request *model
 	discount, err := u.creatorDiscountRepository.FindByIdAndCreatorId(ctx, u.db, request.Id, request.CreatorId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator discount id")
+			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Creator discount not found")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find creator discount by discount id", err)
 	}
 
 	return converter.CreatorDiscountToResponse(discount), nil
+}
+
+func (u *creatorDiscountUseCase) GetAllDiscount(ctx context.Context, creatorId string) (*[]*model.CreatorDiscountResponse, error) {
+	discounts, err := u.creatorDiscountRepository.FindAll(ctx, u.db, creatorId)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to find  all creator discount", err)
+	}
+	return converter.CreatorDiscountsToResponses(*discounts), nil
 }

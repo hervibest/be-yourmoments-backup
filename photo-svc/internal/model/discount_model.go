@@ -29,15 +29,15 @@ type CreatorDiscountResponse struct {
 
 type GetCreatorDiscountRequest struct {
 	Id        string `json:"id" validate:"required"`
-	CreatorId string `json:"creator_id" validate:"requried"`
+	CreatorId string `json:"creator_id" validate:"required"`
 }
 
 type ActivateCreatorDiscountRequest struct {
 	Id        string `json:"id" validate:"required"`
-	CreatorId string `json:"creator_id" validate:"requried"`
+	CreatorId string `json:"creator_id" validate:"required"`
 }
 
 type DeactivateCreatorDiscountRequest struct {
 	Id        string `json:"id" validate:"required"`
-	CreatorId string `json:"creator_id" validate:"requried"`
+	CreatorId string `json:"creator_id" validate:"required"`
 }

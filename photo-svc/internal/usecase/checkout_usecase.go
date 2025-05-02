@@ -14,6 +14,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
 
 	"github.com/jmoiron/sqlx"
@@ -51,12 +52,7 @@ func (u *checkoutUseCase) PreviewCheckout(ctx context.Context, request *model.Pr
 		return nil, err
 	}
 
-	return &model.PreviewCheckoutResponse{
-		Items:         result,
-		TotalPrice:    total.Price,
-		TotalDiscount: total.Discount,
-		CreatedAt:     &now,
-	}, nil
+	return converter.CheckoutItemToResponse(result, total.Price, total.Discount, &now), nil
 }
 
 func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.PreviewCheckoutRequest) (*[]*model.CheckoutItem, *model.Total, error) {

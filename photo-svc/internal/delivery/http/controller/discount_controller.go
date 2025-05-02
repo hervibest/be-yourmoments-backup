@@ -18,6 +18,7 @@ type CreatorDiscountController interface {
 	CreateDiscount(ctx *fiber.Ctx) error
 	DeactivateDiscount(ctx *fiber.Ctx) error
 	GetDiscount(ctx *fiber.Ctx) error
+	GetAllDiscount(ctx *fiber.Ctx) error
 }
 
 type creatorDiscountController struct {
@@ -134,6 +135,19 @@ func (c *creatorDiscountController) GetDiscount(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CreatorDiscountResponse]{
+		Success: true,
+		Data:    response,
+	})
+}
+
+func (c *creatorDiscountController) GetAllDiscount(ctx *fiber.Ctx) error {
+	user := middleware.GetUser(ctx)
+	response, err := c.creatorDiscountUseCase.GetAllDiscount(ctx.Context(), user.CreatorId)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Get discount : ", err, c.logs)
+	}
+
+	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.CreatorDiscountResponse]{
 		Success: true,
 		Data:    response,
 	})

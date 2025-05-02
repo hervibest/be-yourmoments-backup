@@ -8,8 +8,9 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/config"
 	grpcHandler "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/delivery/grpc"
-	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/delivery/http"
+	http "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/delivery/http/controller"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/delivery/http/middleware"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/delivery/http/route"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
 
@@ -155,12 +156,11 @@ func webServer() error {
 		cors.ConfigDefault,
 	))
 
-	photoController.PhotoRoute(app, newUserMiddleware)
-	facecamController.FacecamRoute(app, newUserMiddleware)
+	routeConfig := route.NewRouteConfig(app, photoController, facecamController, newUserMiddleware)
+	routeConfig.Setup()
 	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
 
 	err = app.Listen(serverConfig.HTTP)
-
 	if err != nil {
 		logs.Error(fmt.Sprintf("Failed to start HTTP category server: %v", err))
 		return err

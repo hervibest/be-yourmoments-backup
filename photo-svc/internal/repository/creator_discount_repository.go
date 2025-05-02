@@ -31,6 +31,7 @@ type CreatorDiscountRepository interface {
 	Deactivate(ctx context.Context, tx Querier, discountId string) error
 	FindByIdAndCreatorId(ctx context.Context, tx Querier, discountId, creatorId string) (*entity.CreatorDiscount, error)
 	GetDiscountRules(ctx context.Context, creatorIds []string) (*[]*entity.CreatorDiscount, error)
+	FindAll(ctx context.Context, tx Querier, creatorId string) (*[]*entity.CreatorDiscount, error)
 }
 
 type creatorDiscountRepository struct {
@@ -83,11 +84,20 @@ func (r *creatorDiscountRepository) Deactivate(ctx context.Context, tx Querier, 
 
 func (r *creatorDiscountRepository) FindByIdAndCreatorId(ctx context.Context, tx Querier, discountId, creatorId string) (*entity.CreatorDiscount, error) {
 	discount := new(entity.CreatorDiscount)
-	query := `SELECT * from creator_discounts WHERE id = $1 AND creator_id $2`
+	query := `SELECT * from creator_discounts WHERE id = $1 AND creator_id =  $2`
 	if err := tx.GetContext(ctx, discount, query, discountId, creatorId); err != nil {
 		return nil, err
 	}
 	return discount, nil
+}
+
+func (r *creatorDiscountRepository) FindAll(ctx context.Context, tx Querier, creatorId string) (*[]*entity.CreatorDiscount, error) {
+	discounts := make([]*entity.CreatorDiscount, 0)
+	query := `SELECT * from creator_discounts WHERE creator_id =  $1`
+	if err := tx.SelectContext(ctx, &discounts, query, creatorId); err != nil {
+		return nil, err
+	}
+	return &discounts, nil
 }
 
 // func (r *creatorDiscountRepository) FindAll(ctx context.Context, tx Querier, discountId string) (*entity.CreatorDiscount, error) {
