@@ -21,7 +21,6 @@ require (
 	github.com/minio/minio-go/v7 v7.0.88
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/stretchr/testify v1.9.0
-	go.uber.org/mock v0.5.2
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.6

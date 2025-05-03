@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
@@ -29,6 +31,7 @@ type PhotoUseCase interface {
 	UpdatePhotoDetail(ctx context.Context, request *photopb.UpdatePhotoDetailRequest) error
 	CreateBulkPhoto(ctx context.Context, request *photopb.CreateBulkPhotoRequest) error
 	GetBulkPhotoDetail(ctx context.Context, request *model.GetBulkPhotoDetailRequest) (*model.GetBulkPhotoDetailResponse, error)
+	GetPhotoFile(ctx context.Context, filename string) (io.ReadCloser, error)
 }
 
 type photoUsecase struct {
@@ -39,7 +42,7 @@ type photoUsecase struct {
 	creatorRepo     repository.CreatorRepository
 	bulkPhotoRepo   repository.BulkPhotoRepository
 	aiAdapter       adapter.AiAdapter
-	uploadAdapter   adapter.UploadAdapter
+	storageAdapter  adapter.StorageAdapter
 	logs            *logger.Log
 }
 
@@ -48,7 +51,7 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	userSimilarRepo repository.UserSimilarRepository,
 	creatorRepo repository.CreatorRepository,
 	bulkPhotoRepo repository.BulkPhotoRepository,
-	aiAdapter adapter.AiAdapter, uploadAdapter adapter.UploadAdapter,
+	aiAdapter adapter.AiAdapter, storageAdapter adapter.StorageAdapter,
 	logs *logger.Log) PhotoUseCase {
 	return &photoUsecase{
 		db:              db,
@@ -58,7 +61,7 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 		creatorRepo:     creatorRepo,
 		bulkPhotoRepo:   bulkPhotoRepo,
 		aiAdapter:       aiAdapter,
-		uploadAdapter:   uploadAdapter,
+		storageAdapter:  storageAdapter,
 		logs:            logs,
 	}
 }
@@ -278,5 +281,21 @@ func (u *photoUsecase) GetBulkPhotoDetail(ctx context.Context, request *model.Ge
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
 	}
 
+	if len(*bulkPhotoDetails) == 0 {
+		return nil, helper.NewUseCaseError(errorcode.ErrUserNotFound, "Invalid bulk photo id")
+	}
+
 	return converter.BulkPhotoDetailToResponse(bulkPhotoDetails), nil
+}
+
+func (u *photoUsecase) GetPhotoFile(ctx context.Context, filename string) (io.ReadCloser, error) {
+	object, err := u.storageAdapter.GetFile(ctx, filename)
+	if err != nil {
+		if strings.Contains(err.Error(), "file not found") {
+			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "File not found")
+		}
+		return nil, helper.WrapInternalServerError(u.logs, "failed to get photo file from minio storage", err)
+	}
+
+	return object, nil
 }

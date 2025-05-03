@@ -19,11 +19,11 @@ func ToDiscountIfValid(explore *entity.Explore) *model.CreatorDiscountResponse {
 	}
 }
 
-func ExploresToResponses(explores *[]*entity.Explore) *[]*model.ExploreUserSimilarResponse {
+func ExploresToResponses(explores *[]*entity.Explore, generateCDN func(string) string) *[]*model.ExploreUserSimilarResponse {
 	responses := make([]*model.ExploreUserSimilarResponse, 0)
 	for _, explore := range *explores {
 		photoUrlResponse := &model.PhotoUrlResponse{
-			IsThisYouURL:   explore.IsThisYouURL.String,
+			IsThisYouURL:   generateCDN(explore.FileKey),
 			YourMomentsUrl: explore.YourMomentsUrl.String,
 		}
 

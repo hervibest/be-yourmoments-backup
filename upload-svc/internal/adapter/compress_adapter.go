@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/utils"
 	"github.com/oklog/ulid/v2"
@@ -16,7 +17,7 @@ import (
 
 type CompressAdapter interface {
 	CompressImage(originalFile *multipart.FileHeader, uploadFile multipart.File, dirname string) (string, string, error)
-	CompressImageToTempFile(originalFilename string, reader io.Reader) (string, error)
+	CompressImageToTempFile(originalFilename string, reader io.Reader) (string, string, error)
 }
 
 type compressAdapter struct {
@@ -32,7 +33,6 @@ func NewCompressAdapter() CompressAdapter {
 }
 
 func (a *compressAdapter) CompressImage(originalFile *multipart.FileHeader, uploadFile multipart.File, dirname string) (string, string, error) {
-	// Streaming → buffer baca sebagian demi sebagian
 	buffer, err := io.ReadAll(uploadFile)
 	if err != nil {
 		log.Println("error in reading uploaded file for compression")
@@ -49,14 +49,14 @@ func (a *compressAdapter) CompressImage(originalFile *multipart.FileHeader, uplo
 		return "", "", err
 	}
 
-	// Buat file sementara di dir yang aman
 	tmpDir := filepath.Join(os.TempDir(), dirname)
 	if err := os.MkdirAll(tmpDir, os.ModePerm); err != nil {
 		return "", "", err
 	}
 
-	// Gunakan nama unik berbasis ulid
-	filename := "Compressed_" + ulid.Make().String() + "_" + originalFile.Filename
+	ext := filepath.Ext(originalFile.Filename)
+	ulidStr := ulid.Make().String()
+	filename := ulidStr + ext
 	filePath := filepath.Join(tmpDir, filename)
 
 	if err := bimg.Write(filePath, processed); err != nil {
@@ -66,41 +66,40 @@ func (a *compressAdapter) CompressImage(originalFile *multipart.FileHeader, uplo
 
 	return filename, filePath, nil
 }
-
-func (a *compressAdapter) CompressImageToTempFile(originalFilename string, reader io.Reader) (string, error) {
-	// Baca seluruh konten dari reader (karena bimg perlu []byte)
+func (a *compressAdapter) CompressImageToTempFile(originalFilename string, reader io.Reader) (string, string, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		log.Printf("error reading image data for compression: %v", err)
-		return "", err
+		return "", "", err
 	}
 
-	// Kompres menggunakan bimg
-	options := bimg.Options{
-		Quality: a.compressQuality,
-	}
-
+	options := bimg.Options{Quality: a.compressQuality}
 	processed, err := bimg.NewImage(data).Process(options)
 	if err != nil {
 		log.Printf("error processing image with bimg: %v", err)
-		return "", err
+		return "", "", err
 	}
 
-	// Simpan ke file temporer
 	tmpDir := filepath.Join(os.TempDir(), "compressed")
 	if err := os.MkdirAll(tmpDir, os.ModePerm); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	// Buat nama file unik
-	// Penamaan best practice
-	filename := "compressed_" + ulid.Make().String() + filepath.Ext(originalFilename) // .jpg, .png
+	// ulidStr := ulid.Make().String()
+	// ext := filepath.Ext(file.Filename) // e.g., .jpg
+	// cleanFilename := strings.TrimSuffix(file.Filename, ext)
+	// safeFilename := strings.ReplaceAll(cleanFilename, " ", "_")
+
+	ulidStr := ulid.Make().String()
+	ext := filepath.Ext(originalFilename)
+	cleanFilename := strings.TrimSuffix(originalFilename, ext)
+	filename := cleanFilename + "_" + ulidStr + ext
 	fullPath := filepath.Join(tmpDir, filename)
 
 	if err := bimg.Write(fullPath, processed); err != nil {
 		log.Printf("error writing compressed image to file: %v", err)
-		return "", err
+		return "", "", err
 	}
 
-	return fullPath, nil
+	return filename, fullPath, nil
 }

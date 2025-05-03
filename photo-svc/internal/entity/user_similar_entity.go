@@ -43,4 +43,8 @@ type Explore struct {
 	DiscountType sql.NullString `db:"discount_type"`
 	Value        sql.NullInt32  `db:"value"`
 	IsActive     sql.NullBool   `db:"is_active"`
+
+	FileName        string `db:"file_name"`
+	FileKey         string `db:"file_key"`
+	PhotoDetailType string `db:"photo_detail_type"`
 }

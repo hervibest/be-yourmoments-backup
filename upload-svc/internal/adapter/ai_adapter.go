@@ -13,7 +13,7 @@ import (
 )
 
 type AiAdapter interface {
-	ProcessPhoto(ctx context.Context, fileId, fileUrl string) error
+	ProcessPhoto(ctx context.Context, fileId, fileUrl, originalFilename string) error
 	ProcessFacecam(ctx context.Context, userId, fileUrl string) error
 	ProcessBulkPhoto(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error
 }
@@ -37,11 +37,13 @@ func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs logger.
 	}, nil
 }
 
-func (a *aiAdapter) ProcessPhoto(ctx context.Context, userId, fileUrl string) error {
+func (a *aiAdapter) ProcessPhoto(ctx context.Context, userId, fileUrl, originalFilename string) error {
 	processPhotoRequest := &aipb.ProcessPhotoRequest{
-		Id:  userId,
-		Url: fileUrl,
+		Id:               userId,
+		Url:              fileUrl,
+		OriginalFilename: originalFilename,
 	}
+	a.logs.Log("PROCESSED PHOTO")
 
 	_, err := a.client.ProcessPhoto(ctx, processPhotoRequest)
 	if err != nil {
@@ -71,8 +73,9 @@ func (a *aiAdapter) ProcessBulkPhoto(ctx context.Context, bulkPhoto *entity.Bulk
 	pbAIPhotos := make([]*aipb.AIPhoto, len(*photos))
 	for i, photo := range *photos {
 		pbAIPhotos[i] = &aipb.AIPhoto{
-			Id:            photo.Id,
-			CollectionUrl: photo.CollectionUrl,
+			Id:               photo.Id,
+			CollectionUrl:    photo.CollectionUrl,
+			OriginalFilename: photo.Title,
 		}
 		log.Println(pbAIPhotos[i])
 	}

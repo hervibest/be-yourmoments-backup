@@ -24,19 +24,19 @@ type facecamUseCase struct {
 	facecamRepo     repository.FacecamRepository
 	userSimilarRepo repository.UserSimilarRepository
 	aiAdapter       adapter.AiAdapter
-	uploadAdapter   adapter.UploadAdapter
+	storageAdapter  adapter.StorageAdapter
 	logs            *logger.Log
 }
 
 func NewFacecamUseCase(db *sqlx.DB, facecamRepo repository.FacecamRepository,
 	userSimilarRepo repository.UserSimilarRepository, aiAdapter adapter.AiAdapter,
-	uploadAdapter adapter.UploadAdapter, logs *logger.Log) FacecamUseCase {
+	storageAdapter adapter.StorageAdapter, logs *logger.Log) FacecamUseCase {
 	return &facecamUseCase{
 		db:              db,
 		facecamRepo:     facecamRepo,
 		userSimilarRepo: userSimilarRepo,
 		aiAdapter:       aiAdapter,
-		uploadAdapter:   uploadAdapter,
+		storageAdapter:  storageAdapter,
 		logs:            logs,
 	}
 }

@@ -2,6 +2,8 @@ package adapter
 
 import (
 	"io"
+	"path/filepath"
+	"strings"
 
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/config"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
@@ -15,9 +17,9 @@ import (
 )
 
 type StorageAdapter interface {
-	UploadFile(ctx context.Context, file *multipart.FileHeader, uploadFile multipart.File, path string) (*model.MinioFileResponse, error)
+	UploadCompressedFile(ctx context.Context, file *multipart.FileHeader, uploadFile multipart.File, path string) (*model.MinioFileResponse, error)
 	DeleteFile(ctx context.Context, fileName string) (bool, error)
-	UploadFileWithoutMultipart(ctx context.Context, file *multipart.FileHeader, uploadFile io.Reader, path string) (*model.MinioFileResponse, error)
+	UploadOriginalFileWithoutMultipart(ctx context.Context, file *multipart.FileHeader, uploadFile io.Reader, path, photoID string) (*model.MinioFileResponse, error)
 }
 
 type storageAdapter struct {
@@ -29,75 +31,58 @@ func NewStorageAdapter(minio *config.Minio) StorageAdapter {
 		minio: minio,
 	}
 }
+func (a *storageAdapter) UploadCompressedFile(ctx context.Context, file *multipart.FileHeader, uploadFile multipart.File, path string) (*model.MinioFileResponse, error) {
+	// ulidStr := ulid.Make().String()
+	// ext := filepath.Ext(file.Filename) // e.g., .jpg
+	// cleanFilename := strings.TrimSuffix(file.Filename, ext)
+	// safeFilename := strings.ReplaceAll(cleanFilename, " ", "_")
 
-func (a *storageAdapter) UploadFile(ctx context.Context, file *multipart.FileHeader, uploadFile multipart.File, path string) (*model.MinioFileResponse, error) {
-	fileKey := path + "/" + file.Filename
+	fileKey := fmt.Sprintf("%s/%s", path, file.Filename)
 	contentType := file.Header.Get("Content-Type")
 
-	s3PutObjectOutput, err := a.minio.MinioClient.PutObject(ctx, a.minio.GetBucketName(), fileKey, uploadFile, file.Size, minio.PutObjectOptions{
-		ContentType: contentType,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to put object to minio storage : %v", err)
-	}
-
-	fileResponse := new(model.MinioFileResponse)
-	fileResponse.ChecksumCRC32 = s3PutObjectOutput.ChecksumCRC32
-	fileResponse.ChecksumCRC32C = s3PutObjectOutput.ChecksumCRC32C
-	fileResponse.ChecksumSHA1 = s3PutObjectOutput.ChecksumSHA1
-	fileResponse.ChecksumSHA256 = s3PutObjectOutput.ChecksumSHA256
-	fileResponse.ETag = s3PutObjectOutput.ETag
-	fileResponse.Expiration = s3PutObjectOutput.Expiration
-
-	fileURL, err := a.minio.MinioClient.PresignedGetObject(ctx, a.minio.GetBucketName(), fileKey, 1*time.Hour, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to put presigned image from minio storage : %v", err)
-	}
-
-	fileResponse.URL = fileURL.String()
-	fileResponse.Filename = file.Filename
-	fileResponse.FileKey = fileKey
-	fileResponse.Mimetype = contentType
-	fileResponse.Size = file.Size
-
-	return fileResponse, nil
+	return a.uploadToMinIO(ctx, uploadFile, fileKey, contentType, file.Filename, file.Size)
 }
 
-func (a *storageAdapter) UploadFileWithoutMultipart(ctx context.Context, file *multipart.FileHeader, uploadFile io.Reader, path string) (*model.MinioFileResponse, error) {
-	fileKey := path + string(RandomNumber(31)) + "_" + file.Filename
+func (a *storageAdapter) UploadOriginalFileWithoutMultipart(ctx context.Context, file *multipart.FileHeader, uploadFile io.Reader, path, photoID string) (*model.MinioFileResponse, error) {
+	ext := filepath.Ext(file.Filename)
+	cleanFilename := strings.TrimSuffix(file.Filename, ext)
+	safeFilename := strings.ReplaceAll(cleanFilename, " ", "_")
+
+	fileKey := fmt.Sprintf("%s/%s_%s%s", path, safeFilename, photoID, ext)
 	contentType := file.Header.Get("Content-Type")
 
-	s3PutObjectOutput, err := a.minio.MinioClient.PutObject(ctx, a.minio.GetBucketName(), fileKey, uploadFile, file.Size, minio.PutObjectOptions{
+	return a.uploadToMinIO(ctx, uploadFile, fileKey, contentType, file.Filename, file.Size)
+}
+
+func (a *storageAdapter) uploadToMinIO(ctx context.Context, uploadFile io.Reader, fileKey, contentType, originalFilename string, size int64) (*model.MinioFileResponse, error) {
+	s3PutObjectOutput, err := a.minio.MinioClient.PutObject(ctx, a.minio.GetBucketName(), fileKey, uploadFile, size, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to put object to minio storage : %v", err)
 	}
 
-	fileResponse := new(model.MinioFileResponse)
-	fileResponse.ChecksumCRC32 = s3PutObjectOutput.ChecksumCRC32
-	fileResponse.ChecksumCRC32C = s3PutObjectOutput.ChecksumCRC32C
-	fileResponse.ChecksumSHA1 = s3PutObjectOutput.ChecksumSHA1
-	fileResponse.ChecksumSHA256 = s3PutObjectOutput.ChecksumSHA256
-	fileResponse.ETag = s3PutObjectOutput.ETag
-	fileResponse.Expiration = s3PutObjectOutput.Expiration
-
 	fileURL, err := a.minio.MinioClient.PresignedGetObject(ctx, a.minio.GetBucketName(), fileKey, 1*time.Hour, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to put presigned image from minio storage : %v", err)
+		return nil, fmt.Errorf("failed to generate presigned URL : %v", err)
 	}
 
-	fileResponse.URL = fileURL.String()
-	fileResponse.Filename = file.Filename
-	fileResponse.FileKey = fileKey
-	fileResponse.Mimetype = contentType
-	fileResponse.Size = file.Size
-
-	return fileResponse, nil
+	return &model.MinioFileResponse{
+		ChecksumCRC32:  s3PutObjectOutput.ChecksumCRC32,
+		ChecksumCRC32C: s3PutObjectOutput.ChecksumCRC32C,
+		ChecksumSHA1:   s3PutObjectOutput.ChecksumSHA1,
+		ChecksumSHA256: s3PutObjectOutput.ChecksumSHA256,
+		ETag:           s3PutObjectOutput.ETag,
+		Expiration:     s3PutObjectOutput.Expiration,
+		URL:            fileURL.String(),
+		Filename:       originalFilename,
+		FileKey:        fileKey,
+		Mimetype:       contentType,
+		Size:           size,
+	}, nil
 }
 
 func (a *storageAdapter) DeleteFile(ctx context.Context, fileName string) (bool, error) {
-
 	err := a.minio.MinioClient.RemoveObject(ctx, a.minio.GetBucketName(), fileName, minio.RemoveObjectOptions{ForceDelete: true})
 	if err != nil {
 		return false, fmt.Errorf("failed to delete image in minio storage : %v", err)

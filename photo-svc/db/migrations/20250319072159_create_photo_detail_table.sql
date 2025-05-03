@@ -28,8 +28,8 @@ CREATE TYPE your_moments_type AS ENUM ('COMPRESSED', 'ISYOU', 'YOU', 'COLLECTION
 CREATE TABLE IF NOT EXISTS photo_details (
     id CHAR(26) PRIMARY KEY NOT NULL,
     photo_id CHAR(26) NOT NULL,
-    file_name VARCHAR(100) NOT NULL,
-    file_key VARCHAR(100) NOT NULL,
+    file_name TEXT,
+    file_key TEXT,
     size BIGINT NOT NULL,
     type photo_type NOT NULL,
     checksum VARCHAR(64),

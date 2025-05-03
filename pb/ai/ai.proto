@@ -13,6 +13,7 @@ service AiService{
 message ProcessPhotoRequest{
   string id = 1;
   string url = 2;
+  string original_filename = 3;
 }
 
 message ProcessPhotoResponse{
@@ -39,6 +40,7 @@ message AIPhoto {
   string id = 1;
   string compressed_url = 5;
   string collection_url = 6;
+  string original_filename = 7;
 }
 
 message ProcessBulkPhotoRequest {

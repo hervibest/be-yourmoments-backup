@@ -84,16 +84,24 @@ func (r *exploreRepository) FindByUserId(ctx context.Context, userId string) (*[
 // ISSUE #5 : Creators cannot explore their own  photos
 // You have to make sure in AI logic only past different user_id (not same)
 func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querier, page, size int, similarity uint32, userId string) ([]*entity.Explore, *model.PageMetadata, error) {
-
 	results := make([]*entity.Explore, 0)
 
 	var totalItems int
-	countQuery := `SELECT COUNT(*) FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.similarity = $2`
+	countQuery :=
+		`SELECT 
+	COUNT(*) 
+	FROM user_similar_photos 
+	AS usp 
+	JOIN photos 
+	AS p on p.id = usp.photo_id 
+	WHERE usp.user_id = $1 
+	AND usp.similarity = $2
+	`
 
 	var countArgs []interface{}
 
 	query := `
-	SELECT 
+		SELECT 
 		usp.photo_id,
 		usp.user_id,
 		usp.similarity,
@@ -101,33 +109,38 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 		usp.is_resend,
 		usp.is_cart,
 		usp.is_favorite,
-	
+
 		p.creator_id,
 		p.title,
 		p.is_this_you_url,
-		p.your_moments_url,
 		p.price,
 		p.price_str,
 		p.original_at,
 		p.created_at,
 		p.updated_at,
-	
+
 		cd.name,
 		cd.min_quantity,
 		cd.discount_type,
 		cd.value,
-		cd.is_active
-	
-	FROM
-		user_similar_photos AS usp
-	JOIN
-		photos AS p ON p.id = usp.photo_id
-	LEFT JOIN 
-		creator_discounts AS cd ON p.creator_id = cd.creator_id AND cd.is_active = true
-	WHERE
-		usp.user_id = $1
-	AND
-		 similarity >= $2
+		cd.is_active,
+
+		pd.file_name,
+		pd.file_key,
+		pd.your_moments_type AS photo_detail_type
+
+	FROM user_similar_photos AS usp
+
+	JOIN photos AS p ON p.id = usp.photo_id
+
+	LEFT JOIN creator_discounts AS cd 
+		ON p.creator_id = cd.creator_id AND cd.is_active = TRUE
+
+	LEFT JOIN photo_details AS pd 
+		ON p.id = pd.photo_id AND pd.your_moments_type = 'YOU'
+
+	WHERE usp.user_id = $1
+	AND usp.similarity >= $2
 	`
 
 	var queryArgs []interface{}

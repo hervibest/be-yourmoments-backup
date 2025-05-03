@@ -67,8 +67,9 @@ func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.File
 	hasher := sha256.New()
 	stream := io.TeeReader(io.MultiReader(bytes.NewReader(peekBuf[:n]), srcFile), hasher)
 
-	uploadPath := "facecam"
-	uploaded, err := u.storageAdapter.UploadFileWithoutMultipart(ctx, file, io.NopCloser(stream), uploadPath)
+	facecamID := ulid.Make().String()
+	uploadPath := fmt.Sprintf("facecam/%s/original", facecamID)
+	uploaded, err := u.storageAdapter.UploadOriginalFileWithoutMultipart(ctx, file, io.NopCloser(stream), uploadPath, facecamID)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "Failed to upload file", err)
 	}
@@ -78,7 +79,7 @@ func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.File
 
 	log.Printf("Ini adalah uploaded file name %s", uploaded.Filename)
 	newFacecam := &entity.Facecam{
-		Id:         ulid.Make().String(),
+		Id:         facecamID,
 		UserId:     userId,
 		FileName:   uploaded.Filename,
 		FileKey:    uploaded.FileKey,

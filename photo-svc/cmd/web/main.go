@@ -135,7 +135,8 @@ func webServer() error {
 
 	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
 
-	uploadAdapter := adapter.NewUploadAdapter(minioConfig)
+	storageAdapter := adapter.NewStorageAdapter(minioConfig)
+	CDNAdapter := adapter.NewCDNadapter()
 	customValidator := helper.NewCustomValidator()
 
 	photoRepo, err := repository.NewPhotoRepository(dbConfig)
@@ -162,11 +163,11 @@ func webServer() error {
 	}
 	bulkPhotoRepository := repository.NewBulkPhotoRepository()
 
-	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, aiAdapter, uploadAdapter, logs)
-	faceCamUseCase := usecase.NewFacecamUseCase(dbConfig, facecamRepo, userSimilarRepo, aiAdapter, uploadAdapter, logs)
+	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, aiAdapter, storageAdapter, logs)
+	faceCamUseCase := usecase.NewFacecamUseCase(dbConfig, facecamRepo, userSimilarRepo, aiAdapter, storageAdapter, logs)
 	userSimilarPhotoUsecase := usecase.NewUserSimilarUsecase(dbConfig, photoRepo, photoDetailRepo, facecamRepo, userSimilarRepo, bulkPhotoRepository, userAdapter, logs)
 	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, transactionAdapter, logs)
-	exploreUseCase := usecase.NewExploreUseCase(dbConfig, exploreRepo, photoRepo, tracer, logs)
+	exploreUseCase := usecase.NewExploreUseCase(dbConfig, exploreRepo, photoRepo, CDNAdapter, tracer, logs)
 	creatorDiscountUseCase := usecase.NewCreatorDiscountUseCase(dbConfig, creatorDiscountRepository, logs)
 	checkoutUseCase := usecase.NewCheckoutUseCase(dbConfig, photoRepo, creatorRepository, creatorDiscountRepository, logs)
 

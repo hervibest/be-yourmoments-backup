@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
 	errorcode "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
@@ -36,16 +37,18 @@ type exploreUseCase struct {
 	db                *sqlx.DB
 	exploreRepository repository.ExploreRepository
 	photoRepository   repository.PhotoRepository
+	CDNAdapter        adapter.CDNAdapter
 	tracer            trace.Tracer
 	logs              *logger.Log
 }
 
 func NewExploreUseCase(db *sqlx.DB, exploreRepository repository.ExploreRepository, photoRepository repository.PhotoRepository,
-	tracer trace.Tracer, logs *logger.Log) ExploreUseCase {
+	CDNAdapter adapter.CDNAdapter, tracer trace.Tracer, logs *logger.Log) ExploreUseCase {
 	return &exploreUseCase{
 		db:                db,
 		exploreRepository: exploreRepository,
 		photoRepository:   photoRepository,
+		CDNAdapter:        CDNAdapter,
 		tracer:            tracer,
 		logs:              logs,
 	}
@@ -61,7 +64,7 @@ func (u *exploreUseCase) GetUserExploreSimilar(ctx context.Context, request *mod
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all explore similar in database", err)
 	}
 
-	return converter.ExploresToResponses(&explores), pageMetadata, nil
+	return converter.ExploresToResponses(&explores, u.CDNAdapter.GenerateCDN), pageMetadata, nil
 }
 
 func (u *exploreUseCase) GetUserWishlist(ctx context.Context, request *model.GetAllWishlistRequest) (*[]*model.ExploreUserSimilarResponse, *model.PageMetadata, error) {
@@ -73,7 +76,7 @@ func (u *exploreUseCase) GetUserWishlist(ctx context.Context, request *model.Get
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user wishlist photo in database", err)
 	}
 
-	return converter.ExploresToResponses(&explores), pageMetadata, nil
+	return converter.ExploresToResponses(&explores, u.CDNAdapter.GenerateCDN), pageMetadata, nil
 }
 
 func (u *exploreUseCase) UserAddWishlist(ctx context.Context, request *model.UserAddWishlistRequest) error {
@@ -143,7 +146,7 @@ func (u *exploreUseCase) GetUserFavorite(ctx context.Context, request *model.Get
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user favorite photo in database", err)
 	}
 
-	return converter.ExploresToResponses(&explores), pageMetadata, nil
+	return converter.ExploresToResponses(&explores, u.CDNAdapter.GenerateCDN), pageMetadata, nil
 }
 
 func (u *exploreUseCase) UserAddFavorite(ctx context.Context, request *model.UserAddFavoriteRequest) error {
@@ -214,7 +217,7 @@ func (u *exploreUseCase) GetUserCart(ctx context.Context, request *model.GetAllC
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user cart photo in database", err)
 	}
 
-	return converter.ExploresToResponses(&explores), pageMetadata, nil
+	return converter.ExploresToResponses(&explores, u.CDNAdapter.GenerateCDN), pageMetadata, nil
 }
 
 func (u *exploreUseCase) UserAddCart(ctx context.Context, request *model.UserAddCartRequest) error {

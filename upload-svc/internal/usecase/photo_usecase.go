@@ -262,7 +262,10 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 	teeReader := io.TeeReader(multiReader, hasher)
 
 	startUpload := time.Now()
-	upload, err := u.storageAdapter.UploadFileWithoutMultipart(ctx, file, io.NopCloser(teeReader), "photo")
+
+	photoID := ulid.Make().String()
+	uploadPath := fmt.Sprintf("photo/%s/original", photoID)
+	upload, err := u.storageAdapter.UploadOriginalFileWithoutMultipart(ctx, file, io.NopCloser(teeReader), uploadPath, photoID)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "error when uploading file", err)
 	}
@@ -273,7 +276,7 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 
 	// Buat entitas Photo baru
 	newPhoto := &entity.Photo{
-		Id:            ulid.Make().String(),
+		Id:            photoID,
 		UserId:        request.UserId,
 		CreatorId:     request.CreatorId,
 		Title:         upload.Filename,
@@ -328,14 +331,13 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 		}
 		defer reopened.Close()
 
-		tmpFilePath, err := u.compressAdapter.CompressImageToTempFile(file.Filename, reopened)
+		filename, tmpFilePath, err := u.compressAdapter.CompressImageToTempFile(file.Filename, reopened)
 		if err != nil {
 			u.logs.CustomError("failed to compress image: %v", err)
 			return
 		}
 		defer os.Remove(tmpFilePath)
 
-		compOpen := time.Now()
 		fileComp, err := os.Open(tmpFilePath)
 		if err != nil {
 			u.logs.CustomError("failed to open compressed file: %v", err)
@@ -343,30 +345,27 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 		}
 		defer fileComp.Close()
 
-		u.logs.Log(fmt.Sprintf("⏱️ Comp open took: %v", time.Since(compOpen)))
-
 		stat, _ := fileComp.Stat()
 		header := &multipart.FileHeader{
-			Filename: stat.Name(),
+			Filename: filename, // ✔️ gunakan nama file ULID.jpg
 			Header:   textproto.MIMEHeader{},
 			Size:     stat.Size(),
 		}
-		header.Header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, stat.Name()))
+		header.Header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename))
 
-		compUpload := time.Now()
-		compressedPhoto, err := u.storageAdapter.UploadFile(ctx, header, fileComp, "photo/compressed")
+		compressedPath := fmt.Sprintf("photo/%s/compressed", newPhoto.Id)
+		compressedPhoto, err := u.storageAdapter.UploadCompressedFile(ctx, header, fileComp, compressedPath)
 		if err != nil {
 			u.logs.CustomError("failed to upload compressed file: %v", err)
 			return
 		}
-		u.logs.Log(fmt.Sprintf("⏱️ Upload (compressed) took: %v", time.Since(compUpload)))
 
 		log.Printf("ini adalah filename dan file key %s : %s", compressedPhoto.Filename, compressedPhoto.FileKey)
 
 		compressedPhotoDetail := &entity.PhotoDetail{
 			Id:              ulid.Make().String(),
 			PhotoId:         newPhoto.Id,
-			FileName:        compressedPhoto.Filename,
+			FileName:        upload.Filename,
 			FileKey:         compressedPhoto.FileKey,
 			Size:            compressedPhoto.Size,
 			Url:             compressedPhoto.URL,
@@ -384,7 +383,7 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 
 		u.logs.Log(fmt.Sprintf("⏱️ TOTAL compression flow took: %v", time.Since(compressStart)))
 
-		u.aiAdapter.ProcessPhoto(ctx, newPhoto.Id, compressedPhoto.URL)
+		u.aiAdapter.ProcessPhoto(ctx, newPhoto.Id, compressedPhoto.URL, compressedPhotoDetail.FileName)
 	}()
 
 	return nil
@@ -449,8 +448,10 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 		)
 		teeReader := io.TeeReader(multiReader, hasher)
 
+		photoID := ulid.Make().String()
 		// Upload langsung ke storage
-		upload, err := u.storageAdapter.UploadFileWithoutMultipart(ctx, file, io.NopCloser(teeReader), "photo")
+		uploadPath := fmt.Sprintf("photo/%s/original", photoID)
+		upload, err := u.storageAdapter.UploadOriginalFileWithoutMultipart(ctx, file, io.NopCloser(teeReader), uploadPath, photoID)
 		if err != nil {
 			return helper.WrapInternalServerError(u.logs, "error when uploading file", err)
 		}
@@ -459,7 +460,7 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 		now := time.Now()
 
 		newPhoto := &entity.Photo{
-			Id:            ulid.Make().String(),
+			Id:            photoID,
 			UserId:        request.UserId,
 			CreatorId:     request.CreatorId,
 			BulkPhotoId:   nullable.ToSQLString(&bulkPhoto.Id),
