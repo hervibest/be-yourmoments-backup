@@ -33,11 +33,11 @@ END$$;
 
 CREATE TABLE IF NOT EXISTS transactions (
     id uuid PRIMARY KEY,
-    user_id CHAR(30) NOT NULL,
+    user_id CHAR(26) NOT NULL,
     status transaction_status NOT NULL,
-    transaction_method_id CHAR(30),
-    transaction_type_id CHAR(30),
-    payment_type_id CHAR(30),
+    transaction_method_id CHAR(26),
+    transaction_type_id CHAR(26),
+    payment_type_id CHAR(26),
     payment_at TIMESTAMPTZ,
     checkout_at TIMESTAMPTZ NOT NULL,
     snap_token TEXT,
@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL
 );
+CREATE INDEX  IF NOT EXISTS idx_transaction_user_id ON transactions(user_id)
+
 
 -- +goose StatementEnd
 -- +goose Down
@@ -56,5 +58,6 @@ DROP TABLE IF EXISTS transactions;
 
 DROP TYPE IF EXISTS transaction_status;
 DROP TYPE IF EXISTS midtrans_payment_status;
+DROP INDEX IF EXISTS idx_transaction_user_id;
 
 -- +goose StatementEnd

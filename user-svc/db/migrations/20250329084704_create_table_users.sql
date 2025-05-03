@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(60),
     phone_number VARCHAR(15) UNIQUE,
     phone_number_verified_at TIMESTAMPTZ,
-    google_id VARCHAR(30) UNIQUE,
+    google_id VARCHAR(26) UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );

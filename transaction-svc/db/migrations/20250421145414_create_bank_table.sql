@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS banks (
-    id CHAR(30) PRIMARY KEY,
+    id CHAR(26) PRIMARY KEY,
     bank_code VARCHAR(10) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     alias VARCHAR(50),
