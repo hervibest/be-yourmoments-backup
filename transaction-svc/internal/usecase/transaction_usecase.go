@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
+	"github.com/sony/gobreaker"
 
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
@@ -175,32 +177,39 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 		return nil, helper.WrapExternalServiceUnavailable(u.logs, "failed to get payment token from midtrans", err)
 	}
 
-	tx, err = repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
+	if err := u.updateTransactionToken(ctx, token, transaction.Id); err != nil {
 		return nil, err
+	}
+
+	return converter.TransactionToResponse(transaction, redirectUrl), nil
+}
+
+func (u *transactionUseCase) updateTransactionToken(ctx context.Context, token, transactionId string) error {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return err
 	}
 
 	defer func() {
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	now = time.Now()
-	transaction = &entity.Transaction{
-		Id:        transaction.Id,
+	now := time.Now()
+	transaction := &entity.Transaction{
+		Id:        transactionId,
 		SnapToken: sql.NullString{String: token},
 		UpdatedAt: &now,
 	}
 
 	err = u.transactionRepository.UpdateToken(ctx, tx, transaction)
 	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to update snapshot token in database", err)
+		return helper.WrapInternalServerError(u.logs, "failed to update snapshot token in database", err)
 	}
 
 	if err := repository.Commit(tx, u.logs); err != nil {
-		return nil, err
+		return err
 	}
-
-	return converter.TransactionToResponse(transaction, redirectUrl), nil
+	return nil
 }
 
 func (u *transactionUseCase) getPaymentToken(ctx context.Context, transaction *entity.Transaction) (string, string, error) {
@@ -212,6 +221,20 @@ func (u *transactionUseCase) getPaymentToken(ctx context.Context, transaction *e
 
 	snapResponse, err := u.paymentAdapter.CreateSnapshot(ctx, snapRequest)
 	if err != nil {
+		go func() {
+			totalRetry := 0
+			maxRetry := 5
+			for totalRetry < maxRetry && errors.Is(err, gobreaker.ErrOpenState) {
+				snapResponse, err = u.paymentAdapter.CreateSnapshot(context.TODO(), snapRequest)
+				if err != nil {
+					break
+				}
+			}
+			if err !=nil {
+				subscribe to redis event then call snapRsponse again when circuit is openned
+			}
+
+		}()
 		return "", "", fmt.Errorf("midtrans create snapshot error : %w", err)
 	}
 
