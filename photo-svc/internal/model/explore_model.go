@@ -41,8 +41,9 @@ type UserSimilarPhotoRespone struct {
 }
 
 type PhotoUrlResponse struct {
-	IsThisYouURL   string `json:"is_this_you_url"`
-	YourMomentsUrl string `json:"your_moments_url"`
+	IsThisYouURL   string `json:"is_this_you_url,omitempty"`
+	YourMomentsUrl string `json:"your_moments_url,omitempty"`
+	CollectionUrl  string `json:"collection_url,omitempty"`
 }
 
 type PhotoStageResponse struct {

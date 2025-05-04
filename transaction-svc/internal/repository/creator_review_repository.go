@@ -82,7 +82,7 @@ func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page,
 
 	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
 
-	if err := tx.SelectContext(ctx, results, query, args...); err != nil {
+	if err := tx.SelectContext(ctx, &results, query, args...); err != nil {
 		return nil, nil, err
 	}
 

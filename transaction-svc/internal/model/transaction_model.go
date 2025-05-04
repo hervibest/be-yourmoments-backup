@@ -1,8 +1,11 @@
 package model
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
+
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 )
 
 type CreateTransactionRequest struct {
@@ -73,4 +76,114 @@ type PaymentSnapshotRequest struct {
 	OrderID     string `json:"order_id,omitempty"`
 	GrossAmount int64  `json:"gross_amount,omitempty"`
 	Email       string `json:"email,omitempty"`
+}
+
+type GetTransactionWithDetail struct {
+	TransactionId string `validate:"required"`
+	UserID        string `validate:"required"`
+}
+
+// type TransactionWithDetail struct {
+// 	TransactionId       string                 `json:"transaction_id"`
+// 	UserId              string                 `json:"user_id"`
+// 	Status              enum.TransactionStatus `json:"status"`
+// 	TransactionMethodId *string                `json:"transaction_method_id,omitempty"`
+// 	TransactionTypeId   *string                `json:"transaction_type_id,omitempty"`
+// 	PaymentTypeId       *string                `json:"payment_type_id,omitempty"`
+// 	PaymentAt           *time.Time             `json:"payment_at,omitempty"`
+// 	CheckoutAt          *time.Time             `json:"checkout_at,omitempty"`
+// 	Amount              int32                  `json:"amount"`
+// 	CreatedAt           *time.Time             `json:"transaction_created_at"`
+// 	UpdatedAt           *time.Time             `json:"transaction_updated_at"`
+
+// 	CreatorId         string `json:"creator_id"`
+// 	CreatorDiscountId string `json:"creator_discount_id"`
+// 	IsReviewed        bool   `json:"is_reviewed"`
+
+// 	PhotoId    string        `json:"photo_id"`
+// 	Price      int32         `json:"price"`
+// 	Discount   sql.NullInt32 `json:"discount"`
+// 	FinalPrice int32         `json:"final_price"`
+// 	Url        string        `json:"url"`
+
+// 	Title           string    `json:"title"`
+// 	Latitude        *float64  `json:"latitude,omitempty"`
+// 	Longitude       *float64  `json:"longitude,omitempty"`
+// 	Description     *string   `json:"description,omitempty"`
+// 	PhotoOriginalAt time.Time `json:"photo_original_at"`
+// 	PhotoCreatedAt  time.Time `json:"photo_created_at"`
+// 	PhotoUpdatedAt  time.Time `json:"photo_updated_at"`
+
+// 	FileName        string               `json:"file_name"`
+// 	Size            int64                `json:"size"`
+// 	Type            string               `json:"type"`
+// 	Width           int32                `json:"width"`
+// 	Height          int32                `json:"height"`
+// 	YourMomentsType enum.YourMomentsType `json:"your_moments_type"`
+// }
+
+type TransactionDetailResponse struct {
+	CreatorId         string            `json:"creator_id"`
+	CreatorDiscountId string            `json:"creator_discount_id"`
+	IsReviewed        bool              `json:"is_reviewed"`
+	Photo             *[]*PhotoResponse `json:"photos"`
+}
+
+type PhotoResponse struct {
+	PhotoId    string        `json:"photo_id"`
+	Price      int32         `json:"price"`
+	Discount   sql.NullInt32 `json:"discount"`
+	FinalPrice int32         `json:"final_price"`
+	Url        string        `json:"url"`
+
+	Title           string    `json:"title"`
+	Latitude        *float64  `json:"latitude,omitempty"`
+	Longitude       *float64  `json:"longitude,omitempty"`
+	Description     *string   `json:"description,omitempty"`
+	PhotoOriginalAt time.Time `json:"photo_original_at"`
+	PhotoCreatedAt  time.Time `json:"photo_created_at"`
+	PhotoUpdatedAt  time.Time `json:"photo_updated_at"`
+
+	FileName        string               `json:"file_name"`
+	Size            int64                `json:"size"`
+	Type            string               `json:"type"`
+	Width           int32                `json:"width"`
+	Height          int32                `json:"height"`
+	YourMomentsType enum.YourMomentsType `json:"your_moments_type"`
+}
+
+type TransactionWithDetail struct {
+	TransactionId       string                        `json:"transaction_id"`
+	UserId              string                        `json:"user_id"`
+	Status              enum.TransactionStatus        `json:"status"`
+	TransactionMethodId *string                       `json:"transaction_method_id,omitempty"`
+	TransactionTypeId   *string                       `json:"transaction_type_id,omitempty"`
+	PaymentTypeId       *string                       `json:"payment_type_id,omitempty"`
+	PaymentAt           *time.Time                    `json:"payment_at,omitempty"`
+	CheckoutAt          *time.Time                    `json:"checkout_at,omitempty"`
+	Amount              int32                         `json:"amount"`
+	CreatedAt           *time.Time                    `json:"transaction_created_at"`
+	UpdatedAt           *time.Time                    `json:"transaction_updated_at"`
+	TransactionDetail   *[]*TransactionDetailResponse `json:"transaction_detail_response"`
+}
+
+type UserTransaction struct {
+	Id                  string                 `json:"id"`
+	UserId              string                 `json:"user_id"`
+	Status              enum.TransactionStatus `json:"status"`
+	TransactionMethodId *string                `json:"transaction_method_id,omitempty"`
+	TransactionTypeId   *string                `json:"transaction_type_id,omitempty"`
+	PaymentTypeId       *string                `json:"payment_type_id,omitempty"`
+	PaymentAt           *time.Time             `json:"payment_at,omitempty"`
+	CheckoutAt          *time.Time             `json:"checkout_at,omitempty"`
+	Amount              int32                  `json:"amount"`
+	// CreatedAt           *time.Time             `json:"created_at"`
+	// UpdatedAt           *time.Time             `json:"updated_at"`
+}
+
+type GetAllUsertTransaction struct {
+	UserId string `json:"user_id" validate:"required"`
+	Order  string `json:"order" validate:"required"`
+	Page   int    `json:"page" validate:"required"`
+	Size   int    `json:"size" validate:"required"`
 }

@@ -32,6 +32,7 @@ type PhotoUseCase interface {
 	CreateBulkPhoto(ctx context.Context, request *photopb.CreateBulkPhotoRequest) error
 	GetBulkPhotoDetail(ctx context.Context, request *model.GetBulkPhotoDetailRequest) (*model.GetBulkPhotoDetailResponse, error)
 	GetPhotoFile(ctx context.Context, filename string) (io.ReadCloser, error)
+	UserGetPhotoWithDetail(ctx context.Context, photoIDs []string, userID string) (*photopb.GetPhotoWithDetailsResponse, error)
 }
 
 type photoUsecase struct {
@@ -43,6 +44,7 @@ type photoUsecase struct {
 	bulkPhotoRepo   repository.BulkPhotoRepository
 	aiAdapter       adapter.AiAdapter
 	storageAdapter  adapter.StorageAdapter
+	CDNAdapter      adapter.CDNAdapter
 	logs            *logger.Log
 }
 
@@ -52,7 +54,7 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	creatorRepo repository.CreatorRepository,
 	bulkPhotoRepo repository.BulkPhotoRepository,
 	aiAdapter adapter.AiAdapter, storageAdapter adapter.StorageAdapter,
-	logs *logger.Log) PhotoUseCase {
+	CDNAdapter adapter.CDNAdapter, logs *logger.Log) PhotoUseCase {
 	return &photoUsecase{
 		db:              db,
 		photoRepo:       photoRepo,
@@ -61,6 +63,7 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 		creatorRepo:     creatorRepo,
 		bulkPhotoRepo:   bulkPhotoRepo,
 		aiAdapter:       aiAdapter,
+		CDNAdapter:      CDNAdapter,
 		storageAdapter:  storageAdapter,
 		logs:            logs,
 	}
@@ -300,8 +303,13 @@ func (u *photoUsecase) GetPhotoFile(ctx context.Context, filename string) (io.Re
 	return object, nil
 }
 
-func (u *photoUsecase) GetPhotoWithDetails(ctx context.Context, photoIDs []string) (io.ReadCloser, error) {
-	object, err := u.photoRepo.GetPhotoWithDetail(ctx, u.db, photoIDs)
+func (u *photoUsecase) UserGetPhotoWithDetail(ctx context.Context, photoIDs []string, userID string) (*photopb.GetPhotoWithDetailsResponse, error) {
+	log.Print("user id in user ge photo wih detail", userID)
+	object, err := u.photoRepo.UserGetPhotoWithDetail(ctx, u.db, photoIDs, userID)
+	if len(*object) == 0 {
+		return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Photo with detail not found")
+	}
+
 	if err != nil {
 		if strings.Contains(err.Error(), "file not found") {
 			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "File not found")
@@ -309,5 +317,5 @@ func (u *photoUsecase) GetPhotoWithDetails(ctx context.Context, photoIDs []strin
 		return nil, helper.WrapInternalServerError(u.logs, "failed to get photo file from minio storage", err)
 	}
 
-	return object, nil
+	return converter.PhotoWithDetailsToGRPC(object, u.CDNAdapter.GenerateCDN), nil
 }

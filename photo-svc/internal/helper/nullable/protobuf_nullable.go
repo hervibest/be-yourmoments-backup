@@ -21,19 +21,3 @@ func SQLToProtoString(val sql.NullString) *wrapperspb.StringValue {
 	}
 	return wrapperspb.String(val.String)
 }
-
-func WrapDouble(v *wrapperspb.DoubleValue) *float64 {
-	if v == nil {
-		return nil
-	}
-	val := v.GetValue()
-	return &val
-}
-
-func WrapString(v *wrapperspb.StringValue) *string {
-	if v == nil {
-		return nil
-	}
-	val := v.GetValue()
-	return &val
-}

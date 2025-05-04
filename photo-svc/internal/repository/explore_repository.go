@@ -87,21 +87,25 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 	results := make([]*entity.Explore, 0)
 
 	var totalItems int
-	countQuery :=
-		`SELECT 
-	COUNT(*) 
-	FROM user_similar_photos 
+	countQuery := `
+	SELECT 
+		COUNT(*) 
+	FROM 
+		user_similar_photos 
 	AS usp 
-	JOIN photos 
+	JOIN 
+		photos 
 	AS p on p.id = usp.photo_id 
-	WHERE usp.user_id = $1 
-	AND usp.similarity = $2
+	WHERE 
+		usp.user_id = $1
+	AND 
+		usp.similarity >= $2
 	`
 
 	var countArgs []interface{}
 
 	query := `
-		SELECT 
+	SELECT 
 		usp.photo_id,
 		usp.user_id,
 		usp.similarity,
@@ -129,15 +133,37 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 		pd.file_key,
 		pd.your_moments_type AS photo_detail_type
 
-	FROM user_similar_photos AS usp
+	FROM 
+		user_similar_photos AS usp
 
-	JOIN photos AS p ON p.id = usp.photo_id
+	JOIN 
+		photos AS p ON p.id = usp.photo_id
 
-	LEFT JOIN creator_discounts AS cd 
-		ON p.creator_id = cd.creator_id AND cd.is_active = TRUE
+    LEFT JOIN LATERAL (
+      SELECT *
+      FROM creator_discounts cd
+      WHERE cd.creator_id = p.creator_id AND cd.is_active = TRUE
+      ORDER BY cd.min_quantity ASC, cd.created_at DESC
+      LIMIT 1
+    ) cd ON TRUE
 
-	LEFT JOIN photo_details AS pd 
-		ON p.id = pd.photo_id AND pd.your_moments_type = 'YOU'
+	LEFT JOIN LATERAL (
+			SELECT 
+				pd.file_name,
+				pd.file_key,
+				pd.your_moments_type
+			FROM photo_details pd
+			WHERE pd.photo_id = p.id
+			AND pd.your_moments_type = 
+				CASE 
+					WHEN p.owned_by_user_id IS NULL THEN 'YOU'::your_moments_type
+					ELSE 'COLLECTION'::your_moments_type
+				END
+			LIMIT 1
+		) pd ON TRUE
+
+	-- LEFT JOIN photo_details AS pd 
+	--	ON p.id = pd.photo_id AND pd.your_moments_type = 'YOU'
 
 	WHERE usp.user_id = $1
 	AND usp.similarity >= $2
@@ -169,6 +195,8 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 		log.Printf("Get context error in explore %v", err)
 		return nil, nil, err
 	}
+
+	log.Print("tota items", totalItems)
 
 	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
 

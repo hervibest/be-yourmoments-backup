@@ -32,6 +32,7 @@ const (
 	PhotoService_OwnerOwnPhotos_FullMethodName              = "/photo.PhotoService/OwnerOwnPhotos"
 	PhotoService_CreateBulkPhoto_FullMethodName             = "/photo.PhotoService/CreateBulkPhoto"
 	PhotoService_CreateBulkUserSimilarPhotos_FullMethodName = "/photo.PhotoService/CreateBulkUserSimilarPhotos"
+	PhotoService_GetPhotoWithDetails_FullMethodName         = "/photo.PhotoService/GetPhotoWithDetails"
 )
 
 // PhotoServiceClient is the client API for PhotoService service.
@@ -51,6 +52,7 @@ type PhotoServiceClient interface {
 	OwnerOwnPhotos(ctx context.Context, in *OwnerOwnPhotosRequest, opts ...grpc.CallOption) (*OwnerOwnPhotosResponse, error)
 	CreateBulkPhoto(ctx context.Context, in *CreateBulkPhotoRequest, opts ...grpc.CallOption) (*CreateBulkPhotoResponse, error)
 	CreateBulkUserSimilarPhotos(ctx context.Context, in *CreateBulkUserSimilarPhotoRequest, opts ...grpc.CallOption) (*CreateBulkUserSimilarPhotoResponse, error)
+	GetPhotoWithDetails(ctx context.Context, in *GetPhotoWithDetailsRequest, opts ...grpc.CallOption) (*GetPhotoWithDetailsResponse, error)
 }
 
 type photoServiceClient struct {
@@ -191,6 +193,16 @@ func (c *photoServiceClient) CreateBulkUserSimilarPhotos(ctx context.Context, in
 	return out, nil
 }
 
+func (c *photoServiceClient) GetPhotoWithDetails(ctx context.Context, in *GetPhotoWithDetailsRequest, opts ...grpc.CallOption) (*GetPhotoWithDetailsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPhotoWithDetailsResponse)
+	err := c.cc.Invoke(ctx, PhotoService_GetPhotoWithDetails_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PhotoServiceServer is the server API for PhotoService service.
 // All implementations must embed UnimplementedPhotoServiceServer
 // for forward compatibility.
@@ -208,6 +220,7 @@ type PhotoServiceServer interface {
 	OwnerOwnPhotos(context.Context, *OwnerOwnPhotosRequest) (*OwnerOwnPhotosResponse, error)
 	CreateBulkPhoto(context.Context, *CreateBulkPhotoRequest) (*CreateBulkPhotoResponse, error)
 	CreateBulkUserSimilarPhotos(context.Context, *CreateBulkUserSimilarPhotoRequest) (*CreateBulkUserSimilarPhotoResponse, error)
+	GetPhotoWithDetails(context.Context, *GetPhotoWithDetailsRequest) (*GetPhotoWithDetailsResponse, error)
 	mustEmbedUnimplementedPhotoServiceServer()
 }
 
@@ -256,6 +269,9 @@ func (UnimplementedPhotoServiceServer) CreateBulkPhoto(context.Context, *CreateB
 }
 func (UnimplementedPhotoServiceServer) CreateBulkUserSimilarPhotos(context.Context, *CreateBulkUserSimilarPhotoRequest) (*CreateBulkUserSimilarPhotoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateBulkUserSimilarPhotos not implemented")
+}
+func (UnimplementedPhotoServiceServer) GetPhotoWithDetails(context.Context, *GetPhotoWithDetailsRequest) (*GetPhotoWithDetailsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPhotoWithDetails not implemented")
 }
 func (UnimplementedPhotoServiceServer) mustEmbedUnimplementedPhotoServiceServer() {}
 func (UnimplementedPhotoServiceServer) testEmbeddedByValue()                      {}
@@ -512,6 +528,24 @@ func _PhotoService_CreateBulkUserSimilarPhotos_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PhotoService_GetPhotoWithDetails_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPhotoWithDetailsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PhotoServiceServer).GetPhotoWithDetails(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PhotoService_GetPhotoWithDetails_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PhotoServiceServer).GetPhotoWithDetails(ctx, req.(*GetPhotoWithDetailsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PhotoService_ServiceDesc is the grpc.ServiceDesc for PhotoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -570,6 +604,10 @@ var PhotoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateBulkUserSimilarPhotos",
 			Handler:    _PhotoService_CreateBulkUserSimilarPhotos_Handler,
+		},
+		{
+			MethodName: "GetPhotoWithDetails",
+			Handler:    _PhotoService_GetPhotoWithDetails_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

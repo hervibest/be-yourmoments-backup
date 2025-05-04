@@ -16,15 +16,15 @@ type CreateCreatorDiscountRequest struct {
 }
 
 type CreatorDiscountResponse struct {
-	Id           string            `json:"id"`
-	CreatorId    string            `json:"creator_id"`
+	Id           string            `json:"id,omitempty"`
+	CreatorId    string            `json:"creator_id,omitempty"`
 	Name         string            `json:"name"`
 	MinQuantity  int               `json:"min_quantity"`
 	DiscountType enum.DiscountType `json:"discount_type"`
 	Value        int32             `json:"value"`
 	IsActive     bool              `json:"is_active"`
-	CreatedAt    *time.Time        `json:"created_at"`
-	UpdatedAt    *time.Time        `json:"updated_at"`
+	CreatedAt    *time.Time        `json:"created_at,omitempty"`
+	UpdatedAt    *time.Time        `json:"updated_at,omitempty"`
 }
 
 type GetCreatorDiscountRequest struct {

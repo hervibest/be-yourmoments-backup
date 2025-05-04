@@ -19,13 +19,22 @@ func ToDiscountIfValid(explore *entity.Explore) *model.CreatorDiscountResponse {
 	}
 }
 
+func ToCollectionOrIsYouURL(photoDetailType string, filekey string, generateCDN func(string) string) *model.PhotoUrlResponse {
+	if photoDetailType == string(enum.YourMomentTypeCollection) {
+		return &model.PhotoUrlResponse{
+			CollectionUrl: generateCDN(filekey),
+		}
+	} else {
+		return &model.PhotoUrlResponse{
+			IsThisYouURL: generateCDN(filekey),
+		}
+	}
+}
+
 func ExploresToResponses(explores *[]*entity.Explore, generateCDN func(string) string) *[]*model.ExploreUserSimilarResponse {
 	responses := make([]*model.ExploreUserSimilarResponse, 0)
 	for _, explore := range *explores {
-		photoUrlResponse := &model.PhotoUrlResponse{
-			IsThisYouURL:   generateCDN(explore.FileKey),
-			YourMomentsUrl: explore.YourMomentsUrl.String,
-		}
+		photoUrlResponse := ToCollectionOrIsYouURL(explore.PhotoDetailType, explore.FileKey, generateCDN)
 
 		photoStageResponse := &model.PhotoStageResponse{
 			IsWishlist: explore.IsWishlist,

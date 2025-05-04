@@ -46,3 +46,14 @@ func (h *PhotoGRPCHandler) CreateBulkPhoto(ctx context.Context, pbReq *photopb.C
 		Status: int64(codes.OK),
 	}, nil
 }
+
+func (h *PhotoGRPCHandler) GetPhotoWithDetails(ctx context.Context, pbReq *photopb.GetPhotoWithDetailsRequest) (
+	*photopb.GetPhotoWithDetailsResponse, error) {
+	log.Println("----  CreatePhoto Bulk Photo Requets via GRPC in photo-svc ------")
+	response, err := h.photoUseCase.UserGetPhotoWithDetail(context.Background(), pbReq.GetPhotoIds(), pbReq.GetUserId())
+	if err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	return response, nil
+}

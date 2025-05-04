@@ -29,23 +29,23 @@ type Photo struct {
 }
 
 type PhotoWithDetail struct {
-	Id             string          `db:"photo_id"`
-	CreatorId      string          `db:"creator_id"`
-	Title          string          `db:"title"`
-	OwnedByUserId  sql.NullString  `db:"owned_by_user_id"`
-	YourMomentsUrl sql.NullString  `db:"your_moments_url"`
-	CollectionUrl  sql.NullString  `db:"collection_url"`
-	Price          int32           `db:"price"`
-	PriceStr       string          `db:"price_str"`
-	Latitude       sql.NullFloat64 `db:"latitude"`
-	Longitude      sql.NullFloat64 `db:"longitude"`
-	Description    sql.NullString  `db:"description"`
+	Id          string          `db:"photo_id"`
+	CreatorId   string          `db:"creator_id"`
+	Title       string          `db:"title"`
+	Price       int32           `db:"price"`
+	PriceStr    string          `db:"price_str"`
+	Latitude    sql.NullFloat64 `db:"latitude"`
+	Longitude   sql.NullFloat64 `db:"longitude"`
+	Description sql.NullString  `db:"description"`
+	OriginalAt  time.Time       `db:"original_at"`
+	CreatedAt   time.Time       `db:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at"`
 
 	FileName        string               `db:"file_name"`
 	FileKey         string               `db:"file_key"`
+	Size            int64                `db:"size"`
+	Type            string               `db:"type"`
+	Width           int32                `db:"width"`
+	Height          int32                `db:"height"`
 	YourMomentsType enum.YourMomentsType `db:"your_moments_type"`
-
-	OriginalAt time.Time `db:"original_at"`
-	CreatedAt  time.Time `db:"created_at"`
-	UpdatedAt  time.Time `db:"updated_at"`
 }

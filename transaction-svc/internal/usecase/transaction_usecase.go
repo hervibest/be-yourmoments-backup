@@ -28,6 +28,8 @@ import (
 type TransactionUseCase interface {
 	CreateTransaction(ctx context.Context, request *model.CreateTransactionRequest) (*model.CreateTransactionResponse, error)
 	UpdateTransactionWebhook(ctx context.Context, request *model.UpdateTransactionWebhookRequest) error
+	UserGetWithDetail(ctx context.Context, request *model.GetTransactionWithDetail) (*model.TransactionWithDetail, error)
+	GetAllUserTransaction(ctx context.Context, request *model.GetAllUsertTransaction) (*[]*model.UserTransaction, *model.PageMetadata, error)
 }
 
 type transactionUseCase struct {
@@ -392,4 +394,36 @@ func (u *transactionUseCase) distributeTransactionToWallets(ctx context.Context,
 	}
 
 	return nil
+}
+
+func (u *transactionUseCase) UserGetWithDetail(ctx context.Context, request *model.GetTransactionWithDetail) (*model.TransactionWithDetail, error) {
+	transactionWithDetails, err := u.transactionRepository.UserFindWithDetailById(ctx, u.db, request.TransactionId, request.UserID)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to get user transaction with detail by id", err)
+	}
+
+	if len(*transactionWithDetails) == 0 {
+		return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "invalid transaction id")
+	}
+
+	var photoIds []string
+	if err := sonic.ConfigFastest.Unmarshal([]byte((*transactionWithDetails)[0].PhotoIds), &photoIds); err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to unmarshal photo ids", err)
+	}
+
+	pbPhotoWithDetails, err := u.photoAdapter.GetPhotoWithDetails(ctx, photoIds, request.UserID)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to get photo with details from photo service using grpc", err)
+	}
+
+	return converter.TransactionAndPhotoToSingleResponse(*transactionWithDetails, *pbPhotoWithDetails), nil
+}
+
+func (u *transactionUseCase) GetAllUserTransaction(ctx context.Context, request *model.GetAllUsertTransaction) (*[]*model.UserTransaction, *model.PageMetadata, error) {
+	userTransactions, pageMetadata, err := u.transactionRepository.UserFindAll(ctx, u.db, request.Page, request.Size, request.UserId, request.Order)
+	if err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all creator review", err)
+	}
+
+	return converter.UserTransactionToResponse(userTransactions), pageMetadata, nil
 }

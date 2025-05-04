@@ -37,7 +37,7 @@ func NewCreatorDiscountController(creatorDiscountUseCase usecase.CreatorDiscount
 
 func (c *creatorDiscountController) CreateDiscount(ctx *fiber.Ctx) error {
 	request := new(model.CreateCreatorDiscountRequest)
-	if err := helper.StrictBodyParser(ctx, request); err != nil {
+	if err := ctx.BodyParser(request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
 

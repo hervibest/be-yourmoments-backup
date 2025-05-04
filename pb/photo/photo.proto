@@ -21,6 +21,7 @@ service PhotoService{
   rpc OwnerOwnPhotos(OwnerOwnPhotosRequest) returns (OwnerOwnPhotosResponse);
   rpc CreateBulkPhoto(CreateBulkPhotoRequest) returns (CreateBulkPhotoResponse);
   rpc CreateBulkUserSimilarPhotos(CreateBulkUserSimilarPhotoRequest) returns (CreateBulkUserSimilarPhotoResponse);
+  rpc GetPhotoWithDetails(GetPhotoWithDetailsRequest) returns (GetPhotoWithDetailsResponse);
 }
 
 
@@ -43,6 +44,8 @@ message Photo {
   google.protobuf.Timestamp updated_at = 14;
 
   PhotoDetail detail = 15;
+
+  string url = 20;
   
   google.protobuf.DoubleValue latitude = 64;
   google.protobuf.DoubleValue longitude = 65;
@@ -273,4 +276,15 @@ message CreateBulkUserSimilarPhotoResponse {
 
 message CountMap {
   map<string, int32> count_map = 1;
+}
+
+message GetPhotoWithDetailsRequest {
+  string user_id = 1;
+  repeated string photo_ids = 2;
+}
+
+message GetPhotoWithDetailsResponse {
+  int64 status = 1;
+  repeated Photo photo_with_details = 2;
+  string error = 3;
 }

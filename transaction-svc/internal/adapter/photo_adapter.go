@@ -13,6 +13,7 @@ import (
 type PhotoAdapter interface {
 	CalculatePhotoPrice(ctx context.Context, userId string, photoIds []string) (*[]*model.CheckoutItem, *model.Total, error)
 	OwnerOwnPhotos(ctx context.Context, ownerId string, photoIds []string) error
+	GetPhotoWithDetails(ctx context.Context, photoIds []string, userId string) (*[]*photopb.Photo, error)
 }
 
 type photoAdapter struct {
@@ -81,4 +82,18 @@ func (a *photoAdapter) OwnerOwnPhotos(ctx context.Context, ownerId string, photo
 	}
 
 	return nil
+}
+
+func (a *photoAdapter) GetPhotoWithDetails(ctx context.Context, photoIds []string, userId string) (*[]*photopb.Photo, error) {
+	processPhotoRequest := &photopb.GetPhotoWithDetailsRequest{
+		PhotoIds: photoIds,
+		UserId:   userId,
+	}
+
+	response, err := a.client.GetPhotoWithDetails(ctx, processPhotoRequest)
+	if err != nil {
+		return nil, helper.FromGRPCError(err)
+	}
+
+	return &response.PhotoWithDetails, nil
 }
