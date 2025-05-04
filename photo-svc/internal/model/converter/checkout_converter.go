@@ -6,7 +6,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model"
 )
 
-func CheckoutItemToResponse(checkoutItems *[]*model.CheckoutItem, totalPrice, totalDiscount int32, creatdAt *time.Time) *model.PreviewCheckoutResponse {
+func CheckoutItemToResponse(checkoutItems *[]*model.CheckoutItem, totalPrice, totalDiscount int32, createdAt *time.Time) *model.PreviewCheckoutResponse {
 	chekoutItemsWeb := make([]*model.CheckoutItemWeb, 0, len(*checkoutItems))
 	for _, checkoutItem := range *checkoutItems {
 		var discount *model.DiscountItem
@@ -35,6 +35,6 @@ func CheckoutItemToResponse(checkoutItems *[]*model.CheckoutItem, totalPrice, to
 		Items:         &chekoutItemsWeb,
 		TotalPrice:    totalPrice,
 		TotalDiscount: totalDiscount,
-		CreatedAt:     creatdAt,
+		CreatedAt:     createdAt,
 	}
 }

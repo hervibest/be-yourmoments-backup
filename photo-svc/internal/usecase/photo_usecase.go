@@ -299,3 +299,15 @@ func (u *photoUsecase) GetPhotoFile(ctx context.Context, filename string) (io.Re
 
 	return object, nil
 }
+
+func (u *photoUsecase) GetPhotoWithDetails(ctx context.Context, photoIDs []string) (io.ReadCloser, error) {
+	object, err := u.photoRepo.GetPhotoWithDetail(ctx, u.db, photoIDs)
+	if err != nil {
+		if strings.Contains(err.Error(), "file not found") {
+			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "File not found")
+		}
+		return nil, helper.WrapInternalServerError(u.logs, "failed to get photo file from minio storage", err)
+	}
+
+	return object, nil
+}

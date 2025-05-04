@@ -60,6 +60,7 @@ type PhotoRepository interface {
 	BulkIncrementTotal(ctx context.Context, tx Querier, photoIDs []string) error
 	BulkAddPhotoTotals(ctx context.Context, tx Querier, photoCountMap map[string]int32) error
 	AddPhotoTotal(ctx context.Context, tx Querier, photoID string, count int) error
+	GetPhotoWithDetail(ctx context.Context, tx Querier, photoIDs []string) (*[]*entity.PhotoWithDetail, error)
 }
 
 type photoRepository struct {
@@ -283,4 +284,45 @@ func (r *photoRepository) AddPhotoTotal(ctx context.Context, tx Querier, photoID
 		return err
 	}
 	return nil
+}
+
+func (r *photoRepository) GetPhotoWithDetail(ctx context.Context, tx Querier, photoIDs []string) (*[]*entity.PhotoWithDetail, error) {
+	photoWithDetails := make([]*entity.PhotoWithDetail, 0)
+	query := ` 
+		SELECT 
+			p.id AS photo_id,
+			p.creator_id,
+			p.title,
+			p.owned_by_user_id,
+			p.your_moments_url,
+			p.collection_url,
+			p.price,
+			p.str,
+			p.latitue,
+			p.longitude,
+			p.description,
+
+			pd.file_name,
+			pd.file_key,
+			pd.your_moments_type,
+			pd.original_at,
+			pd.created_at,
+			pd.updated_at
+		FROM photos p
+		LEFT JOIN LATERAL (
+			SELECT pd.file_name, pd.file_key, pd.your_moments_type
+			FROM photo_details pd
+			WHERE pd.photo_id = p.id
+			AND pd.your_moments_type = CASE 
+				WHEN p.owned_by_user_id IS NULL THEN 'ISYOU'
+				ELSE 'COLLECTION'
+			END
+			LIMIT 1
+		) pd ON TRUE
+		WHERE p.id = ANY($1) 
+		`
+	if err := tx.SelectContext(ctx, &photoWithDetails, query, photoIDs); err != nil {
+		return nil, err
+	}
+	return &photoWithDetails, nil
 }
