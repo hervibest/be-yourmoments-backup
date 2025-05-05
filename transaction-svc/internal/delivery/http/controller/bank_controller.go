@@ -68,7 +68,7 @@ func (c *bankController) FindBankById(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Find bank by id : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.BankResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.BankResponse]{
 		Success: true,
 		Data:    response,
 	})
@@ -80,7 +80,7 @@ func (c *bankController) FindAllBank(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Find all bank : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.BankResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*[]*model.BankResponse]{
 		Success: true,
 		Data:    response,
 	})
@@ -97,7 +97,7 @@ func (c *bankController) DeleteBank(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Delete bank : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.BankResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*[]*model.BankResponse]{
 		Success: true,
 	})
 }

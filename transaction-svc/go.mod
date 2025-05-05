@@ -5,20 +5,22 @@ replace github.com/hervibest/be-yourmoments-backup/pb => ../pb
 go 1.23.4
 
 require (
-	github.com/hervibest/be-yourmoments-backup/pb v0.0.0-00010101000000-000000000000
 	github.com/bytedance/sonic v1.13.2
 	github.com/go-playground/validator/v10 v10.26.0
+	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gofiber/contrib/otelfiber v1.0.10
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/consul/api v1.31.2
 	github.com/hashicorp/vault/api v1.16.0
+	github.com/hervibest/be-yourmoments-backup/pb v0.0.0-00010101000000-000000000000
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 	github.com/midtrans/midtrans-go v1.3.8
 	github.com/oklog/ulid/v2 v2.1.0
+	github.com/redis/go-redis/v9 v9.8.0
 	github.com/sony/gobreaker v1.0.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/exporters/zipkin v1.35.0
@@ -34,7 +36,9 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
@@ -67,6 +71,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect

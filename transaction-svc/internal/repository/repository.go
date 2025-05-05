@@ -68,3 +68,31 @@ func Commit(tx *sqlx.Tx, logs *logger.Log) error {
 	}
 	return nil
 }
+
+func BeginTransaction(db *sqlx.DB, ctx context.Context, logs *logger.Log, fn func(tx *sqlx.Tx) error) error {
+	tx, err := BeginTxx(db, ctx, logs)
+	if err != nil {
+		return err
+	}
+
+	// Pastikan rollback hanya dipanggil jika Commit belum dilakukan
+	defer func() {
+		if p := recover(); p != nil {
+			Rollback(nil, tx, ctx, logs) // panic tetap di-rollback
+			panic(p)                     // re-throw panic
+		} else if err != nil {
+			Rollback(err, tx, ctx, logs)
+		}
+	}()
+
+	err = fn(tx)
+	if err != nil {
+		return err
+	}
+
+	if err = Commit(tx, logs); err != nil {
+		return err
+	}
+
+	return nil
+}

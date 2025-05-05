@@ -8,17 +8,20 @@ import (
 	"strings"
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 )
 
 type TransactionRepository interface {
-	Create(ctx context.Context, db Querier, transaction *entity.Transaction) (*entity.Transaction, error)
-	UpdateToken(ctx context.Context, db Querier, transaction *entity.Transaction) error
-	FindById(ctx context.Context, db Querier, transactionId string) (*entity.Transaction, error)
-	UpdateCallback(ctx context.Context, db Querier, transaction *entity.Transaction) error
-	UserFindWithDetailById(ctx context.Context, db Querier, transactionId, userId string) (*[]*entity.TransactionWithDetail, error)
+	Create(ctx context.Context, tx Querier, transaction *entity.Transaction) (*entity.Transaction, error)
+	UpdateToken(ctx context.Context, tx Querier, transaction *entity.Transaction) error
+	FindById(ctx context.Context, tx Querier, transactionId string) (*entity.Transaction, error)
+	UpdateCallback(ctx context.Context, tx Querier, transaction *entity.Transaction) error
+	UserFindWithDetailById(ctx context.Context, tx Querier, transactionId, userId string) (*[]*entity.TransactionWithDetail, error)
 	UserFindAll(ctx context.Context, tx Querier, page, size int, userId string, timeOrder string) (*[]*entity.Transaction, *model.PageMetadata, error)
+	UpdateStatus(ctx context.Context, tx Querier, transaction *entity.Transaction) error
+	FindManyByStatus(ctx context.Context, tx Querier, status enum.TransactionStatus) (*[]*entity.Transaction, error)
 }
 
 type transactionRepository struct {
@@ -28,12 +31,12 @@ func NewTransactionRepository() TransactionRepository {
 	return &transactionRepository{}
 }
 
-func (r *transactionRepository) Create(ctx context.Context, db Querier, transaction *entity.Transaction) (*entity.Transaction, error) {
+func (r *transactionRepository) Create(ctx context.Context, tx Querier, transaction *entity.Transaction) (*entity.Transaction, error) {
 	query := `INSERT INTO transactions 
 			  (id, user_id, status, photo_ids, checkout_at, amount, created_at, updated_at) 
 			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
-	_, err := db.ExecContext(ctx, query, transaction.Id, transaction.UserId, transaction.Status, transaction.PhotoIds, transaction.CheckoutAt,
+	_, err := tx.ExecContext(ctx, query, transaction.Id, transaction.UserId, transaction.Status, transaction.PhotoIds, transaction.CheckoutAt,
 		transaction.Amount, transaction.CreatedAt, transaction.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert transactions: %w", err)
@@ -42,10 +45,10 @@ func (r *transactionRepository) Create(ctx context.Context, db Querier, transact
 	return transaction, nil
 }
 
-func (r *transactionRepository) UpdateToken(ctx context.Context, db Querier, transaction *entity.Transaction) error {
+func (r *transactionRepository) UpdateToken(ctx context.Context, tx Querier, transaction *entity.Transaction) error {
 	query := `UPDATE transactions SET snap_token = $1, updated_at = $2 WHERE id = $3`
 
-	_, err := db.ExecContext(ctx, query, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
+	_, err := tx.ExecContext(ctx, query, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
 	if err != nil {
 		return fmt.Errorf("failed to update transaction token: %w", err)
 	}
@@ -53,7 +56,7 @@ func (r *transactionRepository) UpdateToken(ctx context.Context, db Querier, tra
 	return nil
 }
 
-func (r *transactionRepository) UpdateCallback(ctx context.Context, db Querier, transaction *entity.Transaction) error {
+func (r *transactionRepository) UpdateCallback(ctx context.Context, tx Querier, transaction *entity.Transaction) error {
 	query := `
 	UPDATE transactions 
 	SET 
@@ -65,7 +68,7 @@ func (r *transactionRepository) UpdateCallback(ctx context.Context, db Querier, 
 		updated_at = $6
 	WHERE id = $7
 	`
-	_, err := db.ExecContext(ctx, query, transaction.Status, transaction.PaymentAt, transaction.SnapToken, transaction.ExternalStatus, transaction.ExternalCallbackResponse, transaction.UpdatedAt, transaction.Id)
+	_, err := tx.ExecContext(ctx, query, transaction.Status, transaction.PaymentAt, transaction.SnapToken, transaction.ExternalStatus, transaction.ExternalCallbackResponse, transaction.UpdatedAt, transaction.Id)
 	if err != nil {
 		return fmt.Errorf("failed to update transaction callback: %w", err)
 	}
@@ -73,10 +76,10 @@ func (r *transactionRepository) UpdateCallback(ctx context.Context, db Querier, 
 	return nil
 }
 
-func (r *transactionRepository) FindById(ctx context.Context, db Querier, transactionId string) (*entity.Transaction, error) {
+func (r *transactionRepository) FindById(ctx context.Context, tx Querier, transactionId string) (*entity.Transaction, error) {
 	transaction := new(entity.Transaction)
 	query := `SELECT * FROM transactions WHERE id = $1`
-	if err := db.GetContext(ctx, transaction, query, transactionId); err != nil {
+	if err := tx.GetContext(ctx, transaction, query, transactionId); err != nil {
 		log.Printf("Error happen in FindById with error : %s", err.Error())
 		return nil, err
 	}
@@ -84,7 +87,7 @@ func (r *transactionRepository) FindById(ctx context.Context, db Querier, transa
 	return transaction, nil
 }
 
-func (r *transactionRepository) UserFindWithDetailById(ctx context.Context, db Querier, transactionId, userId string) (*[]*entity.TransactionWithDetail, error) {
+func (r *transactionRepository) UserFindWithDetailById(ctx context.Context, tx Querier, transactionId, userId string) (*[]*entity.TransactionWithDetail, error) {
 	transactionWithDetails := make([]*entity.TransactionWithDetail, 0)
 	query := `
 	SELECT 
@@ -98,8 +101,8 @@ func (r *transactionRepository) UserFindWithDetailById(ctx context.Context, db Q
 		trx.payment_at,
 		trx.checkout_at,
 		trx.snap_token,
-		trx.external_status,
-		trx.external_callback_response,
+		-- trx.external_status,
+		-- trx.external_callback_response,
 		trx.amount,
 		trx.created_at AS transaction_created_at,
 		trx.updated_at AS transaction_updated_at,
@@ -128,7 +131,7 @@ func (r *transactionRepository) UserFindWithDetailById(ctx context.Context, db Q
 		trx.id = $1
 	AND
 		trx.user_id = $2`
-	if err := db.SelectContext(ctx, &transactionWithDetails, query, transactionId, userId); err != nil {
+	if err := tx.SelectContext(ctx, &transactionWithDetails, query, transactionId, userId); err != nil {
 		log.Printf("Error happen in FindById with error : %s", err.Error())
 		return nil, err
 	}
@@ -200,4 +203,31 @@ func (r *transactionRepository) UserFindAll(ctx context.Context, tx Querier, pag
 	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
 
 	return &results, pageMetadata, nil
+}
+
+func (r *transactionRepository) UpdateStatus(ctx context.Context, tx Querier, transaction *entity.Transaction) error {
+	query := `UPDATE transactions SET status = $1, snap_token = $2, updated_at = $3 WHERE id = $4`
+
+	_, err := tx.ExecContext(ctx, query, transaction.Status, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
+	if err != nil {
+		return fmt.Errorf("failed to update transaction status: %w", err)
+	}
+
+	return nil
+}
+
+func (r *transactionRepository) FindManyByStatus(ctx context.Context, tx Querier, status enum.TransactionStatus) (*[]*entity.Transaction, error) {
+	transactions := make([]*entity.Transaction, 0)
+	query := `
+	SELECT
+		id, user_id, status
+	FROM
+		transactions
+	WHERE
+		status = $1
+	`
+	if err := tx.SelectContext(ctx, &transactions, query, status); err != nil {
+		return nil, err
+	}
+	return &transactions, nil
 }

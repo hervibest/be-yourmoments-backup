@@ -12,6 +12,6 @@ type TransactionItem struct {
 	Price               int32         `db:"price"`
 	Discount            sql.NullInt32 `db:"discount"`
 	FinalPrice          int32         `db:"final_price"`
-	CreatedAt           time.Time     `db:"created_at"`
-	UpdatedAt           time.Time     `db:"updated_at"`
+	CreatedAt           *time.Time    `db:"created_at"`
+	UpdatedAt           *time.Time    `db:"updated_at"`
 }

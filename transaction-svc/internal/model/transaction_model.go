@@ -27,6 +27,7 @@ type UpdateTransactionWebhookRequest struct {
 	StatusMessage     string          `json:"status_message"`
 	StatusCode        string          `json:"status_code" validate:"required"`
 	SignatureKey      string          `json:"signature_key" validate:"required"`
+	SettlementTime    string          `json:"settlement_time" validate:"required"`
 	ReferenceID       string          `json:"reference_id"`
 	PaymentType       string          `json:"payment_type"`
 	OrderID           string          `json:"order_id" validate:"required"`

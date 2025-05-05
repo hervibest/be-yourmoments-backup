@@ -8,17 +8,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum/error"
+	producer "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
+	"github.com/redis/go-redis/v9"
 	"github.com/sony/gobreaker"
 
 	"github.com/bytedance/sonic"
@@ -41,28 +44,32 @@ type transactionUseCase struct {
 	transactionRepository       repository.TransactionRepository
 	transactionDetailRepository repository.TransactionDetailRepository
 	transactionItemRepository   repository.TransactionItemRepository
+	walletRepository            repository.WalletRepository
+	transactionWalletRepo       repository.TransactionWalletRepository
 
-	paymentAdapter adapter.PaymentAdapter
-	logs           *logger.Log
-
-	walletRepository      repository.WalletRepository
-	transactionWalletRepo repository.TransactionWalletRepository
+	paymentAdapter      adapter.PaymentAdapter
+	cacheAdapter        adapter.CacheAdapter
+	transactionProducer producer.TransactionProducer
+	logs                *logger.Log
 }
 
 func NewTransactionUseCase(db *sqlx.DB, photoAdapter adapter.PhotoAdapter, transactionRepository repository.TransactionRepository,
 	transactionItemRepository repository.TransactionItemRepository, transactionDetailRepository repository.TransactionDetailRepository,
-	paymentAdapter adapter.PaymentAdapter, logs *logger.Log, walletRepository repository.WalletRepository,
-	transactionWalletRepo repository.TransactionWalletRepository) TransactionUseCase {
+	walletRepository repository.WalletRepository, transactionWalletRepo repository.TransactionWalletRepository,
+	paymentAdapter adapter.PaymentAdapter, cacheAdapter adapter.CacheAdapter, transactionProducer producer.TransactionProducer,
+	logs *logger.Log) TransactionUseCase {
 	return &transactionUseCase{
 		db:                          db,
 		photoAdapter:                photoAdapter,
 		transactionRepository:       transactionRepository,
 		transactionItemRepository:   transactionItemRepository,
 		transactionDetailRepository: transactionDetailRepository,
-		paymentAdapter:              paymentAdapter,
-		logs:                        logs,
 		walletRepository:            walletRepository,
 		transactionWalletRepo:       transactionWalletRepo,
+		paymentAdapter:              paymentAdapter,
+		cacheAdapter:                cacheAdapter,
+		transactionProducer:         transactionProducer,
+		logs:                        logs,
 	}
 }
 
@@ -102,7 +109,7 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 	transaction := &entity.Transaction{
 		Id:         uuid.NewString(),
 		UserId:     request.UserId,
-		Status:     enum.TransactionStatusPending,
+		Status:     enum.TransactionStatusPendingTokenInit,
 		PhotoIds:   photoIDsByte,
 		Amount:     total.Price,
 		CheckoutAt: &now,
@@ -137,8 +144,8 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 				Price:               it.Price,
 				Discount:            sql.NullInt32{Int32: it.Discount, Valid: it.Discount != 0},
 				FinalPrice:          it.FinalPrice,
-				CreatedAt:           now,
-				UpdatedAt:           now,
+				CreatedAt:           &now,
+				UpdatedAt:           &now,
 			}
 			allItems = append(allItems, &item)
 		}
@@ -181,6 +188,10 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 		return nil, err
 	}
 
+	if err = u.transactionProducer.ScheduleTransactionTaskExpiration(ctx, transaction.Id); err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to set transaction task expiration", err)
+	}
+
 	return converter.TransactionToResponse(transaction, redirectUrl), nil
 }
 
@@ -197,6 +208,7 @@ func (u *transactionUseCase) updateTransactionToken(ctx context.Context, token, 
 	now := time.Now()
 	transaction := &entity.Transaction{
 		Id:        transactionId,
+		Status:    enum.TransactionStatusPending,
 		SnapToken: sql.NullString{String: token},
 		UpdatedAt: &now,
 	}
@@ -216,29 +228,78 @@ func (u *transactionUseCase) getPaymentToken(ctx context.Context, transaction *e
 	snapRequest := &model.PaymentSnapshotRequest{
 		OrderID:     transaction.Id,
 		GrossAmount: int64(transaction.Amount),
-		Email:       "",
+		Email:       "", // optional, diisi jika diperlukan Midtrans
 	}
 
 	snapResponse, err := u.paymentAdapter.CreateSnapshot(ctx, snapRequest)
-	if err != nil {
-		go func() {
-			totalRetry := 0
-			maxRetry := 5
-			for totalRetry < maxRetry && errors.Is(err, gobreaker.ErrOpenState) {
-				snapResponse, err = u.paymentAdapter.CreateSnapshot(context.TODO(), snapRequest)
-				if err != nil {
-					break
-				}
-			}
-			if err !=nil {
-				subscribe to redis event then call snapRsponse again when circuit is openned
-			}
-
-		}()
-		return "", "", fmt.Errorf("midtrans create snapshot error : %w", err)
+	if err == nil {
+		return snapResponse.Token, snapResponse.RedirectURL, nil
 	}
 
-	return snapResponse.Token, snapResponse.RedirectURL, nil
+	// Jalankan retry async jika terjadi error
+	go func() {
+		const maxRetry = 5
+		retry := 0
+
+		for retry < maxRetry && !errors.Is(err, gobreaker.ErrOpenState) {
+			time.Sleep(time.Second * time.Duration(2<<retry)) // exponential backoff: 2s, 4s, 8s, ...
+
+			snapResponse, retryErr := u.paymentAdapter.CreateSnapshot(context.TODO(), snapRequest)
+			if retryErr == nil {
+				u.logs.Log(fmt.Sprintf("[RetrySuccess] Transaction %s berhasil mendapatkan snap token setelah %d retry", transaction.Id, retry))
+				if err := u.updateTransactionToken(ctx, snapResponse.Token, transaction.Id); err != nil {
+					u.logs.Error(fmt.Sprintf("[UpdateFailed] Update transaction token failed with reason : %v", err))
+				}
+				return
+			}
+
+			if errors.Is(retryErr, gobreaker.ErrOpenState) {
+				u.logs.Error(fmt.Sprintf("[BreakerOpen] Retry stopped at %d, circuit breaker open", retry))
+				break
+			}
+
+			err = retryErr
+			retry++
+		}
+
+		// Jika tetap gagal karena breaker open, listen redis stream
+		u.logs.Log(fmt.Sprintf("[WaitRecovery] Transaction %s menunggu circuit breaker pulih via redis", transaction.Id))
+		u.subscribeMidtransRecoveryAndRetry(u.paymentAdapter, snapRequest, transaction.Id)
+	}()
+
+	return "", "", fmt.Errorf("midtrans create snapshot error: %w", err)
+}
+
+func (u *transactionUseCase) subscribeMidtransRecoveryAndRetry(adapter adapter.PaymentAdapter, req *model.PaymentSnapshotRequest, txId string) {
+	for {
+		streams, err := u.cacheAdapter.XRead(context.Background(), &redis.XReadArgs{
+			Streams: []string{"midtrans:recovery", "0"},
+			Block:   0, // block selamanya sampai ada signal
+			Count:   1,
+		})
+
+		if err != nil {
+			log.Printf("[StreamError] Redis read error: %v", err)
+			time.Sleep(time.Second * 5)
+			continue
+		}
+
+		for _, msg := range streams[0].Messages {
+			log.Printf("[RecoverySignal] Received for tx %s: %+v", txId, msg.Values)
+			ctx := context.Background()
+			resp, err := adapter.CreateSnapshot(ctx, req)
+			if err != nil {
+				log.Printf("[RecoveryFail] Retry gagal lagi setelah sinyal pulih: %v", err)
+				continue
+			}
+
+			log.Printf("[RecoverySuccess] Retry berhasil: tx %s → token %s", txId, resp.Token)
+			if err := u.updateTransactionToken(ctx, resp.Token, txId); err != nil {
+				u.logs.Error(fmt.Sprintf("[UpdateFailed] Update transaction token failed with reason : %v", err))
+			}
+			return
+		}
+	}
 }
 
 func (u *transactionUseCase) UpdateTransactionWebhook(ctx context.Context, request *model.UpdateTransactionWebhookRequest) error {
@@ -266,6 +327,21 @@ func (u *transactionUseCase) UpdateTransactionWebhook(ctx context.Context, reque
 	if transaction.Status == enum.TransactionStatusSuccess {
 		u.logs.CustomLog("transaction already success. Ignoring duplicate settlement webhook :.", transaction.Id)
 		return nil
+	}
+
+	if transaction.Status == enum.TransactionStatusExpired {
+		loc, _ := time.LoadLocation("Asia/Jakarta")
+
+		settlementTime, err := time.ParseInLocation("2006-01-02 15:04:05", request.SettlementTime, loc)
+		if err != nil {
+			return err
+		}
+
+		//TODO implement grace deadline envars
+		graceDeadline := transaction.UpdatedAt.Add(5 * time.Minute)
+		if settlementTime.After(graceDeadline) {
+			return helper.NewUseCaseError(errorcode.ErrForbidden, "Late settlement beyond grace period")
+		}
 	}
 
 	updateTransaction := &entity.Transaction{
@@ -298,20 +374,15 @@ func (u *transactionUseCase) UpdateTransactionWebhook(ctx context.Context, reque
 	}
 	updateTransaction.ExternalCallbackResponse = &ExternalCallbackResponse
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	// Penambahan
+	err = repository.BeginTransaction(u.db, ctx, u.logs, func(tx *sqlx.Tx) error {
+		if err := u.transactionRepository.UpdateCallback(ctx, tx, updateTransaction); err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
+		}
+		return nil
+	})
+
 	if err != nil {
-		return err
-	}
-
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	if err := u.transactionRepository.UpdateCallback(ctx, tx, updateTransaction); err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 

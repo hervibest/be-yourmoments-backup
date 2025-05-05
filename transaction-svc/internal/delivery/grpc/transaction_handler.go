@@ -16,11 +16,11 @@ import (
 )
 
 type TransactionGRPCHandler struct {
-	walletUseCase usecase.WalletUsecase
+	walletUseCase usecase.WalletUseCase
 	transactionpb.UnimplementedTransactionServiceServer
 }
 
-func NewTransactionGRPCHandler(server *grpc.Server, walletUseCase usecase.WalletUsecase) {
+func NewTransactionGRPCHandler(server *grpc.Server, walletUseCase usecase.WalletUseCase) {
 	handler := &TransactionGRPCHandler{
 		walletUseCase: walletUseCase,
 	}
@@ -83,7 +83,7 @@ func (h *TransactionGRPCHandler) GetWallet(ctx context.Context, pbReq *transacti
 	}
 
 	return &transactionpb.GetWalletResponse{
-		Status: http.StatusCreated,
+		Status: http.StatusOK,
 		Wallet: pbWallet,
 	}, nil
 }

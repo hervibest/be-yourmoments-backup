@@ -5,6 +5,8 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/config"
 	grpcHandler "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/delivery/grpc"
 	http "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/delivery/http/controller"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/delivery/messaging"
+	producer "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/gateway/messaging"
 
 	"log"
 	"net"
@@ -52,6 +54,7 @@ func webServer() error {
 	serverConfig := config.NewServerConfig()
 	dbConfig := config.NewPostgresDatabase()
 	midtransConfig := config.NewMidtransClient()
+	redisConfig := config.NewRedisClient()
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -128,8 +131,9 @@ func webServer() error {
 	if err != nil {
 		logs.Error(err)
 	}
-
-	paymentAdapter := adapter.NewPaymentAdapter(midtransConfig, logs)
+	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
+	paymentAdapter := adapter.NewPaymentAdapter(midtransConfig, cacheAdapter, logs)
+	transactionProducer := producer.NewTransactionProducer(cacheAdapter)
 
 	customValidator := helper.NewCustomValidator()
 
@@ -144,13 +148,14 @@ func webServer() error {
 	walletRepository := repository.NewWalletRepository()
 	transactionWalletRepo := repository.NewTransactionWalletRepository()
 
-	transactionUseCase := usecase.NewTransactionUseCase(dbConfig, photoAdapter, transactionRepo, transactionItemRepo, transactionDetailRepo, paymentAdapter, logs, walletRepository, transactionWalletRepo)
-	walletUseCase := usecase.NewWalletUsecase(walletRepository, dbConfig, logs)
+	transactionUseCase := usecase.NewTransactionUseCase(dbConfig, photoAdapter, transactionRepo, transactionItemRepo, transactionDetailRepo, walletRepository, transactionWalletRepo, paymentAdapter, cacheAdapter, transactionProducer, logs)
+	walletUseCase := usecase.NewWalletUseCase(walletRepository, dbConfig, logs)
 	bankUseCase := usecase.NewBankUseCase(dbConfig, bankRepository, logs)
 	bankWalletUseCase := usecase.NewBankWalletUseCase(dbConfig, bankWalletRepoistory, logs)
 	reviewUseCase := usecase.NewReviewUseCase(transactionDetailRepo, creatorReviewRepo, dbConfig, logs)
 	withdrawalUseCase := usecase.NewWithdrawalUseCase(dbConfig, withdrawalRepository, walletRepository, logs)
 	transactionWalletUC := usecase.NewTransactionWalletUseCase(dbConfig, transactionWalletRepo, logs)
+	cancelationUseCase := usecase.NewCancelationUseCase(dbConfig, transactionRepo, logs)
 
 	transactionController := http.NewTransactionController(transactionUseCase, customValidator, logs)
 	bankController := http.NewBankController(bankUseCase, customValidator, logs)
@@ -178,6 +183,11 @@ func webServer() error {
 		if err := grpcServer.Serve(l); err != nil {
 			logs.Error(fmt.Sprintf("Failed to start gRPC category server: %v", err))
 		}
+	}()
+
+	transactionSubscriber := messaging.NewTransactionSubsciber(cacheAdapter, cancelationUseCase, logs)
+	go func() {
+		transactionSubscriber.SubscribeTransactionExpire(ctx)
 	}()
 
 	route := route.NewRoute(app, transactionController, bankController, bankWalletController, reviewController,

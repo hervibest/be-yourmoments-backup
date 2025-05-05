@@ -5,13 +5,26 @@ import (
 
 	"github.com/midtrans/midtrans-go"
 
+	"github.com/midtrans/midtrans-go/coreapi"
 	"github.com/midtrans/midtrans-go/snap"
 )
 
-func NewMidtransClient() *snap.Client {
-	midtransKey := utils.GetEnv("MIDTRANS_SERVER_KEY")
-	snapClient := &snap.Client{}
-	snapClient.New(midtransKey, midtrans.Sandbox)
+type MidtransClient struct {
+	Snap    *snap.Client
+	CoreApi *coreapi.Client
+}
 
-	return snapClient
+func NewMidtransClient() *MidtransClient {
+	midtransKey := utils.GetEnv("MIDTRANS_SERVER_KEY")
+
+	snap := &snap.Client{}
+	snap.New(midtransKey, midtrans.Sandbox)
+
+	coreApi := &coreapi.Client{}
+	coreApi.New(midtransKey, midtrans.Sandbox)
+
+	return &MidtransClient{
+		Snap:    snap,
+		CoreApi: coreApi,
+	}
 }

@@ -84,7 +84,7 @@ func (u *creatorDiscountUseCase) ActivateDiscount(ctx context.Context, request *
 	_, err := u.creatorDiscountRepository.FindByIdAndCreatorId(ctx, u.db, request.Id, request.CreatorId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator discount id")
+			return helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Invalid creator discount id")
 		}
 		return helper.WrapInternalServerError(u.logs, "failed to find creator discount by discount id", err)
 	}

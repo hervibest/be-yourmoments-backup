@@ -19,22 +19,22 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-type WalletUsecase interface {
+type WalletUseCase interface {
 	CreateWallet(ctx context.Context, request *model.CreateWalletRequest) (*model.WalletResponse, error)
 	GetWallet(ctx context.Context, request *model.GetWalletRequest) (*model.WalletResponse, error)
 }
-type walletUsecase struct {
+type walletUseCase struct {
 	walletRepository repository.WalletRepository
 	db               *sqlx.DB
 	logs             *logger.Log
 }
 
-func NewWalletUsecase(walletRepository repository.WalletRepository, db *sqlx.DB, logs *logger.Log) WalletUsecase {
+func NewWalletUseCase(walletRepository repository.WalletRepository, db *sqlx.DB, logs *logger.Log) WalletUseCase {
 	log.Printf("wallet usecase initialized")
-	return &walletUsecase{walletRepository: walletRepository, db: db, logs: logs}
+	return &walletUseCase{walletRepository: walletRepository, db: db, logs: logs}
 }
 
-func (u *walletUsecase) CreateWallet(ctx context.Context, request *model.CreateWalletRequest) (*model.WalletResponse, error) {
+func (u *walletUseCase) CreateWallet(ctx context.Context, request *model.CreateWalletRequest) (*model.WalletResponse, error) {
 	now := time.Now()
 	wallet := &entity.Wallet{
 		Id:        ulid.Make().String(),
@@ -65,7 +65,7 @@ func (u *walletUsecase) CreateWallet(ctx context.Context, request *model.CreateW
 	return converter.WalletToResponse(wallet), nil
 }
 
-func (u *walletUsecase) GetWallet(ctx context.Context, request *model.GetWalletRequest) (*model.WalletResponse, error) {
+func (u *walletUseCase) GetWallet(ctx context.Context, request *model.GetWalletRequest) (*model.WalletResponse, error) {
 	wallet, err := u.walletRepository.FindByCreatorId(ctx, u.db, request.CreatorId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

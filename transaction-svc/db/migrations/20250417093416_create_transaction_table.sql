@@ -5,6 +5,7 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_status') THEN
         CREATE TYPE transaction_status AS ENUM (
+            'PENDING_TOKEN_INIT',
             'PENDING',
             'SUCCESS',
             'FAILED',

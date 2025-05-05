@@ -39,7 +39,7 @@ func (c *chatController) GetCustomToken(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Get custom token error : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CustomTokenResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.CustomTokenResponse]{
 		Success: true,
 		Data:    response,
 	})
