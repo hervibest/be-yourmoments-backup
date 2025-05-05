@@ -134,7 +134,7 @@ func (c *creatorDiscountController) GetDiscount(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Get discount : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CreatorDiscountResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.CreatorDiscountResponse]{
 		Success: true,
 		Data:    response,
 	})
@@ -147,7 +147,7 @@ func (c *creatorDiscountController) GetAllDiscount(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Get discount : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.CreatorDiscountResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*[]*model.CreatorDiscountResponse]{
 		Success: true,
 		Data:    response,
 	})

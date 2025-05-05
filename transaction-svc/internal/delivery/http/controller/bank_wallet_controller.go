@@ -81,7 +81,7 @@ func (c *bankWalletController) FindAllBankWallet(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Find all bank wallet : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.BankWalletResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*[]*model.BankWalletResponse]{
 		Success: true,
 		Data:    response,
 	})
@@ -99,7 +99,7 @@ func (c *bankWalletController) DeleteBankWallet(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Delete bank wallet : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.BankWalletResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*[]*model.BankWalletResponse]{
 		Success: true,
 	})
 }

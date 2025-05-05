@@ -72,7 +72,7 @@ func (c *withdrawalController) FindWithdrawalById(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Find withdrawal by id : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.WithdrawalResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.WithdrawalResponse]{
 		Success: true,
 		Data:    response,
 	})
@@ -84,7 +84,7 @@ func (c *withdrawalController) FindAllWithdrawal(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Find all withdrawal : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*[]*model.WithdrawalResponse]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*[]*model.WithdrawalResponse]{
 		Success: true,
 		Data:    response,
 	})

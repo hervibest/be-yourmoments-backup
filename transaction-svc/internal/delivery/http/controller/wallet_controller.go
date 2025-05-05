@@ -16,11 +16,11 @@ type WalletController interface {
 	GetWallet(ctx *fiber.Ctx) error
 }
 type walletController struct {
-	walletUseCase usecase.WalletUsecase
+	walletUseCase usecase.WalletUseCase
 	logs          *logger.Log
 }
 
-func NewWalletController(walletUseCase usecase.WalletUsecase, logs *logger.Log) WalletController {
+func NewWalletController(walletUseCase usecase.WalletUseCase, logs *logger.Log) WalletController {
 	return &walletController{walletUseCase: walletUseCase, logs: logs}
 }
 

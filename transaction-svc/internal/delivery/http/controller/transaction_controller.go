@@ -81,7 +81,7 @@ func (c *transactionController) Notify(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Notify webhook : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[any]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
 		Success: true,
 	})
 }
