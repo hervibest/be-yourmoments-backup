@@ -12,6 +12,7 @@ type Transaction struct {
 	Id                       string                 `db:"id"`
 	UserId                   string                 `db:"user_id"`
 	Status                   enum.TransactionStatus `db:"status"`
+	InternalStatus           enum.TrxInternalStatus `db:"internal_status"`
 	TransactionMethodId      sql.NullString         `db:"transaction_method_id"`
 	TransactionTypeId        sql.NullString         `db:"transaction_type_id"`
 	PaymentTypeId            sql.NullString         `db:"payment_type_id"`
@@ -21,6 +22,7 @@ type Transaction struct {
 	SnapToken                sql.NullString         `db:"snap_token"`
 	ExternalStatus           sql.NullString         `db:"external_status"`
 	ExternalCallbackResponse *json.RawMessage       `db:"external_callback_response"`
+	ExternalSettlementAt     *time.Time             `db:"external_settlement_at"`
 	Amount                   int32                  `db:"amount"`
 	CreatedAt                *time.Time             `db:"created_at"`
 	UpdatedAt                *time.Time             `db:"updated_at"`
@@ -30,6 +32,7 @@ type TransactionWithDetail struct {
 	TransactionId            string                 `db:"transaction_id"`
 	UserId                   string                 `db:"user_id"`
 	Status                   enum.TransactionStatus `db:"status"`
+	InternalStatus           enum.TrxInternalStatus `db:"internal_status"`
 	TransactionMethodId      sql.NullString         `db:"transaction_method_id"`
 	TransactionTypeId        sql.NullString         `db:"transaction_type_id"`
 	PaymentTypeId            sql.NullString         `db:"payment_type_id"`
@@ -39,6 +42,7 @@ type TransactionWithDetail struct {
 	SnapToken                sql.NullString         `db:"snap_token"`
 	ExternalStatus           sql.NullString         `db:"external_status"`
 	ExternalCallbackResponse *json.RawMessage       `db:"external_callback_response"`
+	ExternalSettlementAt     *time.Time             `db:"external_settlement_at"`
 	Amount                   int32                  `db:"amount"`
 	CreatedAt                *time.Time             `db:"transaction_created_at"`
 	UpdatedAt                *time.Time             `db:"transaction_updated_at"`
