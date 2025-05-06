@@ -35,6 +35,8 @@ type TransactionUseCase interface {
 	UpdateTransactionWebhook(ctx context.Context, request *model.UpdateTransactionWebhookRequest) error
 	UserGetWithDetail(ctx context.Context, request *model.GetTransactionWithDetail) (*model.TransactionWithDetail, error)
 	GetAllUserTransaction(ctx context.Context, request *model.GetAllUsertTransaction) (*[]*model.UserTransaction, *model.PageMetadata, error)
+	CheckPaymentSignature(signatureKey, transcationId, statusCode, grossAmount string) (bool, string)
+	CheckAndUpdateTransaction(ctx context.Context, body []byte, settlementTime string, midtransTransactionStatus string, transaction *entity.Transaction) error
 }
 
 type transactionUseCase struct {
@@ -49,6 +51,7 @@ type transactionUseCase struct {
 
 	paymentAdapter      adapter.PaymentAdapter
 	cacheAdapter        adapter.CacheAdapter
+	timeParserHelper    helper.TimeParserHelper
 	transactionProducer producer.TransactionProducer
 	logs                *logger.Log
 }
@@ -56,7 +59,8 @@ type transactionUseCase struct {
 func NewTransactionUseCase(db *sqlx.DB, photoAdapter adapter.PhotoAdapter, transactionRepository repository.TransactionRepository,
 	transactionItemRepository repository.TransactionItemRepository, transactionDetailRepository repository.TransactionDetailRepository,
 	walletRepository repository.WalletRepository, transactionWalletRepo repository.TransactionWalletRepository,
-	paymentAdapter adapter.PaymentAdapter, cacheAdapter adapter.CacheAdapter, transactionProducer producer.TransactionProducer,
+	paymentAdapter adapter.PaymentAdapter, cacheAdapter adapter.CacheAdapter, timeParserHelper helper.TimeParserHelper,
+	transactionProducer producer.TransactionProducer,
 	logs *logger.Log) TransactionUseCase {
 	return &transactionUseCase{
 		db:                          db,
@@ -68,6 +72,7 @@ func NewTransactionUseCase(db *sqlx.DB, photoAdapter adapter.PhotoAdapter, trans
 		transactionWalletRepo:       transactionWalletRepo,
 		paymentAdapter:              paymentAdapter,
 		cacheAdapter:                cacheAdapter,
+		timeParserHelper:            timeParserHelper,
 		transactionProducer:         transactionProducer,
 		logs:                        logs,
 	}
@@ -107,14 +112,15 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 	}
 
 	transaction := &entity.Transaction{
-		Id:         uuid.NewString(),
-		UserId:     request.UserId,
-		Status:     enum.TransactionStatusPendingTokenInit,
-		PhotoIds:   photoIDsByte,
-		Amount:     total.Price,
-		CheckoutAt: &now,
-		CreatedAt:  &now,
-		UpdatedAt:  &now,
+		Id:             uuid.NewString(),
+		UserId:         request.UserId,
+		InternalStatus: enum.TrxInternalStatusPending,
+		Status:         enum.TransactionStatusPending,
+		PhotoIds:       photoIDsByte,
+		Amount:         total.Price,
+		CheckoutAt:     &now,
+		CreatedAt:      &now,
+		UpdatedAt:      &now,
 	}
 
 	for creatorID, list := range grouped {
@@ -207,10 +213,10 @@ func (u *transactionUseCase) updateTransactionToken(ctx context.Context, token, 
 
 	now := time.Now()
 	transaction := &entity.Transaction{
-		Id:        transactionId,
-		Status:    enum.TransactionStatusPending,
-		SnapToken: sql.NullString{String: token},
-		UpdatedAt: &now,
+		Id:             transactionId,
+		InternalStatus: enum.TrxInternalStatusTokenReady,
+		SnapToken:      sql.NullString{String: token},
+		UpdatedAt:      &now,
 	}
 
 	err = u.transactionRepository.UpdateToken(ctx, tx, transaction)
@@ -302,86 +308,132 @@ func (u *transactionUseCase) subscribeMidtransRecoveryAndRetry(adapter adapter.P
 	}
 }
 
+func (u *transactionUseCase) CheckPaymentSignature(signatureKey, transcationId, statusCode, grossAmount string) (bool, string) {
+	signatureToCompare := transcationId + statusCode + grossAmount + u.paymentAdapter.GetPaymentServerKey()
+	hash := sha512.New()
+	hash.Write([]byte(signatureToCompare))
+	hashedSignature := hex.EncodeToString(hash.Sum(nil))
+	return hashedSignature == signatureKey, hashedSignature
+}
+
 func (u *transactionUseCase) UpdateTransactionWebhook(ctx context.Context, request *model.UpdateTransactionWebhookRequest) error {
 	transaction, err := u.transactionRepository.FindById(ctx, u.db, request.OrderID)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
 	}
 
-	signatureToCompare := transaction.Id + request.StatusCode + request.GrossAmount + u.paymentAdapter.GetPaymentServerKey()
-
-	hash := sha512.New()
-	hash.Write([]byte(signatureToCompare))
-	hashedSignature := hex.EncodeToString(hash.Sum(nil))
-
-	requestIsValid := hashedSignature == request.SignatureKey
+	requestIsValid, hashedSignature := u.CheckPaymentSignature(request.SignatureKey, transaction.Id, request.StatusCode, u.paymentAdapter.GetPaymentServerKey())
 	if !requestIsValid {
+		u.logs.Log(fmt.Sprintf("Invalid signature: expected=%s got=%s", hashedSignature, request.SignatureKey))
 		return helper.NewUseCaseError(errorcode.ErrForbidden, "Invalid signature key")
 	}
 
-	midtransTransactionStatus := enum.MidtransPaymentStatus(request.TransactionStatus)
-	if midtransTransactionStatus != enum.PaymentStatusSettlement {
+	u.logs.Log(fmt.Sprintf("Received webhook request from midtrans server with fields transaction ID : %s with status : %s ",
+		request.TransactionID, request.TransactionStatus))
+
+	//Only check if internal transaction status is "PENDING", "TOKEN_READY", "STATUS_EXPIRED"
+	if transaction.InternalStatus != enum.TrxInternalStatusPending &&
+		transaction.InternalStatus != enum.TrxInternalStatusTokenReady &&
+		transaction.InternalStatus != enum.TrxInternalStatusExpired {
+		u.logs.CustomLog("transaction internal status already final. Ignoring duplicate settlement webhook :.", transaction.Id)
 		return nil
 	}
 
-	if transaction.Status == enum.TransactionStatusSuccess {
-		u.logs.CustomLog("transaction already success. Ignoring duplicate settlement webhook :.", transaction.Id)
-		return nil
+	if err := u.CheckAndUpdateTransaction(ctx, request.Body, request.SettlementTime, request.TransactionStatus, transaction); err != nil {
+		return err
 	}
 
-	if transaction.Status == enum.TransactionStatusExpired {
-		loc, _ := time.LoadLocation("Asia/Jakarta")
+	return nil
 
-		settlementTime, err := time.ParseInLocation("2006-01-02 15:04:05", request.SettlementTime, loc)
-		if err != nil {
-			return err
-		}
+}
 
-		//TODO implement grace deadline envars
-		graceDeadline := transaction.UpdatedAt.Add(5 * time.Minute)
-		if settlementTime.After(graceDeadline) {
-			return helper.NewUseCaseError(errorcode.ErrForbidden, "Late settlement beyond grace period")
-		}
-	}
-
+func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, body []byte, settlementTime string, midtransTransactionStatus string, transaction *entity.Transaction) error {
+	now := time.Now()
 	updateTransaction := &entity.Transaction{
-		Id: transaction.Id,
+		Id:        transaction.Id,
+		UpdatedAt: &now,
 	}
-
-	ExternalCallbackResponse := json.RawMessage(request.Body)
 
 	var transactionStatus enum.TransactionStatus
+	var transactionInternalStatus enum.TrxInternalStatus
+	var settlementTimePtr *time.Time
 
-	now := time.Now()
-	switch request.TransactionStatus {
-	case string(enum.PaymentStatusSettlement):
-		transactionStatus = enum.TransactionStatusSuccess
-		updateTransaction.PaymentAt = &now
-		updateTransaction.UpdatedAt = &now
-		updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
-	case string(enum.PaymentStatusPending):
-		transactionStatus = enum.TransactionStatusPending
-	case string(enum.PaymentStatusExpire):
-		transactionStatus = enum.TransactionStatusExpired
-	case string(enum.PaymentStatusFailure):
-		transactionStatus = enum.TransactionStatusFailed
+	//First internal expired status checking
+	if transaction.InternalStatus == enum.TrxInternalStatusExpired {
+		// IF External Or Midtrans Payment Settled Check the Settlement Time
+		if midtransTransactionStatus == string(enum.PaymentStatusSettlement) {
+			settlementTime, err := u.timeParserHelper.TimeParseInDefaultLocation(settlementTime)
+			if err != nil {
+				return err
+			}
+
+			settlementTimePtr = &settlementTime
+			//TODO implement grace deadline envars
+			graceDeadline := transaction.UpdatedAt.Add(5 * time.Minute)
+			if settlementTime.After(graceDeadline) {
+				transactionStatus = enum.TransactionStatusExpired //User transaction is valid or settled
+				transactionInternalStatus = enum.TrxInternalStatusLateSettlement
+				return helper.NewUseCaseError(errorcode.ErrForbidden, "Late settlement beyond grace period")
+			} else {
+				//User transaction is valid or settled even the user come late but from system not the settled time
+				transactionStatus = enum.TransactionStatusSuccess
+				transactionInternalStatus = enum.TrxInternalStatusExpiredCheckedValid
+				updateTransaction.PaymentAt = &now
+				updateTransaction.ExternalSettlementAt = settlementTimePtr
+				updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
+			}
+		} else {
+			transactionInternalStatus = enum.TrxInternalStatusExpiredCheckedInvalid //User doesnet settled even internal status has expired
+			transactionStatus = enum.TransactionStatusExpired
+		}
+
+	} else {
+		switch midtransTransactionStatus {
+		case string(enum.PaymentStatusCapture), string(enum.PaymentStatusSettlement):
+			transactionStatus = enum.TransactionStatusSuccess
+			transactionInternalStatus = enum.TrxInternalStatusSettled
+			updateTransaction.PaymentAt = &now
+			updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
+			updateTransaction.ExternalSettlementAt = settlementTimePtr
+
+		case string(enum.PaymentStatusPending):
+			transactionStatus = enum.TransactionStatusPending
+			transactionInternalStatus = enum.TrxInternalStatusPending
+
+		case string(enum.PaymentStatusExpire):
+			transactionStatus = enum.TransactionStatusExpired
+			transactionInternalStatus = enum.TrxInternalStatusExpiredCheckedInvalid
+			updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
+
+		case string(enum.PaymentStatusFailure), string(enum.PaymentStatusDeny):
+			transactionStatus = enum.TransactionStatusFailed
+			transactionInternalStatus = enum.TrxInternalStatusFailed
+			updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
+
+		case string(enum.PaymentStatusCancel):
+			transactionStatus = enum.TransactionStatusCancelled
+			transactionInternalStatus = enum.TrxInternalStatusCancelledBySystem
+			updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
+		}
 	}
 
 	updateTransaction.Status = transactionStatus
+	updateTransaction.InternalStatus = transactionInternalStatus
 	updateTransaction.ExternalStatus = sql.NullString{
 		Valid:  true,
-		String: request.TransactionStatus,
+		String: midtransTransactionStatus,
 	}
-	updateTransaction.ExternalCallbackResponse = &ExternalCallbackResponse
+
+	externalCallbackResponse := json.RawMessage(body)
+	updateTransaction.ExternalCallbackResponse = &externalCallbackResponse
 
 	// Penambahan
-	err = repository.BeginTransaction(u.db, ctx, u.logs, func(tx *sqlx.Tx) error {
+	err := repository.BeginTransaction(u.db, ctx, u.logs, func(tx *sqlx.Tx) error {
 		if err := u.transactionRepository.UpdateCallback(ctx, tx, updateTransaction); err != nil {
 			return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
 		}
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}

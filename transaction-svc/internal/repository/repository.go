@@ -29,6 +29,7 @@ type Querier interface {
 	NamedQuery(query string, arg interface{}) (*sqlx.Rows, error)
 	// NamedStmt(stmt *sqlx.NamedStmt) *sqlx.NamedStmt
 	// NamedStmtContext(ctx context.Context, stmt *sqlx.NamedStmt) *sqlx.NamedStmt
+	Rebind(query string) string
 }
 
 type BeginTx interface {

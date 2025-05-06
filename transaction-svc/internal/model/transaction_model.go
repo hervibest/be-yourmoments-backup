@@ -60,6 +60,7 @@ type UpdateTransactionWebhookRequest struct {
 type TransactionResponse struct {
 	Id                       string          `json:"id" validate:"required"`
 	Status                   string          `json:"status" validate:"required"`
+	InternalStatus           string          `json:"internal_status" validate:"required"`
 	TransactionMethodId      string          `json:"transaction_method_id"`
 	TransactionTypeId        string          `json:"transaction_type_id"`
 	PaymentTypeId            string          `json:"payment_type_id"`

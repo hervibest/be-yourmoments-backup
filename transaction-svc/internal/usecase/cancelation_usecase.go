@@ -37,7 +37,7 @@ func (u *cancelationUseCase) ExpirePendingTransaction(ctx context.Context, trans
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.updateTransactionStatusIfPending(ctx, tx, transactionId, enum.TransactionStatusExpired); err != nil {
+	if err := u.updateTransactionStatusIfPending(ctx, tx, transactionId, enum.TrxInternalStatusExpired); err != nil {
 		return helper.WrapInternalServerError(u.logs, "expire failed", err)
 	}
 
@@ -57,31 +57,37 @@ func (u *cancelationUseCase) CancelPendingTransaction(ctx context.Context, trans
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.updateTransactionStatusIfPending(ctx, tx, transactionId, enum.TransactionStatusCancelled); err != nil {
+	if err := u.updateTransactionStatusIfPending(ctx, tx, transactionId, enum.TrxInternalStatusCancelledByUser); err != nil {
 		return helper.WrapInternalServerError(u.logs, "cancel failed", err)
 	}
 
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
-	u.logs.Log(fmt.Sprintf("success cancel pending transaction with id : %s", transactionId))
+	u.logs.Log(fmt.Sprintf("success cancel pending by user transaction with id : %s", transactionId))
 	return nil
 }
 
-func (u *cancelationUseCase) updateTransactionStatusIfPending(ctx context.Context, tx *sqlx.Tx, transactionId string, newStatus enum.TransactionStatus) error {
+func (u *cancelationUseCase) updateTransactionStatusIfPending(ctx context.Context, tx *sqlx.Tx, transactionId string, status enum.TrxInternalStatus) error {
 	transaction, err := u.transactionRepo.FindById(ctx, tx, transactionId)
 	if err != nil {
 		return err
 	}
 
-	if transaction.Status != enum.TransactionStatusPending && transaction.Status != enum.TransactionStatusPendingTokenInit {
-		u.logs.Log(fmt.Sprintf("transaction : %s is not in pending or pending token status, discontinued update transaction process status if pending", transactionId))
+	if transaction.InternalStatus != enum.TrxInternalStatusPending && transaction.InternalStatus != enum.TrxInternalStatusTokenReady {
+		u.logs.Log(fmt.Sprintf("transaction : %s is not in pending or token ready status, discontinued update transaction process status if pending", transactionId))
 		return nil
 	}
 
 	now := time.Now()
-	transaction.Status = newStatus
-	transaction.SnapToken = sql.NullString{Valid: false}
+	if status == enum.TrxInternalStatusExpired {
+		transaction.Status = enum.TransactionStatusExpired
+		transaction.InternalStatus = enum.TrxInternalStatusExpired
+	} else {
+		transaction.Status = enum.TransactionStatusCancelled
+		transaction.InternalStatus = enum.TrxInternalStatusCancelledByUser
+	}
+	transaction.SnapToken = sql.NullString{Valid: true, String: ""}
 	transaction.UpdatedAt = &now
 
 	return u.transactionRepo.UpdateStatus(ctx, tx, transaction)

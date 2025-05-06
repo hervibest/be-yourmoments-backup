@@ -11,6 +11,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
+	"github.com/jmoiron/sqlx"
 )
 
 type TransactionRepository interface {
@@ -21,7 +22,7 @@ type TransactionRepository interface {
 	UserFindWithDetailById(ctx context.Context, tx Querier, transactionId, userId string) (*[]*entity.TransactionWithDetail, error)
 	UserFindAll(ctx context.Context, tx Querier, page, size int, userId string, timeOrder string) (*[]*entity.Transaction, *model.PageMetadata, error)
 	UpdateStatus(ctx context.Context, tx Querier, transaction *entity.Transaction) error
-	FindManyByStatus(ctx context.Context, tx Querier, status enum.TransactionStatus) (*[]*entity.Transaction, error)
+	FindManyCheckable(ctx context.Context, tx Querier) (*[]*entity.Transaction, error)
 }
 
 type transactionRepository struct {
@@ -33,10 +34,10 @@ func NewTransactionRepository() TransactionRepository {
 
 func (r *transactionRepository) Create(ctx context.Context, tx Querier, transaction *entity.Transaction) (*entity.Transaction, error) {
 	query := `INSERT INTO transactions 
-			  (id, user_id, status, photo_ids, checkout_at, amount, created_at, updated_at) 
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+			  (id, user_id, internal_status, status, photo_ids, checkout_at, amount, created_at, updated_at) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := tx.ExecContext(ctx, query, transaction.Id, transaction.UserId, transaction.Status, transaction.PhotoIds, transaction.CheckoutAt,
+	_, err := tx.ExecContext(ctx, query, transaction.Id, transaction.UserId, transaction.InternalStatus, transaction.Status, transaction.PhotoIds, transaction.CheckoutAt,
 		transaction.Amount, transaction.CreatedAt, transaction.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert transactions: %w", err)
@@ -46,9 +47,9 @@ func (r *transactionRepository) Create(ctx context.Context, tx Querier, transact
 }
 
 func (r *transactionRepository) UpdateToken(ctx context.Context, tx Querier, transaction *entity.Transaction) error {
-	query := `UPDATE transactions SET snap_token = $1, updated_at = $2 WHERE id = $3`
+	query := `UPDATE transactions SET internal_status = $1, snap_token = $2, updated_at = $3 WHERE id = $4`
 
-	_, err := tx.ExecContext(ctx, query, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
+	_, err := tx.ExecContext(ctx, query, transaction.InternalStatus, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
 	if err != nil {
 		return fmt.Errorf("failed to update transaction token: %w", err)
 	}
@@ -60,15 +61,16 @@ func (r *transactionRepository) UpdateCallback(ctx context.Context, tx Querier, 
 	query := `
 	UPDATE transactions 
 	SET 
-		status = $1,
-		payment_at = COALESCE($2, payment_at),
-		snap_token = COALESCE($3, snap_token),
-		external_status = COALESCE($4, external_status),
-		external_callback_response = COALESCE($5, external_callback_response),
-		updated_at = $6
-	WHERE id = $7
+		internal_status = $1,
+		status = $2,
+		payment_at = COALESCE($3, payment_at),
+		snap_token = COALESCE($4, snap_token),
+		external_status = COALESCE($5, external_status),
+		external_callback_response = COALESCE($6, external_callback_response),
+		updated_at = $7
+	WHERE id = $8
 	`
-	_, err := tx.ExecContext(ctx, query, transaction.Status, transaction.PaymentAt, transaction.SnapToken, transaction.ExternalStatus, transaction.ExternalCallbackResponse, transaction.UpdatedAt, transaction.Id)
+	_, err := tx.ExecContext(ctx, query, transaction.InternalStatus, transaction.Status, transaction.PaymentAt, transaction.SnapToken, transaction.ExternalStatus, transaction.ExternalCallbackResponse, transaction.UpdatedAt, transaction.Id)
 	if err != nil {
 		return fmt.Errorf("failed to update transaction callback: %w", err)
 	}
@@ -206,9 +208,9 @@ func (r *transactionRepository) UserFindAll(ctx context.Context, tx Querier, pag
 }
 
 func (r *transactionRepository) UpdateStatus(ctx context.Context, tx Querier, transaction *entity.Transaction) error {
-	query := `UPDATE transactions SET status = $1, snap_token = $2, updated_at = $3 WHERE id = $4`
+	query := `UPDATE transactions SET status = $1, internal_status = $2, snap_token = COALESCE($3, snap_token), updated_at = $4 WHERE id = $5`
 
-	_, err := tx.ExecContext(ctx, query, transaction.Status, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
+	_, err := tx.ExecContext(ctx, query, transaction.Status, transaction.InternalStatus, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
 	if err != nil {
 		return fmt.Errorf("failed to update transaction status: %w", err)
 	}
@@ -216,18 +218,36 @@ func (r *transactionRepository) UpdateStatus(ctx context.Context, tx Querier, tr
 	return nil
 }
 
-func (r *transactionRepository) FindManyByStatus(ctx context.Context, tx Querier, status enum.TransactionStatus) (*[]*entity.Transaction, error) {
+func (r *transactionRepository) FindManyCheckable(ctx context.Context, tx Querier) (*[]*entity.Transaction, error) {
 	transactions := make([]*entity.Transaction, 0)
+
+	statuses := []enum.TrxInternalStatus{
+		enum.TrxInternalStatusExpired,
+		enum.TrxInternalStatusPending,
+		enum.TrxInternalStatusTokenReady,
+	}
+
 	query := `
 	SELECT
 		id, user_id, status
 	FROM
 		transactions
 	WHERE
-		status = $1
+		internal_status IN (?)
 	`
-	if err := tx.SelectContext(ctx, &transactions, query, status); err != nil {
+
+	// Gunakan sqlx.In untuk menyisipkan slice ke dalam IN
+	q, args, err := sqlx.In(query, statuses)
+	if err != nil {
 		return nil, err
 	}
+
+	// Rebind placeholder agar sesuai dengan database yang digunakan (Postgres pakai $1, $2, ...)
+	q = tx.Rebind(q)
+
+	if err := tx.SelectContext(ctx, &transactions, q, args...); err != nil {
+		return nil, err
+	}
+
 	return &transactions, nil
 }
