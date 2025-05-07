@@ -1,13 +1,15 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/contract"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
-	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
 	"github.com/oklog/ulid/v2"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,12 +24,12 @@ type TransactionController interface {
 }
 
 type transactionController struct {
-	transactionUseCase usecase.TransactionUseCase
+	transactionUseCase contract.TransactionUseCase
 	customValidator    helper.CustomValidator
 	logs               *logger.Log
 }
 
-func NewTransactionController(transactionUseCase usecase.TransactionUseCase, customValidator helper.CustomValidator, logs *logger.Log) TransactionController {
+func NewTransactionController(transactionUseCase contract.TransactionUseCase, customValidator helper.CustomValidator, logs *logger.Log) TransactionController {
 	return &transactionController{
 		transactionUseCase: transactionUseCase,
 		customValidator:    customValidator,
@@ -40,6 +42,7 @@ func (c *transactionController) CreateTransaction(ctx *fiber.Ctx) error {
 	auth := middleware.GetUser(ctx)
 
 	request.UserId = auth.UserId
+	request.CreatorId = auth.CreatorId
 	if err := helper.StrictBodyParser(ctx, request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
@@ -61,23 +64,27 @@ func (c *transactionController) CreateTransaction(ctx *fiber.Ctx) error {
 
 // TODO ROBUST VALIDATE FOR EXTERNAL HTTP CALL
 func (c *transactionController) Notify(ctx *fiber.Ctx) error {
-	request := new(model.UpdateTransactionWebhookRequest)
+	webhookRequest := new(model.UpdateTransactionWebhookRequest)
 
-	if err := ctx.BodyParser(request); err != nil {
+	if err := ctx.BodyParser(webhookRequest); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
 
-	if _, err := uuid.Parse(request.OrderID); err != nil {
+	if _, err := uuid.Parse(webhookRequest.OrderID); err != nil {
 		return fiber.NewError(http.StatusBadRequest, "invalid order id")
 	}
 
-	request.Body = ctx.Body()
+	webhookRequest.Body = ctx.Body()
 
-	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+	if validatonErrs := c.customValidator.ValidateUseCase(webhookRequest); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}
 
-	if err := c.transactionUseCase.UpdateTransactionWebhook(ctx.Context(), request); err != nil {
+	c.logs.Log(fmt.Sprintf("Received webhook request from midtrans server with fields transaction ID : %s with status : %s ",
+		webhookRequest.OrderID, webhookRequest.MidtransTransactionStatus))
+
+	request := converter.WebhookReqToCheckAndUpdate(webhookRequest)
+	if err := c.transactionUseCase.CheckAndUpdateTransaction(ctx.Context(), request); err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Notify webhook : ", err, c.logs)
 	}
 
@@ -86,7 +93,6 @@ func (c *transactionController) Notify(ctx *fiber.Ctx) error {
 	})
 }
 
-// TODO ROBUST VALIDATE FOR EXTERNAL HTTP CALL
 func (c *transactionController) GetUserTransactionWithDetail(ctx *fiber.Ctx) error {
 	request := new(model.GetTransactionWithDetail)
 	auth := middleware.GetUser(ctx)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/contract"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum/error"
@@ -29,15 +30,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/oklog/ulid/v2"
 )
-
-type TransactionUseCase interface {
-	CreateTransaction(ctx context.Context, request *model.CreateTransactionRequest) (*model.CreateTransactionResponse, error)
-	UpdateTransactionWebhook(ctx context.Context, request *model.UpdateTransactionWebhookRequest) error
-	UserGetWithDetail(ctx context.Context, request *model.GetTransactionWithDetail) (*model.TransactionWithDetail, error)
-	GetAllUserTransaction(ctx context.Context, request *model.GetAllUsertTransaction) (*[]*model.UserTransaction, *model.PageMetadata, error)
-	CheckPaymentSignature(signatureKey, transcationId, statusCode, grossAmount string) (bool, string)
-	CheckAndUpdateTransaction(ctx context.Context, body []byte, settlementTime string, midtransTransactionStatus string, transaction *entity.Transaction) error
-}
 
 type transactionUseCase struct {
 	db           *sqlx.DB
@@ -60,8 +52,12 @@ func NewTransactionUseCase(db *sqlx.DB, photoAdapter adapter.PhotoAdapter, trans
 	transactionItemRepository repository.TransactionItemRepository, transactionDetailRepository repository.TransactionDetailRepository,
 	walletRepository repository.WalletRepository, transactionWalletRepo repository.TransactionWalletRepository,
 	paymentAdapter adapter.PaymentAdapter, cacheAdapter adapter.CacheAdapter, timeParserHelper helper.TimeParserHelper,
-	transactionProducer producer.TransactionProducer,
-	logs *logger.Log) TransactionUseCase {
+	transactionProducer producer.TransactionProducer, logs *logger.Log) contract.TransactionUseCase {
+
+	if db == nil {
+		logs.Error("Sqlx.DB is nil")
+	}
+
 	return &transactionUseCase{
 		db:                          db,
 		photoAdapter:                photoAdapter,
@@ -79,7 +75,7 @@ func NewTransactionUseCase(db *sqlx.DB, photoAdapter adapter.PhotoAdapter, trans
 }
 
 func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *model.CreateTransactionRequest) (*model.CreateTransactionResponse, error) {
-	items, total, err := u.photoAdapter.CalculatePhotoPrice(ctx, request.UserId, request.PhotoIds)
+	items, total, err := u.photoAdapter.CalculatePhotoPrice(ctx, request.UserId, request.CreatorId, request.PhotoIds)
 	if err != nil {
 		return nil, err
 	}
@@ -309,6 +305,11 @@ func (u *transactionUseCase) subscribeMidtransRecoveryAndRetry(adapter adapter.P
 }
 
 func (u *transactionUseCase) CheckPaymentSignature(signatureKey, transcationId, statusCode, grossAmount string) (bool, string) {
+	u.logs.Log(fmt.Sprintf("Ini adalah transactionId : %s", transcationId))
+	u.logs.Log(fmt.Sprintf("Ini adalah status code : %s", statusCode))
+	u.logs.Log(fmt.Sprintf("Ini adalah gross amount : %s", grossAmount))
+	u.logs.Log(fmt.Sprintf("Ini adalah signature key : %s", signatureKey))
+
 	signatureToCompare := transcationId + statusCode + grossAmount + u.paymentAdapter.GetPaymentServerKey()
 	hash := sha512.New()
 	hash.Write([]byte(signatureToCompare))
@@ -316,38 +317,40 @@ func (u *transactionUseCase) CheckPaymentSignature(signatureKey, transcationId, 
 	return hashedSignature == signatureKey, hashedSignature
 }
 
-func (u *transactionUseCase) UpdateTransactionWebhook(ctx context.Context, request *model.UpdateTransactionWebhookRequest) error {
-	transaction, err := u.transactionRepository.FindById(ctx, u.db, request.OrderID)
+func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, request *model.CheckAndUpdateTransactionRequest) error {
+	if u.db == nil {
+		fmt.Print("DB NIL")
+		u.logs.Error("Sqlx.DB is nil")
+	}
+
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	transaction, err := u.transactionRepository.FindById(ctx, tx, request.OrderID, true)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
 	}
 
-	requestIsValid, hashedSignature := u.CheckPaymentSignature(request.SignatureKey, transaction.Id, request.StatusCode, u.paymentAdapter.GetPaymentServerKey())
+	requestIsValid, hashedSignature := u.CheckPaymentSignature(request.SignatureKey, transaction.Id, request.StatusCode, request.GrossAmount)
 	if !requestIsValid {
 		u.logs.Log(fmt.Sprintf("Invalid signature: expected=%s got=%s", hashedSignature, request.SignatureKey))
 		return helper.NewUseCaseError(errorcode.ErrForbidden, "Invalid signature key")
 	}
 
-	u.logs.Log(fmt.Sprintf("Received webhook request from midtrans server with fields transaction ID : %s with status : %s ",
-		request.TransactionID, request.TransactionStatus))
-
 	//Only check if internal transaction status is "PENDING", "TOKEN_READY", "STATUS_EXPIRED"
 	if transaction.InternalStatus != enum.TrxInternalStatusPending &&
 		transaction.InternalStatus != enum.TrxInternalStatusTokenReady &&
 		transaction.InternalStatus != enum.TrxInternalStatusExpired {
-		u.logs.CustomLog("transaction internal status already final. Ignoring duplicate settlement webhook :.", transaction.Id)
-		return nil
+		u.logs.CustomLog("transaction internal status already final. Ignoring duplicate settlement :.", transaction.Id)
+		return helper.NewUseCaseError(errorcode.ErrForbidden, "Transaction internal status already final")
 	}
 
-	if err := u.CheckAndUpdateTransaction(ctx, request.Body, request.SettlementTime, request.TransactionStatus, transaction); err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, body []byte, settlementTime string, midtransTransactionStatus string, transaction *entity.Transaction) error {
 	now := time.Now()
 	updateTransaction := &entity.Transaction{
 		Id:        transaction.Id,
@@ -361,34 +364,34 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, body
 	//First internal expired status checking
 	if transaction.InternalStatus == enum.TrxInternalStatusExpired {
 		// IF External Or Midtrans Payment Settled Check the Settlement Time
-		if midtransTransactionStatus == string(enum.PaymentStatusSettlement) {
-			settlementTime, err := u.timeParserHelper.TimeParseInDefaultLocation(settlementTime)
+		if request.MidtransTransactionStatus == string(enum.PaymentStatusSettlement) {
+			settlementTime, err := u.timeParserHelper.TimeParseInDefaultLocation(request.SettlementTime)
 			if err != nil {
 				return err
 			}
 
 			settlementTimePtr = &settlementTime
-			//TODO implement grace deadline envars
 			graceDeadline := transaction.UpdatedAt.Add(5 * time.Minute)
+
+			//Checking settlement time from external midtrans with internal expired time
 			if settlementTime.After(graceDeadline) {
 				transactionStatus = enum.TransactionStatusExpired //User transaction is valid or settled
 				transactionInternalStatus = enum.TrxInternalStatusLateSettlement
-				return helper.NewUseCaseError(errorcode.ErrForbidden, "Late settlement beyond grace period")
 			} else {
 				//User transaction is valid or settled even the user come late but from system not the settled time
 				transactionStatus = enum.TransactionStatusSuccess
 				transactionInternalStatus = enum.TrxInternalStatusExpiredCheckedValid
 				updateTransaction.PaymentAt = &now
-				updateTransaction.ExternalSettlementAt = settlementTimePtr
-				updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
 			}
+			updateTransaction.ExternalSettlementAt = settlementTimePtr
+			updateTransaction.SnapToken = sql.NullString{String: "", Valid: true}
 		} else {
-			transactionInternalStatus = enum.TrxInternalStatusExpiredCheckedInvalid //User doesnet settled even internal status has expired
+			transactionInternalStatus = enum.TrxInternalStatusExpiredCheckedInvalid //User doesnt settled even internal status has expired
 			transactionStatus = enum.TransactionStatusExpired
 		}
 
 	} else {
-		switch midtransTransactionStatus {
+		switch request.MidtransTransactionStatus {
 		case string(enum.PaymentStatusCapture), string(enum.PaymentStatusSettlement):
 			transactionStatus = enum.TransactionStatusSuccess
 			transactionInternalStatus = enum.TrxInternalStatusSettled
@@ -421,32 +424,38 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, body
 	updateTransaction.InternalStatus = transactionInternalStatus
 	updateTransaction.ExternalStatus = sql.NullString{
 		Valid:  true,
-		String: midtransTransactionStatus,
+		String: request.MidtransTransactionStatus,
 	}
 
-	externalCallbackResponse := json.RawMessage(body)
+	externalCallbackResponse := json.RawMessage(request.Body)
 	updateTransaction.ExternalCallbackResponse = &externalCallbackResponse
 
-	// Penambahan
-	err := repository.BeginTransaction(u.db, ctx, u.logs, func(tx *sqlx.Tx) error {
-		if err := u.transactionRepository.UpdateCallback(ctx, tx, updateTransaction); err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
+	if err := u.transactionRepository.UpdateCallback(ctx, tx, updateTransaction); err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
 	}
 
-	if transactionStatus != enum.TransactionStatusSuccess {
-		u.logs.CustomLog("transaction not yet success. With external transaction status :.", transaction.ExternalStatus)
-		return nil
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return err
 	}
 
 	var photoIds []string
 
 	if err := sonic.ConfigFastest.Unmarshal([]byte(transaction.PhotoIds), &photoIds); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to unmarshal photo ids", err)
+	}
+
+	if transactionStatus == enum.TransactionStatusCancelled || transactionStatus == enum.TransactionStatusExpired ||
+		transactionStatus == enum.TransactionStatusFailed {
+		if err := u.photoAdapter.CancelPhotos(ctx, transaction.UserId, photoIds); err != nil {
+			return err
+		}
+		u.logs.Log(fmt.Sprintf("successfully cancel photos from photo service with transaction id %s and buyer %s :.", transaction.Id, transaction.UserId))
+		return nil
+	}
+
+	if transactionStatus != enum.TransactionStatusSuccess {
+		u.logs.CustomLog("transaction not yet success. With external transaction status :.", transaction.ExternalStatus)
+		return nil
 	}
 
 	//Call photo service to update photo owner

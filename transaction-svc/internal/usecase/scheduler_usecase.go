@@ -7,9 +7,11 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/contract"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
 	"github.com/jmoiron/sqlx"
 	"github.com/midtrans/midtrans-go/coreapi"
@@ -22,12 +24,12 @@ type schedulerUseCase struct {
 	db                    *sqlx.DB
 	transactionRepository repository.TransactionRepository
 	paymentAdapter        adapter.PaymentAdapter
-	transactionUseCase    transactionUseCase
+	transactionUseCase    contract.TransactionUseCase
 	logs                  *logger.Log
 }
 
-func NewSchedulerUseCase(db *sqlx.DB, transactionRepository repository.TransactionRepository, paymentAdapter adapter.PaymentAdapter, logs *logger.Log) SchedulerUseCase {
-	return &schedulerUseCase{db: db, transactionRepository: transactionRepository, paymentAdapter: paymentAdapter, logs: logs}
+func NewSchedulerUseCase(db *sqlx.DB, transactionRepository repository.TransactionRepository, transactionUseCase contract.TransactionUseCase, paymentAdapter adapter.PaymentAdapter, logs *logger.Log) SchedulerUseCase {
+	return &schedulerUseCase{db: db, transactionRepository: transactionRepository, transactionUseCase: transactionUseCase, paymentAdapter: paymentAdapter, logs: logs}
 }
 
 type Job struct {
@@ -41,6 +43,11 @@ func (u *schedulerUseCase) CheckTransactionStatus(ctx context.Context) error {
 		return helper.WrapInternalServerError(u.logs, "failed to find many checkable transaction", err)
 	}
 
+	if len(*transactions) == 0 {
+		u.logs.Log("There are no checkable transaction, ignoring check transaction process")
+		return nil
+	}
+
 	checkJobs := make(chan *entity.Transaction, 10)
 	updateJobs := make(chan *Job, 10)
 	var wgCheck, wgUpdate sync.WaitGroup
@@ -51,7 +58,7 @@ func (u *schedulerUseCase) CheckTransactionStatus(ctx context.Context) error {
 		go func() {
 			defer wgCheck.Done()
 			for tx := range checkJobs {
-				resp, err := u.paymentAdapter.CheckTransactionStatus(ctx, tx.Id)
+				resp, err := u.paymentAdapter.CheckTransactionStatus(context.Background(), tx.Id)
 				if err != nil {
 					u.logs.Log(fmt.Sprintf("failed check status for %s: %v", tx.Id, err))
 					continue
@@ -71,27 +78,15 @@ func (u *schedulerUseCase) CheckTransactionStatus(ctx context.Context) error {
 		go func() {
 			defer wgUpdate.Done()
 			for job := range updateJobs {
-				requestIsValid, hashedSignature := u.transactionUseCase.CheckPaymentSignature(
-					job.response.SignatureKey,
-					job.transaction.Id,
-					job.response.StatusCode,
-					job.response.GrossAmount,
-				)
-
-				if !requestIsValid {
-					u.logs.Log(fmt.Sprintf("Invalid signature: expected=%s got=%s", hashedSignature, job.response.SignatureKey))
-					continue
-				}
-
 				jsonValue, err := sonic.ConfigFastest.Marshal(job.response)
 				if err != nil {
 					u.logs.Log(fmt.Sprintf("marshal user : %+v", err))
 					continue
 				}
 
+				request := converter.SchedulerReqToCheckAndUpdate(job.response, jsonValue)
 				_ = u.transactionUseCase.CheckAndUpdateTransaction(
-					ctx, jsonValue, job.response.SettlementTime,
-					job.response.TransactionStatus, job.transaction,
+					ctx, request,
 				)
 			}
 		}()

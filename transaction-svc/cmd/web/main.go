@@ -162,7 +162,7 @@ func webServer() error {
 	withdrawalUseCase := usecase.NewWithdrawalUseCase(dbConfig, withdrawalRepository, walletRepository, logs)
 	transactionWalletUC := usecase.NewTransactionWalletUseCase(dbConfig, transactionWalletRepo, logs)
 	cancelationUseCase := usecase.NewCancelationUseCase(dbConfig, transactionRepo, logs)
-	schedulerUseCase := usecase.NewSchedulerUseCase(dbConfig, transactionRepo, paymentAdapter, logs)
+	schedulerUseCase := usecase.NewSchedulerUseCase(dbConfig, transactionRepo, transactionUseCase, paymentAdapter, logs)
 
 	transactionController := http.NewTransactionController(transactionUseCase, customValidator, logs)
 	bankController := http.NewBankController(bankUseCase, customValidator, logs)
@@ -197,7 +197,7 @@ func webServer() error {
 		transactionSubscriber.SubscribeTransactionExpire(ctx)
 	}()
 
-	schedulerRunner := scheduler.NewSchedulerRunner(goCronConfig, schedulerUseCase)
+	schedulerRunner := scheduler.NewSchedulerRunner(goCronConfig, schedulerUseCase, logs)
 	go func() {
 		schedulerRunner.Start()
 	}()
@@ -208,7 +208,7 @@ func webServer() error {
 	route.SetupRoute()
 	app.Use(cors.New())
 
-	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
+	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
 
 	err = app.Listen(serverConfig.HTTP)
 

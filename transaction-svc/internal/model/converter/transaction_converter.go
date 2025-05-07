@@ -6,6 +6,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/nullable"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
+	"github.com/midtrans/midtrans-go/coreapi"
 )
 
 func TransactionToResponse(transaction *entity.Transaction, redirectUrl string) *model.CreateTransactionResponse {
@@ -121,4 +122,52 @@ func UserTransactionToResponse(userTransactions *[]*entity.Transaction) *[]*mode
 		userTransactionReponses = append(userTransactionReponses, userTransactionResponse)
 	}
 	return &userTransactionReponses
+}
+
+func WebhookReqToCheckAndUpdate(webhookReq *model.UpdateTransactionWebhookRequest) *model.CheckAndUpdateTransactionRequest {
+	return &model.CheckAndUpdateTransactionRequest{
+		MidtransTransactionType:   webhookReq.MidtransTransactionType,
+		MidtransTransactionTime:   webhookReq.MidtransTransactionTime,
+		MidtransTransactionStatus: webhookReq.MidtransTransactionStatus,
+		MidtransTransactionID:     webhookReq.MidtransTransactionID,
+		StatusMessage:             webhookReq.StatusMessage,
+		StatusCode:                webhookReq.StatusCode,
+		SignatureKey:              webhookReq.SignatureKey,
+		SettlementTime:            webhookReq.SettlementTime,
+		ReferenceID:               webhookReq.ReferenceID,
+		PaymentType:               webhookReq.PaymentType,
+		OrderID:                   webhookReq.OrderID,
+		Metadata:                  webhookReq.Metadata,
+		MerchantID:                webhookReq.MerchantID,
+		GrossAmount:               webhookReq.GrossAmount,
+		FraudStatus:               webhookReq.FraudStatus,
+		ExpiryTime:                webhookReq.ExpiryTime,
+		Currency:                  webhookReq.Currency,
+		Acquirer:                  webhookReq.Acquirer,
+		Body:                      webhookReq.Body,
+	}
+}
+
+func SchedulerReqToCheckAndUpdate(schedulerReq *coreapi.TransactionStatusResponse, body []byte) *model.CheckAndUpdateTransactionRequest {
+	return &model.CheckAndUpdateTransactionRequest{
+		MidtransTransactionType:   schedulerReq.TransactionType,
+		MidtransTransactionTime:   schedulerReq.TransactionTime,
+		MidtransTransactionStatus: schedulerReq.TransactionStatus,
+		MidtransTransactionID:     schedulerReq.TransactionID,
+		StatusMessage:             schedulerReq.StatusMessage,
+		StatusCode:                schedulerReq.StatusCode,
+		SignatureKey:              schedulerReq.SignatureKey,
+		SettlementTime:            schedulerReq.SettlementTime,
+		// ReferenceID:               schedulerReq.ReferenceID,
+		PaymentType: schedulerReq.PaymentType,
+		OrderID:     schedulerReq.OrderID,
+		// Metadata:                  schedulerReq.Metadata,
+		MerchantID:  schedulerReq.MerchantID,
+		GrossAmount: schedulerReq.GrossAmount,
+		FraudStatus: schedulerReq.FraudStatus,
+		ExpiryTime:  schedulerReq.ExpiryTime,
+		Currency:    schedulerReq.Currency,
+		Acquirer:    schedulerReq.Acquirer,
+		Body:        body,
+	}
 }

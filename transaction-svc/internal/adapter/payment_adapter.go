@@ -114,6 +114,7 @@ func (a *paymentAdapter) CreateSnapshot(ctx context.Context, request *model.Paym
 }
 
 func (a *paymentAdapter) CheckTransactionStatus(ctx context.Context, transactionId string) (*coreapi.TransactionStatusResponse, error) {
+	a.logs.CustomLog("[CheckTransactionStatus] CheckTransactionStatus with transaction id: %s", transactionId)
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

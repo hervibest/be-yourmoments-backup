@@ -9,8 +9,9 @@ import (
 )
 
 type CreateTransactionRequest struct {
-	UserId   string   `validate:"required"`
-	PhotoIds []string `json:"photo_ids" validate:"required"`
+	UserId    string   `validate:"required"`
+	CreatorId string   `validate:"required"`
+	PhotoIds  []string `json:"photo_ids" validate:"required"`
 }
 
 type CreateTransactionResponse struct {
@@ -20,25 +21,47 @@ type CreateTransactionResponse struct {
 }
 
 type UpdateTransactionWebhookRequest struct {
-	TransactionType   string          `json:"transaction_type"`
-	TransactionTime   string          `json:"transaction_time"`
-	TransactionStatus string          `json:"transaction_status" validate:"required"`
-	TransactionID     string          `json:"transaction_id"`
-	StatusMessage     string          `json:"status_message"`
-	StatusCode        string          `json:"status_code" validate:"required"`
-	SignatureKey      string          `json:"signature_key" validate:"required"`
-	SettlementTime    string          `json:"settlement_time" validate:"required"`
-	ReferenceID       string          `json:"reference_id"`
-	PaymentType       string          `json:"payment_type"`
-	OrderID           string          `json:"order_id" validate:"required"`
-	Metadata          json.RawMessage `json:"metadata"` // Bisa pakai map[string]interface{} jika ingin langsung decode
-	MerchantID        string          `json:"merchant_id"`
-	GrossAmount       string          `json:"gross_amount" validate:"required"`
-	FraudStatus       string          `json:"fraud_status"`
-	ExpiryTime        string          `json:"expiry_time"`
-	Currency          string          `json:"currency"`
-	Acquirer          string          `json:"acquirer"`
-	Body              []byte          `json:"-"` // Untuk simpan raw body jika dibutuhkan untuk verifikasi signature, dll
+	MidtransTransactionType   string          `json:"transaction_type"`
+	MidtransTransactionTime   string          `json:"transaction_time"`
+	MidtransTransactionStatus string          `json:"transaction_status" validate:"required"`
+	MidtransTransactionID     string          `json:"transaction_id"`
+	StatusMessage             string          `json:"status_message"`
+	StatusCode                string          `json:"status_code" validate:"required"`
+	SignatureKey              string          `json:"signature_key" validate:"required"`
+	SettlementTime            string          `json:"settlement_time" validate:"required"`
+	ReferenceID               string          `json:"reference_id"`
+	PaymentType               string          `json:"payment_type"`
+	OrderID                   string          `json:"order_id" validate:"required"`
+	Metadata                  json.RawMessage `json:"metadata"` // Bisa pakai map[string]interface{} jika ingin langsung decode
+	MerchantID                string          `json:"merchant_id"`
+	GrossAmount               string          `json:"gross_amount" validate:"required"`
+	FraudStatus               string          `json:"fraud_status"`
+	ExpiryTime                string          `json:"expiry_time"`
+	Currency                  string          `json:"currency"`
+	Acquirer                  string          `json:"acquirer"`
+	Body                      []byte          `json:"-"` // Untuk simpan raw body jika dibutuhkan untuk verifikasi signature, dll
+}
+
+type CheckAndUpdateTransactionRequest struct {
+	MidtransTransactionType   string          `json:"transaction_type"`
+	MidtransTransactionTime   string          `json:"transaction_time"`
+	MidtransTransactionStatus string          `json:"transaction_status" validate:"required"`
+	MidtransTransactionID     string          `json:"transaction_id"`
+	StatusMessage             string          `json:"status_message"`
+	StatusCode                string          `json:"status_code" validate:"required"`
+	SignatureKey              string          `json:"signature_key" validate:"required"`
+	SettlementTime            string          `json:"settlement_time" validate:"required"`
+	ReferenceID               string          `json:"reference_id"`
+	PaymentType               string          `json:"payment_type"`
+	OrderID                   string          `json:"order_id" validate:"required"`
+	Metadata                  json.RawMessage `json:"metadata"` // Bisa pakai map[string]interface{} jika ingin langsung decode
+	MerchantID                string          `json:"merchant_id"`
+	GrossAmount               string          `json:"gross_amount" validate:"required"`
+	FraudStatus               string          `json:"fraud_status"`
+	ExpiryTime                string          `json:"expiry_time"`
+	Currency                  string          `json:"currency"`
+	Acquirer                  string          `json:"acquirer"`
+	Body                      []byte          `json:"-"` // Untuk simpan raw body jika dibutuhkan untuk verifikasi signature, dll
 }
 
 // type CreateTransactionRequest struct {

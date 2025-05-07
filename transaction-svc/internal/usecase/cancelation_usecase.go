@@ -69,7 +69,7 @@ func (u *cancelationUseCase) CancelPendingTransaction(ctx context.Context, trans
 }
 
 func (u *cancelationUseCase) updateTransactionStatusIfPending(ctx context.Context, tx *sqlx.Tx, transactionId string, status enum.TrxInternalStatus) error {
-	transaction, err := u.transactionRepo.FindById(ctx, tx, transactionId)
+	transaction, err := u.transactionRepo.FindById(ctx, tx, transactionId, true)
 	if err != nil {
 		return err
 	}

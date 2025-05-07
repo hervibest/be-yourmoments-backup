@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 
@@ -26,10 +27,12 @@ func NewTransactionSubsciber(cacheAdapter adapter.CacheAdapter,
 	return &transactionSubscriber{
 		cacheAdapter:       cacheAdapter,
 		cancelationUseCase: cancelationUseCase,
+		logs:               logs,
 	}
 }
 
 func (s *transactionSubscriber) SubscribeTransactionExpire(ctx context.Context) {
+	s.logs.Log("Successfully subscribed to redis for transaction expire")
 	pubsub := s.cacheAdapter.PSubscribe(ctx, "__keyevent@0__:expired") // Gunakan DB 0 secara eksplisit
 	for {
 		select {
@@ -59,7 +62,7 @@ func (s *transactionSubscriber) SubscribeTransactionExpire(ctx context.Context) 
 				if err := s.cancelationUseCase.ExpirePendingTransaction(ctx, orderID); err != nil {
 					s.logs.CustomError("Failed to expire task:", err)
 				} else {
-					s.logs.CustomLog("Task ID %s sucessfully expire", orderID)
+					s.logs.Log(fmt.Sprintf("Task ID %s sucessfully expire", orderID))
 				}
 			} else {
 				s.logs.CustomLog("Invalid payload format:", payload)

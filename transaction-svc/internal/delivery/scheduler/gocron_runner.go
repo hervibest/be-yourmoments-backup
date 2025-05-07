@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase"
 )
 
@@ -15,10 +16,11 @@ type SchedulerRunner interface {
 type schedulerRunner struct {
 	scheduler gocron.Scheduler
 	usecase   usecase.SchedulerUseCase
+	logs      *logger.Log
 }
 
-func NewSchedulerRunner(s gocron.Scheduler, usecase usecase.SchedulerUseCase) SchedulerRunner {
-	return &schedulerRunner{scheduler: s, usecase: usecase}
+func NewSchedulerRunner(s gocron.Scheduler, usecase usecase.SchedulerUseCase, logs *logger.Log) SchedulerRunner {
+	return &schedulerRunner{scheduler: s, usecase: usecase, logs: logs}
 }
 
 func (r *schedulerRunner) Start() {
@@ -35,13 +37,15 @@ func (r *schedulerRunner) Start() {
 
 			if err := r.usecase.CheckTransactionStatus(ctx); err != nil {
 				// TODO: replace with your logger
-				println("Scheduler error:", err.Error())
+				r.logs.CustomError("Scheduler error:", err.Error())
 			}
 		}),
 	)
 	if err != nil {
-		panic(err)
+		r.logs.CustomError("Scheduler error:", err.Error())
 	}
+
+	r.logs.Log("Starting scheduler for every 5 minute:")
 
 	// 3. Start the scheduler (asynchronously)
 	r.scheduler.Start()

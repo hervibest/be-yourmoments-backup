@@ -17,7 +17,7 @@ import (
 type TransactionRepository interface {
 	Create(ctx context.Context, tx Querier, transaction *entity.Transaction) (*entity.Transaction, error)
 	UpdateToken(ctx context.Context, tx Querier, transaction *entity.Transaction) error
-	FindById(ctx context.Context, tx Querier, transactionId string) (*entity.Transaction, error)
+	FindById(ctx context.Context, tx Querier, transactionId string, forUpdate bool) (*entity.Transaction, error)
 	UpdateCallback(ctx context.Context, tx Querier, transaction *entity.Transaction) error
 	UserFindWithDetailById(ctx context.Context, tx Querier, transactionId, userId string) (*[]*entity.TransactionWithDetail, error)
 	UserFindAll(ctx context.Context, tx Querier, page, size int, userId string, timeOrder string) (*[]*entity.Transaction, *model.PageMetadata, error)
@@ -67,10 +67,13 @@ func (r *transactionRepository) UpdateCallback(ctx context.Context, tx Querier, 
 		snap_token = COALESCE($4, snap_token),
 		external_status = COALESCE($5, external_status),
 		external_callback_response = COALESCE($6, external_callback_response),
-		updated_at = $7
-	WHERE id = $8
+		external_settlement_at = COALESCE($7, external_settlement_at),
+		updated_at = $8
+	WHERE id = $9
 	`
-	_, err := tx.ExecContext(ctx, query, transaction.InternalStatus, transaction.Status, transaction.PaymentAt, transaction.SnapToken, transaction.ExternalStatus, transaction.ExternalCallbackResponse, transaction.UpdatedAt, transaction.Id)
+	_, err := tx.ExecContext(ctx, query, transaction.InternalStatus, transaction.Status, transaction.PaymentAt,
+		transaction.SnapToken, transaction.ExternalStatus, transaction.ExternalCallbackResponse,
+		transaction.ExternalSettlementAt, transaction.UpdatedAt, transaction.Id)
 	if err != nil {
 		return fmt.Errorf("failed to update transaction callback: %w", err)
 	}
@@ -78,11 +81,15 @@ func (r *transactionRepository) UpdateCallback(ctx context.Context, tx Querier, 
 	return nil
 }
 
-func (r *transactionRepository) FindById(ctx context.Context, tx Querier, transactionId string) (*entity.Transaction, error) {
+func (r *transactionRepository) FindById(ctx context.Context, tx Querier, transactionId string, forUpdate bool) (*entity.Transaction, error) {
 	transaction := new(entity.Transaction)
 	query := `SELECT * FROM transactions WHERE id = $1`
+	if forUpdate {
+		query += ` FOR UPDATE`
+	}
+
 	if err := tx.GetContext(ctx, transaction, query, transactionId); err != nil {
-		log.Printf("Error happen in FindById with error : %s", err.Error())
+		log.Printf("Error in FindById with error: %s", err.Error())
 		return nil, err
 	}
 

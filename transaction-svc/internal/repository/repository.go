@@ -41,7 +41,7 @@ type BeginTx interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 
-func BeginTxx(db BeginTx, ctx context.Context, logs *logger.Log) (*sqlx.Tx, error) {
+func BeginTxx(db *sqlx.DB, ctx context.Context, logs *logger.Log) (*sqlx.Tx, error) {
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		logs.Error(fmt.Sprintf("failed begin transaction %s", err.Error()), &logger.Options{
