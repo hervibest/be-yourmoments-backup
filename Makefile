@@ -4,7 +4,7 @@ TRANSACTION_DB_URL=postgres://postgres:postgres@localhost:5432/transaction_svc?s
 
 MIGRATIONS_DIR=db/migrations
 PROTO_DIR=user-svc/internal/pb
-PROTO_FILE=user.proto
+PROTO_FILE= photo/photo.proto
 
 .PHONY: migrate-down proto
 
@@ -58,6 +58,9 @@ transaction-svc-migrate-reset:
 	
 proto:
 	cd pb && protoc --go_out=. --go-grpc_out=. $(PROTO_FILE)
+	
+proto:
+	cd pb & protoc -I=. -I=pb   --go_out=paths=source_relative:.   --go-grpc_out=paths=source_relative:.   pb/$(PROTO_FILE)
 
 mockgen-upload-svc:
 	cd upload-svc/internal && mockgen -source=./adapter/user_adapter.go -destination=./mocks/adapter/mock_user_adapter.go -package=mockadapter
