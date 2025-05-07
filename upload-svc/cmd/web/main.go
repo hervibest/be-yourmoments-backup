@@ -158,7 +158,7 @@ func webServer() error {
 
 	routeConfig := route.NewRouteConfig(app, photoController, facecamController, newUserMiddleware)
 	routeConfig.Setup()
-	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
+	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
 
 	err = app.Listen(serverConfig.HTTP)
 	if err != nil {

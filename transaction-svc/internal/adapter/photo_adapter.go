@@ -11,9 +11,10 @@ import (
 )
 
 type PhotoAdapter interface {
-	CalculatePhotoPrice(ctx context.Context, userId string, photoIds []string) (*[]*model.CheckoutItem, *model.Total, error)
+	CalculatePhotoPrice(ctx context.Context, userId, creatorId string, photoIds []string) (*[]*model.CheckoutItem, *model.Total, error)
 	OwnerOwnPhotos(ctx context.Context, ownerId string, photoIds []string) error
 	GetPhotoWithDetails(ctx context.Context, photoIds []string, userId string) (*[]*photopb.Photo, error)
+	CancelPhotos(ctx context.Context, userId string, photoIds []string) error
 }
 
 type photoAdapter struct {
@@ -33,10 +34,11 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAda
 	}, nil
 }
 
-func (a *photoAdapter) CalculatePhotoPrice(ctx context.Context, userId string, photoIds []string) (*[]*model.CheckoutItem, *model.Total, error) {
+func (a *photoAdapter) CalculatePhotoPrice(ctx context.Context, userId, creatorId string, photoIds []string) (*[]*model.CheckoutItem, *model.Total, error) {
 	processPhotoRequest := &photopb.CalculatePhotoPriceRequest{
-		UserId:   userId,
-		PhotoIds: photoIds,
+		UserId:    userId,
+		CreatorId: creatorId,
+		PhotoIds:  photoIds,
 	}
 
 	response, err := a.client.CalculatePhotoPrice(ctx, processPhotoRequest)
@@ -77,6 +79,20 @@ func (a *photoAdapter) OwnerOwnPhotos(ctx context.Context, ownerId string, photo
 	}
 
 	_, err := a.client.OwnerOwnPhotos(ctx, ownerOwnPhotosRequest)
+	if err != nil {
+		return helper.FromGRPCError(err)
+	}
+
+	return nil
+}
+
+func (a *photoAdapter) CancelPhotos(ctx context.Context, userId string, photoIds []string) error {
+	cancelPhotosRequest := &photopb.CancelPhotosRequest{
+		UserId:   userId,
+		PhotoIds: photoIds,
+	}
+
+	_, err := a.client.CancelPhotos(ctx, cancelPhotosRequest)
 	if err != nil {
 		return helper.FromGRPCError(err)
 	}

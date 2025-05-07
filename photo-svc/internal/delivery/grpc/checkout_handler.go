@@ -14,12 +14,13 @@ func (h *PhotoGRPCHandler) CalculatePhotoPrice(ctx context.Context, pbReq *photo
 	*photopb.CalculatePhotoPriceResponse, error) {
 	log.Println("----  Calcualte Photo Price Requets via GRPC in photo-svc ------")
 
-	request := &model.PreviewCheckoutRequest{
-		UserId:   pbReq.GetUserId(),
-		PhotoIds: pbReq.GetPhotoIds(),
+	request := &model.CalculateRequest{
+		UserId:    pbReq.GetUserId(),
+		CreatorId: pbReq.GetCreatorId(),
+		PhotoIds:  pbReq.GetPhotoIds(),
 	}
 
-	items, total, err := h.checkoutUseCase.CalculatePrice(context.Background(), request)
+	items, total, err := h.checkoutUseCase.LockPhotosAndCalculatePrice(context.Background(), request)
 	if err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
@@ -58,11 +59,34 @@ func (h *PhotoGRPCHandler) CalculatePhotoPrice(ctx context.Context, pbReq *photo
 func (h *PhotoGRPCHandler) OwnerOwnPhotos(ctx context.Context, pbReq *photopb.OwnerOwnPhotosRequest) (
 	*photopb.OwnerOwnPhotosResponse, error) {
 	log.Println("----  OwnerOwnPhotos Requets via GRPC in photo-svc ------")
-	if err := h.checkoutUseCase.OwnerOwnPhotos(context.Background(), pbReq.GetOwnerId(), pbReq.GetPhotoIds()); err != nil {
+
+	request := &model.OwnerOwnPhotosRequest{
+		OwnerId:  pbReq.GetOwnerId(),
+		PhotoIds: pbReq.GetPhotoIds(),
+	}
+
+	if err := h.checkoutUseCase.OwnerOwnPhotos(context.Background(), request); err != nil {
 		return nil, helper.ErrGRPC(err)
 	}
 
 	return &photopb.OwnerOwnPhotosResponse{
+		Status: int64(codes.OK),
+	}, nil
+}
+
+func (h *PhotoGRPCHandler) CancelPhotos(ctx context.Context, pbReq *photopb.CancelPhotosRequest) (
+	*photopb.CancelPhotosResponse, error) {
+	log.Println("----  Cancel Photos Request via GRPC in photo-svc ------")
+
+	request := &model.CancelPhotosRequest{
+		UserId:   pbReq.GetUserId(),
+		PhotoIds: pbReq.GetPhotoIds(),
+	}
+	if err := h.checkoutUseCase.CancelPhotos(context.Background(), request); err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	return &photopb.CancelPhotosResponse{
 		Status: int64(codes.OK),
 	}, nil
 }

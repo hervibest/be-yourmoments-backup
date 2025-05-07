@@ -212,7 +212,7 @@ func webServer() error {
 	// }()
 
 	// photoController.Route(app)
-	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
+	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
 
 	err = app.Listen(serverConfig.HTTP)
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -14,7 +15,6 @@ import (
 
 type photoPreparedStmt struct {
 	findByPhotoId *sqlx.Stmt
-	findManyByIds *sqlx.Stmt
 }
 
 func newPhotoPreparedStmt(db *sqlx.DB) (*photoPreparedStmt, error) {
@@ -23,28 +23,8 @@ func newPhotoPreparedStmt(db *sqlx.DB) (*photoPreparedStmt, error) {
 		return nil, err
 	}
 
-	findManyByIdsStmt, err := db.Preparex(`
-	SELECT 
-			id,
-			creator_id,
-			title,
-			is_this_you_url,
-			your_moments_url,
-			price
-		FROM photos AS p
-		JOIN user_similar_photos AS up
-		ON up.photo_id = p.id
-		WHERE id = ANY($1) 
-		AND up.user_id = $2 
-		AND p.owned_by_user_id IS NULL
-		AND p.creator_id != $3`)
-	if err != nil {
-		return nil, err
-	}
-
 	return &photoPreparedStmt{
 		findByPhotoId: findByPhotoIdStmt,
-		findManyByIds: findManyByIdsStmt,
 	}, nil
 }
 
@@ -53,14 +33,16 @@ type PhotoRepository interface {
 	FindByPhotoId(ctx context.Context, tx Querier, photoId string) (*entity.Photo, error)
 	UpdateProcessedUrl(tx Querier, photo *entity.Photo) error
 	UpdateCompressedUrl(tx Querier, photo *entity.Photo) error
-	GetSimilarPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error)
-	UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
+	GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
+	GetSimilarPhotosByIDsWithoutCreatorFilter(ctx context.Context, tx Querier, userId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
+	UpdatePhotoOwnerAndStatusByIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
 	BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) // UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
 	UpdateProcessedUrlBulk(tx Querier, photos []*entity.Photo) error
 	BulkIncrementTotal(ctx context.Context, tx Querier, photoIDs []string) error
 	BulkAddPhotoTotals(ctx context.Context, tx Querier, photoCountMap map[string]int32) error
 	AddPhotoTotal(ctx context.Context, tx Querier, photoID string, count int) error
 	UserGetPhotoWithDetail(ctx context.Context, tx Querier, photoIDs []string, userID string) (*[]*entity.PhotoWithDetail, error)
+	UpdatePhotoStatusesByIDs(ctx context.Context, tx Querier, status enum.PhotoStatusEnum, ids []string) error
 }
 
 type photoRepository struct {
@@ -130,17 +112,77 @@ func (r *photoRepository) FindByPhotoId(ctx context.Context, tx Querier, photoId
 	return photo, nil
 }
 
-func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, userId, creatorId string, ids []string) (*[]*entity.Photo, error) {
+func (r *photoRepository) GetSimilarPhotosByIDsWithoutCreatorFilter(ctx context.Context, tx Querier, userId string, ids []string, forUpdate bool) (*[]*entity.Photo, error) {
 	photos := make([]*entity.Photo, 0)
-	if err := r.photoPreparedStmt.findManyByIds.SelectContext(ctx, &photos, ids, userId, creatorId); err != nil {
+	query := `
+		SELECT 
+			id,
+			creator_id,
+			title,
+			is_this_you_url,
+			your_moments_url,
+			price
+		FROM 
+			photos AS p
+		JOIN 
+			user_similar_photos AS up
+		ON 
+			up.photo_id = p.id
+		WHERE 
+			id = ANY($1) 
+		AND 
+			up.user_id = $2 
+		AND 
+			p.owned_by_user_id IS NULL
+			`
+	if forUpdate {
+		query += ` FOR UPDATE`
+	}
+
+	if err := tx.SelectContext(ctx, &photos, query, ids, userId); err != nil {
 		return nil, err
 	}
 	return &photos, nil
 }
 
-func (r *photoRepository) UpdatePhotoOwnerByPhotoIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error {
-	query := "UPDATE photos SET owned_by_user_id = $1 WHERE id = ANY($2)"
-	_, err := tx.ExecContext(ctx, query, ownerID, photoIDs)
+func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool) (*[]*entity.Photo, error) {
+	photos := make([]*entity.Photo, 0)
+	query := `
+		SELECT 
+			id,
+			creator_id,
+			title,
+			is_this_you_url,
+			your_moments_url,
+			price
+		FROM 
+			photos AS p
+		JOIN 
+			user_similar_photos AS up
+		ON 
+			up.photo_id = p.id
+		WHERE 
+			id = ANY($1) 
+		AND 
+			up.user_id = $2 
+		AND 
+			p.owned_by_user_id IS NULL
+		AND 
+			p.creator_id != $3
+			`
+	if forUpdate {
+		query += ` FOR UPDATE`
+	}
+
+	if err := tx.SelectContext(ctx, &photos, query, ids, userId, creatorId); err != nil {
+		return nil, err
+	}
+	return &photos, nil
+}
+
+func (r *photoRepository) UpdatePhotoOwnerAndStatusByIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error {
+	query := "UPDATE photos SET owned_by_user_id = $1, status = $2 WHERE id = ANY($3)"
+	_, err := tx.ExecContext(ctx, query, ownerID, enum.PhotoStatusSoldEnum, photoIDs)
 	if err != nil {
 		return err
 	}
@@ -339,4 +381,13 @@ func (r *photoRepository) UserGetPhotoWithDetail(ctx context.Context, tx Querier
 		return nil, err
 	}
 	return &photoWithDetails, nil
+}
+
+func (r *photoRepository) UpdatePhotoStatusesByIDs(ctx context.Context, tx Querier, status enum.PhotoStatusEnum, ids []string) error {
+	query := `UPDATE photos SET status = ($1) WHERE id = ANY($2)`
+	_, err := tx.ExecContext(ctx, query, status, ids)
+	if err != nil {
+		return err
+	}
+	return nil
 }

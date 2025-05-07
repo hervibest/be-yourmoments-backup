@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
@@ -22,8 +21,9 @@ import (
 
 type CheckoutUseCase interface {
 	PreviewCheckout(ctx context.Context, request *model.PreviewCheckoutRequest) (*model.PreviewCheckoutResponse, error)
-	CalculatePrice(ctx context.Context, request *model.PreviewCheckoutRequest) (*[]*model.CheckoutItem, *model.Total, error)
-	OwnerOwnPhotos(ctx context.Context, ownerID string, photoIds []string) error
+	OwnerOwnPhotos(ctx context.Context, request *model.OwnerOwnPhotosRequest) error
+	LockPhotosAndCalculatePrice(ctx context.Context, request *model.CalculateRequest) (*[]*model.CheckoutItem, *model.Total, error)
+	CancelPhotos(ctx context.Context, request *model.CancelPhotosRequest) error
 }
 
 type checkoutUseCase struct {
@@ -45,9 +45,14 @@ func NewCheckoutUseCase(db *sqlx.DB, photoRepository repository.PhotoRepository,
 	}
 }
 
-func (u *checkoutUseCase) PreviewCheckout(ctx context.Context, request *model.PreviewCheckoutRequest) (*model.PreviewCheckoutResponse, error) {
+func (u *checkoutUseCase) PreviewCheckout(ctx context.Context, previewRequest *model.PreviewCheckoutRequest) (*model.PreviewCheckoutResponse, error) {
 	now := time.Now()
-	result, total, err := u.CalculatePrice(ctx, request)
+	request := &model.CalculateRequest{
+		UserId:   previewRequest.UserId,
+		PhotoIds: previewRequest.PhotoIds,
+	}
+
+	result, total, err := u.calculatePrice(ctx, u.db, request)
 	if err != nil {
 		return nil, err
 	}
@@ -55,20 +60,38 @@ func (u *checkoutUseCase) PreviewCheckout(ctx context.Context, request *model.Pr
 	return converter.CheckoutItemToResponse(result, total.Price, total.Discount, &now), nil
 }
 
-func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.PreviewCheckoutRequest) (*[]*model.CheckoutItem, *model.Total, error) {
-	//ISSUE #3 creator_id should not checked (redudant from auth middleware)
-	//Find creator to make sure creator cannot buy their own photos
-	creator, err := u.creatorRepository.FindByUserId(ctx, request.UserId)
+func (u *checkoutUseCase) LockPhotosAndCalculatePrice(ctx context.Context, request *model.CalculateRequest) (*[]*model.CheckoutItem, *model.Total, error) {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user id")
-		}
-		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find creator by user id", err)
+		return nil, nil, err
 	}
 
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	result, total, err := u.calculatePrice(ctx, tx, request)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := u.photoRepository.UpdatePhotoStatusesByIDs(ctx, tx, enum.PhotoStatusInTransactionEnum, request.PhotoIds); err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to update photo statuses by photo ids with status IN_TRANSACTION ", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return nil, nil, err
+	}
+
+	return result, total, err
+}
+
+func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Querier, request *model.CalculateRequest) (*[]*model.CheckoutItem, *model.Total, error) {
+	//ISSUE #3 creator_id should not checked (redudant from auth middleware)
+	//Find creator to make sure creator cannot buy their own photos
+
 	// TODO tambahkan permistic locking ? dengan db transaction
-	log.Print("creator id", creator.Id, request.PhotoIds)
-	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, request.UserId, creator.Id, request.PhotoIds)
+	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, true)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
@@ -188,7 +211,7 @@ func (u *checkoutUseCase) CalculatePrice(ctx context.Context, request *model.Pre
 	return &result, total, nil
 }
 
-func (u *checkoutUseCase) OwnerOwnPhotos(ctx context.Context, ownerID string, photoIds []string) error {
+func (u *checkoutUseCase) OwnerOwnPhotos(ctx context.Context, request *model.OwnerOwnPhotosRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -198,8 +221,16 @@ func (u *checkoutUseCase) OwnerOwnPhotos(ctx context.Context, ownerID string, ph
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.photoRepository.UpdatePhotoOwnerByPhotoIds(ctx, tx, ownerID, photoIds); err != nil {
-		return helper.WrapInternalServerError(u.logs, "error update photo owner by photo ids", err)
+	_, err = u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.OwnerId, request.PhotoIds, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
+	}
+
+	if err := u.photoRepository.UpdatePhotoOwnerAndStatusByIds(ctx, tx, request.OwnerId, request.PhotoIds); err != nil {
+		return helper.WrapInternalServerError(u.logs, "error update photo owner and status by photo ids", err)
 	}
 
 	if err := repository.Commit(tx, u.logs); err != nil {
@@ -207,4 +238,33 @@ func (u *checkoutUseCase) OwnerOwnPhotos(ctx context.Context, ownerID string, ph
 	}
 
 	return nil
+}
+
+func (u *checkoutUseCase) CancelPhotos(ctx context.Context, request *model.CancelPhotosRequest) error {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	_, err = u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.UserId, request.PhotoIds, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
+	}
+
+	if err := u.photoRepository.UpdatePhotoStatusesByIDs(ctx, tx, enum.PhotoStatusAvailableEnum, request.PhotoIds); err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to update photo statuses by photo ids with status AVAILABLE ", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return err
+	}
+
+	return err
 }

@@ -33,6 +33,7 @@ const (
 	PhotoService_CreateBulkPhoto_FullMethodName             = "/photo.PhotoService/CreateBulkPhoto"
 	PhotoService_CreateBulkUserSimilarPhotos_FullMethodName = "/photo.PhotoService/CreateBulkUserSimilarPhotos"
 	PhotoService_GetPhotoWithDetails_FullMethodName         = "/photo.PhotoService/GetPhotoWithDetails"
+	PhotoService_CancelPhotos_FullMethodName                = "/photo.PhotoService/CancelPhotos"
 )
 
 // PhotoServiceClient is the client API for PhotoService service.
@@ -53,6 +54,7 @@ type PhotoServiceClient interface {
 	CreateBulkPhoto(ctx context.Context, in *CreateBulkPhotoRequest, opts ...grpc.CallOption) (*CreateBulkPhotoResponse, error)
 	CreateBulkUserSimilarPhotos(ctx context.Context, in *CreateBulkUserSimilarPhotoRequest, opts ...grpc.CallOption) (*CreateBulkUserSimilarPhotoResponse, error)
 	GetPhotoWithDetails(ctx context.Context, in *GetPhotoWithDetailsRequest, opts ...grpc.CallOption) (*GetPhotoWithDetailsResponse, error)
+	CancelPhotos(ctx context.Context, in *CancelPhotosRequest, opts ...grpc.CallOption) (*CancelPhotosResponse, error)
 }
 
 type photoServiceClient struct {
@@ -203,6 +205,16 @@ func (c *photoServiceClient) GetPhotoWithDetails(ctx context.Context, in *GetPho
 	return out, nil
 }
 
+func (c *photoServiceClient) CancelPhotos(ctx context.Context, in *CancelPhotosRequest, opts ...grpc.CallOption) (*CancelPhotosResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelPhotosResponse)
+	err := c.cc.Invoke(ctx, PhotoService_CancelPhotos_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PhotoServiceServer is the server API for PhotoService service.
 // All implementations must embed UnimplementedPhotoServiceServer
 // for forward compatibility.
@@ -221,6 +233,7 @@ type PhotoServiceServer interface {
 	CreateBulkPhoto(context.Context, *CreateBulkPhotoRequest) (*CreateBulkPhotoResponse, error)
 	CreateBulkUserSimilarPhotos(context.Context, *CreateBulkUserSimilarPhotoRequest) (*CreateBulkUserSimilarPhotoResponse, error)
 	GetPhotoWithDetails(context.Context, *GetPhotoWithDetailsRequest) (*GetPhotoWithDetailsResponse, error)
+	CancelPhotos(context.Context, *CancelPhotosRequest) (*CancelPhotosResponse, error)
 	mustEmbedUnimplementedPhotoServiceServer()
 }
 
@@ -272,6 +285,9 @@ func (UnimplementedPhotoServiceServer) CreateBulkUserSimilarPhotos(context.Conte
 }
 func (UnimplementedPhotoServiceServer) GetPhotoWithDetails(context.Context, *GetPhotoWithDetailsRequest) (*GetPhotoWithDetailsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPhotoWithDetails not implemented")
+}
+func (UnimplementedPhotoServiceServer) CancelPhotos(context.Context, *CancelPhotosRequest) (*CancelPhotosResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelPhotos not implemented")
 }
 func (UnimplementedPhotoServiceServer) mustEmbedUnimplementedPhotoServiceServer() {}
 func (UnimplementedPhotoServiceServer) testEmbeddedByValue()                      {}
@@ -546,6 +562,24 @@ func _PhotoService_GetPhotoWithDetails_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PhotoService_CancelPhotos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelPhotosRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PhotoServiceServer).CancelPhotos(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PhotoService_CancelPhotos_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PhotoServiceServer).CancelPhotos(ctx, req.(*CancelPhotosRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PhotoService_ServiceDesc is the grpc.ServiceDesc for PhotoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -608,6 +642,10 @@ var PhotoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPhotoWithDetails",
 			Handler:    _PhotoService_GetPhotoWithDetails_Handler,
+		},
+		{
+			MethodName: "CancelPhotos",
+			Handler:    _PhotoService_CancelPhotos_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

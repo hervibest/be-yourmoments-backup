@@ -26,6 +26,8 @@ type Photo struct {
 	OriginalAt       time.Time       `db:"original_at"`
 	CreatedAt        time.Time       `db:"created_at"`
 	UpdatedAt        time.Time       `db:"updated_at"`
+
+	Status enum.PhotoStatusEnum `db:"status"`
 }
 
 type PhotoWithDetail struct {
@@ -48,4 +50,6 @@ type PhotoWithDetail struct {
 	Width           int32                `db:"width"`
 	Height          int32                `db:"height"`
 	YourMomentsType enum.YourMomentsType `db:"your_moments_type"`
+
+	Status enum.PhotoStatusEnum `db:"status"`
 }

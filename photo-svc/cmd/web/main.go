@@ -133,7 +133,7 @@ func webServer() error {
 		logs.Error(err)
 	}
 
-	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
+	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
 
 	storageAdapter := adapter.NewStorageAdapter(minioConfig)
 	CDNAdapter := adapter.NewCDNadapter()
@@ -210,7 +210,7 @@ func webServer() error {
 	}
 	routeConfig.Setup()
 
-	logs.Log(fmt.Sprintf("Succsess connected http service at port: %v", serverConfig.HTTP))
+	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
 
 	err = app.Listen(serverConfig.HTTP)
 

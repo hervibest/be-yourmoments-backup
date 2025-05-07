@@ -12,30 +12,11 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type explorePreparedStmt struct {
-	findByUserId *sqlx.Stmt
-}
-
-func newExplorePreparedStmt(db *sqlx.DB) (*explorePreparedStmt, error) {
-	findByUserIdStmt, err := db.Preparex(`SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
-	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
-	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
-	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1`)
-	if err != nil {
-		return nil, err
-	}
-
-	return &explorePreparedStmt{
-		findByUserId: findByUserIdStmt,
-	}, nil
-}
-
 type ExploreRepository interface {
 	FindAllExploreSimilar(ctx context.Context, tx Querier, page int, size int, similarity uint32, userId string) ([]*entity.Explore, *model.PageMetadata, error)
 	FindAllUserCart(ctx context.Context, tx Querier, page int, size int, similarity uint32, userId string) ([]*entity.Explore, *model.PageMetadata, error)
 	FindAllUserFavorite(ctx context.Context, tx Querier, page int, size int, similarity uint32, userId string) ([]*entity.Explore, *model.PageMetadata, error)
 	FindAllUserWishlist(ctx context.Context, tx Querier, page int, size int, similarity uint32, userId string) ([]*entity.Explore, *model.PageMetadata, error)
-	FindByUserId(ctx context.Context, userId string) (*[]*entity.Explore, error)
 	UserAddCart(ctx context.Context, tx Querier, similarity uint32, photoId string, userId string) error
 	UserAddFavorite(ctx context.Context, tx Querier, similarity uint32, photoId string, userId string) error
 	UserAddWishlist(ctx context.Context, tx Querier, similarity uint32, photoId string, userId string) error
@@ -45,43 +26,14 @@ type ExploreRepository interface {
 }
 
 type exploreRepository struct {
-	explorePreparedStmt *explorePreparedStmt
 }
 
 func NewExploreRepository(db *sqlx.DB) (ExploreRepository, error) {
-	explorePreparedStmt, err := newExplorePreparedStmt(db)
-	if err != nil {
-		return nil, err
-	}
-
-	return &exploreRepository{
-		explorePreparedStmt: explorePreparedStmt,
-	}, nil
-}
-
-func (r *exploreRepository) FindByUserId(ctx context.Context, userId string) (*[]*entity.Explore, error) {
-	explores := make([]*entity.Explore, 0)
-
-	rows, err := r.explorePreparedStmt.findByUserId.QueryxContext(ctx, userId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		explore := new(entity.Explore)
-		err := rows.StructScan(explore)
-		if err != nil {
-			return nil, err
-		}
-
-		explores = append(explores, explore)
-	}
-
-	return &explores, nil
+	return &exploreRepository{}, nil
 }
 
 // ISSUE #5 : Creators cannot explore their own  photos
+// User who owned picture can see but the other no
 // You have to make sure in AI logic only past different user_id (not same)
 func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querier, page, size int, similarity uint32, userId string) ([]*entity.Explore, *model.PageMetadata, error) {
 	results := make([]*entity.Explore, 0)
@@ -167,6 +119,8 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 
 	WHERE usp.user_id = $1
 	AND usp.similarity >= $2
+	AND p.status = 'AVAILABLE' OR p.status= 'SOLD'
+	AND (p.owned_by_user_id IS NULL OR p.owned_by_user_id = $1)
 	`
 
 	var queryArgs []interface{}
@@ -186,9 +140,6 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 	// 	countQuery += " WHERE " + strings.Join(conditions, " AND ")
 	// }
 
-	// log.Print(countQuery)
-	// log.Print(countArgs...)
-
 	countArgs = append(countArgs, userId, similarity)
 
 	if err := tx.GetContext(ctx, &totalItems, countQuery, countArgs...); err != nil {
@@ -196,31 +147,12 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 		return nil, nil, err
 	}
 
-	log.Print("tota items", totalItems)
-
 	pageMetadata := helper.CalculatePagination(int64(totalItems), page, size)
 
 	query += " LIMIT $" + strconv.Itoa(argIndex) + " OFFSET $" + strconv.Itoa(argIndex+1)
 	queryArgs = append(queryArgs, userId, similarity, pageMetadata.Size, pageMetadata.Offset)
-	// log.Println(query)
-	// log.Println(queryArgs...)
 
-	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
-	if err != nil {
-		log.Printf("Queryx context error in explore %v", err)
-		return nil, nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		result := new(entity.Explore)
-		if err := rows.StructScan(result); err != nil {
-			return nil, nil, err
-		}
-		results = append(results, result)
-	}
-
-	if err := rows.Err(); err != nil {
+	if err := tx.SelectContext(ctx, &results, query, queryArgs...); err != nil {
 		return nil, nil, err
 	}
 
@@ -228,7 +160,6 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 }
 
 func (r *exploreRepository) FindAllUserWishlist(ctx context.Context, tx Querier, page, size int, similarity uint32, userId string) ([]*entity.Explore, *model.PageMetadata, error) {
-
 	results := make([]*entity.Explore, 0)
 
 	var totalItems int
@@ -236,11 +167,35 @@ func (r *exploreRepository) FindAllUserWishlist(ctx context.Context, tx Querier,
 
 	var countArgs []interface{}
 
-	query := `SELECT usp.photo_id, usp.user_id, usp.similarity, usp.is_wishlist,
-	usp.is_resend, usp.is_cart, usp.is_favorite, p.creator_id, p.title, p.is_this_you_url,
-	p.your_moments_url, p.price, p.price_str, p. original_at, p.created_at, p.updated_at
-	FROM user_similar_photos AS usp JOIN photos AS p on p.id = usp.photo_id WHERE usp.user_id = $1 AND usp.is_wishlist = true`
-	//TO DO ADD logic for
+	query := `
+	SELECT
+		usp.photo_id,
+		usp.user_id,
+		usp.similarity,
+		usp.is_wishlist,
+		usp.is_resend,
+		usp.is_cart,
+		usp.is_favorite,
+
+		p.creator_id,
+		p.title,
+		p.is_this_you_url,
+		p.your_moments_url,
+		p.price,
+		p.price_str,
+		p.original_at,
+		p.created_at,
+		p.updated_at
+	FROM
+		user_similar_photos AS usp
+	JOIN
+		photos AS p ON p.id = usp.photo_id
+	WHERE
+		usp.user_id = $1
+		AND usp.is_wishlist = true
+		-- TODO: Add logic for additional filtering (e.g., photo availability, ownership)
+		`
+
 	var queryArgs []interface{}
 
 	// var conditions []string
@@ -274,21 +229,7 @@ func (r *exploreRepository) FindAllUserWishlist(ctx context.Context, tx Querier,
 	// log.Println(query)
 	// log.Println(queryArgs...)
 
-	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		result := new(entity.Explore)
-		if err := rows.StructScan(result); err != nil {
-			return nil, nil, err
-		}
-		results = append(results, result)
-	}
-
-	if err := rows.Err(); err != nil {
+	if err := tx.SelectContext(ctx, &results, query, queryArgs...); err != nil {
 		return nil, nil, err
 	}
 
@@ -360,21 +301,7 @@ func (r *exploreRepository) FindAllUserFavorite(ctx context.Context, tx Querier,
 	// log.Println(query)
 	// log.Println(queryArgs...)
 
-	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		result := new(entity.Explore)
-		if err := rows.StructScan(result); err != nil {
-			return nil, nil, err
-		}
-		results = append(results, result)
-	}
-
-	if err := rows.Err(); err != nil {
+	if err := tx.SelectContext(ctx, &results, query, queryArgs...); err != nil {
 		return nil, nil, err
 	}
 
@@ -446,24 +373,9 @@ func (r *exploreRepository) FindAllUserCart(ctx context.Context, tx Querier, pag
 	// log.Println(query)
 	// log.Println(queryArgs...)
 
-	rows, err := tx.QueryxContext(ctx, query, queryArgs...)
-	if err != nil {
+	if err := tx.SelectContext(ctx, &results, query, queryArgs...); err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		result := new(entity.Explore)
-		if err := rows.StructScan(result); err != nil {
-			return nil, nil, err
-		}
-		results = append(results, result)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, nil, err
-	}
-
 	return results, pageMetadata, nil
 }
 

@@ -22,6 +22,8 @@ service PhotoService{
   rpc CreateBulkPhoto(CreateBulkPhotoRequest) returns (CreateBulkPhotoResponse);
   rpc CreateBulkUserSimilarPhotos(CreateBulkUserSimilarPhotoRequest) returns (CreateBulkUserSimilarPhotoResponse);
   rpc GetPhotoWithDetails(GetPhotoWithDetailsRequest) returns (GetPhotoWithDetailsResponse);
+  rpc CancelPhotos(CancelPhotosRequest) returns (CancelPhotosResponse);
+
 }
 
 
@@ -220,7 +222,8 @@ message Total {
 
 message CalculatePhotoPriceRequest {
   string user_id = 1;
-  repeated string photo_ids = 2; 
+  string  creator_id = 2;
+  repeated string photo_ids = 3; 
 }
 
 message CalculatePhotoPriceResponse {
@@ -288,3 +291,12 @@ message GetPhotoWithDetailsResponse {
   repeated Photo photo_with_details = 2;
   string error = 3;
 }
+
+message CancelPhotosRequest {
+  string user_id = 1;
+  repeated string photo_ids = 2; 
+}
+
+message CancelPhotosResponse {
+  int64   status  = 1;
+  string  error   = 2;}

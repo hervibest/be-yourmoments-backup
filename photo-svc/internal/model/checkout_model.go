@@ -43,6 +43,22 @@ type PreviewCheckoutRequest struct {
 	PhotoIds []string `json:"photo_ids" validate:"required"`
 }
 
+type CalculateRequest struct {
+	UserId    string   `json:"user_id" validate:"required"`
+	CreatorId string   `json:"creator_id" validate:"required"`
+	PhotoIds  []string `json:"photo_ids" validate:"required"`
+}
+
+type OwnerOwnPhotosRequest struct {
+	OwnerId  string   `json:"user_id" validate:"required"`
+	PhotoIds []string `json:"photo_ids" validate:"required"`
+}
+
+type CancelPhotosRequest struct {
+	UserId   string   `json:"user_id" validate:"required"`
+	PhotoIds []string `json:"photo_ids" validate:"required"`
+}
+
 type PreviewCheckoutResponse struct {
 	Items         *[]*CheckoutItemWeb `json:"items"`
 	TotalPrice    int32               `json:"total_price"`
