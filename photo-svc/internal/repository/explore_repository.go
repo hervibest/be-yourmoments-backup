@@ -119,7 +119,7 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 
 	WHERE usp.user_id = $1
 	AND usp.similarity >= $2
-	AND p.status = 'AVAILABLE' OR p.status= 'SOLD'
+	AND (p.status = 'AVAILABLE' OR p.status= 'SOLD')
 	AND (p.owned_by_user_id IS NULL OR p.owned_by_user_id = $1)
 	`
 
