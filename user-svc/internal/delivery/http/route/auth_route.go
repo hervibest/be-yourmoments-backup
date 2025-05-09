@@ -10,6 +10,7 @@ func (c *RouteConfig) SetupAuthRoute() {
 	userRoutes.Post("/verify/:token", c.AuthController.VerifyEmail)
 
 	userRoutes.Post("/login", c.AuthController.Login)
+	userRoutes.Post("/device-token", c.AuthMiddleware, c.AuthController.CreateDeviceToken)
 	userRoutes.Post("/request-access-token", c.AuthController.RequestAccessToken)
 
 	userRoutes.Post("/reset-password/request", c.AuthController.RequestResetPassword)

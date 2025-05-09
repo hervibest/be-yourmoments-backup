@@ -376,10 +376,8 @@ func (r *userRepository) FindAllPublicChat(ctx context.Context, tx Querier, page
 }
 
 func (r *userRepository) UpdateEmailVerifiedAt(ctx context.Context, tx Querier, user *entity.User) (*entity.User, error) {
-	query := `UPDATE users set email_verified_at = $1, updated_at = $2 WHERE email = $3`
-
-	_, err := tx.ExecContext(ctx, query, user.EmailVerifiedAt, user.UpdatedAt, user.Email)
-	if err != nil {
+	query := `UPDATE users set email_verified_at = $1, updated_at = $2 WHERE email = $3 RETURNING *`
+	if err := tx.GetContext(ctx, user, query, user.EmailVerifiedAt, user.UpdatedAt, user.Email); err != nil {
 		return nil, err
 	}
 

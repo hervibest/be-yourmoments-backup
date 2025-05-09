@@ -13,6 +13,7 @@ import (
 )
 
 type AuthController interface {
+	CreateDeviceToken(ctx *fiber.Ctx) error
 	Current(ctx *fiber.Ctx) error
 	Login(ctx *fiber.Ctx) error
 	Logout(ctx *fiber.Ctx) error
@@ -237,6 +238,28 @@ func (c *authController) Login(ctx *fiber.Ctx) error {
 	})
 }
 
+func (c *authController) CreateDeviceToken(ctx *fiber.Ctx) error {
+	request := new(model.DeviceRequest)
+	if err := ctx.BodyParser(request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	auth := middleware.GetUser(ctx)
+	request.UserId = auth.UserId
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	if err := c.authUseCase.CreateDeviceToken(ctx.Context(), request); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Create device token error : ", err, c.logs)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+		Success: true,
+	})
+}
+
 func (c *authController) Current(ctx *fiber.Ctx) error {
 	auth := middleware.GetUser(ctx)
 
@@ -287,6 +310,7 @@ func (c *authController) Logout(ctx *fiber.Ctx) error {
 
 	request.UserId = auth.UserId
 	request.AccessToken = auth.Token
+	request.ExpiresAt = auth.ExpiresAt
 
 	valid, err := c.authUseCase.Logout(ctx.Context(), request)
 	if err != nil {

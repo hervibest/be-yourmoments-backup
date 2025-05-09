@@ -59,12 +59,15 @@ type ResetPasswordUserRequest struct {
 }
 
 type LoginUserRequest struct {
-	MultipleParam string                `json:"multiple_param" validate:"required,email,max=100"`
-	DeviceToken   string                `json:"device_token" validate:"required"`
-	Platform      enum.PlatformTypeEnum `json:"platform" validate:"required"`
-	Password      string                `json:"password" validate:"required,max=100"`
+	MultipleParam string `json:"multiple_param" validate:"required,email,max=100"`
+	Password      string `json:"password" validate:"required,max=100"`
 }
 
+type DeviceRequest struct {
+	UserId      string
+	DeviceToken string                `json:"device_token" validate:"required"`
+	Platform    enum.PlatformTypeEnum `json:"platform" validate:"required"`
+}
 type VerifyUserRequest struct {
 	Token string `validate:"required"`
 }

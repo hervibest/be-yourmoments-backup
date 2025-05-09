@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
@@ -15,6 +16,7 @@ import (
 	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/nullable"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
@@ -28,6 +30,7 @@ import (
 
 type AuthUseCase interface {
 	AccessTokenRequest(ctx context.Context, refreshToken string) (*model.UserResponse, *model.TokenResponse, error)
+	CreateDeviceToken(ctx context.Context, request *model.DeviceRequest) error
 	Current(ctx context.Context, email string) (*model.UserResponse, error)
 	Login(ctx context.Context, request *model.LoginUserRequest) (*model.UserResponse, *model.TokenResponse, error)
 	Logout(ctx context.Context, request *model.LogoutUserRequest) (bool, error)
@@ -186,8 +189,15 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to count by email google id", err)
 	}
 
+	var user *entity.User
+	var wallet *entity.Wallet
+	var creator *entity.Creator
+	var userProfile *entity.UserProfile
+	var wg sync.WaitGroup
+
+	// If user already registered
 	if countByGoogleTotal > 0 {
-		user, err := u.userRepository.FindByEmail(ctx, claims.Email)
+		user, err = u.userRepository.FindByEmail(ctx, claims.Email)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
@@ -196,7 +206,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 		}
 
 		// ISSUE #6
-		userProfile, err := u.userProfileRepository.FindByUserId(ctx, user.Id)
+		userProfile, err = u.userProfileRepository.FindByUserId(ctx, user.Id)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
@@ -204,52 +214,22 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
 		}
 
-		creator, err := u.photoAdapter.GetCreator(ctx, user.Id)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create creator", err)
-		}
+		wg.Add(1)
+		go func() {
+			creator, err = u.photoAdapter.GetCreator(ctx, user.Id)
+			if err != nil {
+				u.logs.Error(fmt.Sprint("failed to get creator from photo service with error : ", err))
+				// return nil, nil, helper.WrapInternalServerError(u.logs, "failed to get creator from photo service with error : ", err)
+			}
 
-		wallet, err := u.transactionAdapter.GetWallet(ctx, creator.Id)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create wallet by creator id", err)
-		}
+			wallet, err = u.transactionAdapter.GetWallet(ctx, creator.Id)
+			if err != nil {
+				u.logs.Error(fmt.Sprint("failed to get wallet by creator id from wallet service with error : ", err))
+				// return nil, nil, helper.WrapInternalServerError(u.logs, "failed to get wallet by creator id from wallet service with error : ", err)
+			}
 
-		auth := &entity.Auth{
-			Id:          user.Id,
-			Username:    user.Username,
-			Email:       user.Email.String,
-			PhoneNumber: user.PhoneNumber.String,
-			CreatorId:   creator.Id,
-			WalletId:    wallet.Id,
-			Similarity:  userProfile.Similarity,
-		}
-
-		now := time.Now()
-
-		userDevice := &entity.UserDevice{
-			Id:        ulid.Make().String(),
-			UserId:    user.Id,
-			Token:     request.DeviceToken,
-			Platform:  request.Platform,
-			CreatedAt: &now,
-		}
-
-		_, err = u.userDeviceRepository.Create(ctx, u.db, userDevice)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
-		}
-
-		setKey := fmt.Sprintf("fcm_tokens:%s", user.Id)
-		if err := u.cacheAdapter.SAdd(ctx, setKey, request.DeviceToken); err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to SAdd redis set", err)
-		}
-
-		token, err := u.generateToken(ctx, auth)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
-		}
-
-		return converter.UserToResponse(user), token, nil
+			wg.Done()
+		}()
 	} else {
 		tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 		if err != nil {
@@ -261,7 +241,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 		}()
 
 		now := time.Now()
-		user := &entity.User{
+		user = &entity.User{
 			Id: ulid.Make().String(),
 			Email: sql.NullString{
 				Valid:  true,
@@ -281,7 +261,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user by google sign in", err)
 		}
 
-		userProfile := &entity.UserProfile{
+		userProfile = &entity.UserProfile{
 			Id:     ulid.Make().String(),
 			UserId: user.Id,
 			// BirthDate: request.BirthDate,
@@ -300,78 +280,90 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create with profile url", err)
 		}
 
-		userDevice := &entity.UserDevice{
-			Id:        ulid.Make().String(),
-			UserId:    user.Id,
-			Token:     request.DeviceToken,
-			Platform:  request.Platform,
-			CreatedAt: &now,
-		}
-
-		_, err = u.userDeviceRepository.Create(ctx, tx, userDevice)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
-		}
-
 		if err := repository.Commit(tx, u.logs); err != nil {
 			return nil, nil, err
 		}
 
-		setKey := fmt.Sprintf("fcm_tokens:%s", user.Id)
-		if err := u.cacheAdapter.SAdd(ctx, setKey, request.DeviceToken); err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to SAdd redis set", err)
-		}
-
-		//TODO apakah bisa dirapikan atau diwrap ke dalam adapter ?
-		//TODO apakah bisa dirapikan atau diwrap ke dalam adapter ?
-
 		go func() {
-			userRef := u.firestoreAdapter.Collection("users").Doc(user.Id)
-			_, err = userRef.Get(ctx)
-			if err != nil {
-				_, err := userRef.Set(ctx, map[string]interface{}{
-					"userId":     user.Id,
-					"profileId":  userProfile.Id,
-					"nickname":   userProfile.Nickname,
-					"profileUrl": userProfile.ProfileUrl.String,
-					"createdAt":  firestore.ServerTimestamp,
-					"updatedAt":  firestore.ServerTimestamp,
-				})
-				if err != nil {
-					u.logs.Error(err)
-				}
-			}
-
-			u.logs.Log("go routine done processing")
+			u.createChatRoom(context.Background(), user, userProfile)
 		}()
 
-		creator, err := u.photoAdapter.CreateCreator(ctx, user.Id)
+		creator, wallet, err = u.createCreatorAndWallet(ctx, user.Id)
 		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create creator", err)
+			return nil, nil, err
 		}
-
-		wallet, err := u.transactionAdapter.CreateWallet(ctx, creator.Id)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create wallet by creator id", err)
-		}
-
-		auth := &entity.Auth{
-			Id:          user.Id,
-			Username:    user.Username,
-			Email:       user.Email.String,
-			PhoneNumber: user.PhoneNumber.String,
-			Similarity:  userProfile.Similarity,
-			CreatorId:   creator.Id,
-			WalletId:    wallet.Id,
-		}
-
-		token, err := u.generateToken(ctx, auth)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to generate token :", err)
-		}
-
-		return converter.UserToResponse(user), token, nil
 	}
+
+	wg.Wait()
+
+	now := time.Now()
+	userDevice := &entity.UserDevice{
+		Id:        ulid.Make().String(),
+		UserId:    user.Id,
+		Token:     request.DeviceToken,
+		Platform:  request.Platform,
+		CreatedAt: &now,
+	}
+
+	_, err = u.userDeviceRepository.Create(ctx, u.db, userDevice)
+	if err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
+	}
+
+	setKey := fmt.Sprintf("fcm_tokens:%s", user.Id)
+	if err := u.cacheAdapter.SAdd(ctx, setKey, request.DeviceToken); err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to SAdd redis set", err)
+	}
+
+	auth := &entity.Auth{
+		Id:          user.Id,
+		Username:    user.Username,
+		Email:       user.Email.String,
+		PhoneNumber: user.PhoneNumber.String,
+		Similarity:  userProfile.Similarity,
+		CreatorId:   creator.Id,
+		WalletId:    wallet.Id,
+	}
+
+	token, err := u.generateToken(ctx, auth)
+	if err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to generate token :", err)
+	}
+
+	return converter.UserToResponse(user), token, nil
+}
+
+func (u *authUseCase) createChatRoom(ctx context.Context, user *entity.User, userProfile *entity.UserProfile) {
+	//TODO apakah bisa dirapikan atau diwrap ke dalam adapter ?
+	userRef := u.firestoreAdapter.Collection("users").Doc(user.Id)
+	_, err := userRef.Get(ctx)
+	if err != nil {
+		_, err := userRef.Set(ctx, map[string]interface{}{
+			"userId":     user.Id,
+			"profileId":  userProfile.Id,
+			"nickname":   userProfile.Nickname,
+			"profileUrl": nullable.SQLStringToPtr(userProfile.ProfileUrl),
+			"createdAt":  firestore.ServerTimestamp,
+			"updatedAt":  firestore.ServerTimestamp,
+		})
+		if err != nil {
+			u.logs.Error(fmt.Sprintf("Failed to create or get rooms from firebase when create user by google with err : %v and user id : %s", err, user.Id))
+		}
+	}
+}
+
+func (u *authUseCase) createCreatorAndWallet(ctx context.Context, userId string) (*entity.Creator, *entity.Wallet, error) {
+	creator, err := u.photoAdapter.CreateCreator(ctx, userId)
+	if err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create creator", err)
+	}
+
+	wallet, err := u.transactionAdapter.CreateWallet(ctx, creator.Id)
+	if err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create wallet by creator id", err)
+	}
+
+	return creator, wallet, nil
 }
 
 func (u *authUseCase) RegisterByEmail(ctx context.Context, request *model.RegisterByEmailRequest) (*model.UserResponse, error) {
@@ -567,7 +559,7 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, request *model.VerifyEmai
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	_, err = u.userRepository.UpdateEmailVerifiedAt(ctx, tx, user)
+	user, err = u.userRepository.UpdateEmailVerifiedAt(ctx, tx, user)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to update user email verified_at", err)
 	}
@@ -579,6 +571,19 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, request *model.VerifyEmai
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
+
+	userProfile, err := u.userProfileRepository.FindByUserId(ctx, user.Id)
+	if err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to get user profile", err)
+	}
+
+	go func() {
+		u.createChatRoom(context.Background(), user, userProfile)
+		_, _, err := u.createCreatorAndWallet(ctx, user.Id)
+		if err != nil {
+			u.logs.Error(fmt.Sprintf("Failed to create creator or wallet with error : %v", err))
+		}
+	}()
 
 	return nil
 }
@@ -774,10 +779,19 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 		WalletId:    wallet.Id,
 	}
 
+	token, err := u.generateToken(ctx, auth)
+	if err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to generate token", err)
+	}
+
+	return converter.UserToResponse(user), token, nil
+}
+
+func (u *authUseCase) CreateDeviceToken(ctx context.Context, request *model.DeviceRequest) error {
 	now := time.Now()
 	userDevice := &entity.UserDevice{
 		Id:        ulid.Make().String(),
-		UserId:    user.Id,
+		UserId:    request.UserId,
 		Token:     request.DeviceToken,
 		Platform:  request.Platform,
 		CreatedAt: &now,
@@ -785,7 +799,7 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
 	defer func() {
@@ -794,19 +808,13 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 
 	_, err = u.userDeviceRepository.Create(ctx, tx, userDevice)
 	if err != nil {
-		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
+		return helper.WrapInternalServerError(u.logs, "failed to create user device", err)
 	}
 
 	if err := repository.Commit(tx, u.logs); err != nil {
-		return nil, nil, err
+		return err
 	}
-
-	token, err := u.generateToken(ctx, auth)
-	if err != nil {
-		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to generate token", err)
-	}
-
-	return converter.UserToResponse(user), token, nil
+	return nil
 }
 
 func (u *authUseCase) generateToken(ctx context.Context, auth *entity.Auth) (*model.TokenResponse, error) {
@@ -903,11 +911,11 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 
 func (u *authUseCase) Logout(ctx context.Context, request *model.LogoutUserRequest) (bool, error) {
 	if err := u.cacheAdapter.Set(ctx, request.AccessToken, "revoked", time.Until(request.ExpiresAt)); err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to save access token to cache", err)
+		return false, helper.WrapInternalServerError(u.logs, "failed to save access token to cache for logout : ", err)
 	}
 
 	if err := u.cacheAdapter.Del(ctx, request.RefreshToken); err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to save refresh token to cache", err)
+		return false, helper.WrapInternalServerError(u.logs, "failed to delete refresh token from cache for logout : ", err)
 	}
 
 	return true, nil
