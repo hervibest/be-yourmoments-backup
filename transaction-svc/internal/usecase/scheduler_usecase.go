@@ -7,12 +7,12 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
-	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/contract"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase/contract"
 	"github.com/jmoiron/sqlx"
 	"github.com/midtrans/midtrans-go/coreapi"
 )

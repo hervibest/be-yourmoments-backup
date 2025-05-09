@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
-	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/contract"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum/error"
@@ -22,6 +21,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase/contract"
 	"github.com/redis/go-redis/v9"
 	"github.com/sony/gobreaker"
 

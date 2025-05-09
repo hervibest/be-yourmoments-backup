@@ -11,9 +11,9 @@ type GetWalletRequest struct {
 }
 
 type WalletResponse struct {
-	Id        string
-	CreatorId string
-	Balance   int
-	CreatedAt *time.Time
-	UpdatedAt *time.Time
+	Id        string     `json:"id"`
+	CreatorId string     `json:"creator_id"`
+	Balance   int        `json:"balance"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
