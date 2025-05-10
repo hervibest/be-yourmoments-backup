@@ -21,6 +21,7 @@ import (
 type CreatorUseCase interface {
 	CreateCreator(ctx context.Context, req *model.CreateCreatorRequest) (*model.CreatorResponse, error)
 	GetCreator(ctx context.Context, req *model.GetCreatorRequest) (*model.CreatorResponse, error)
+	UpdateCreatorTotalReview(ctx context.Context, req *model.UpdateCreatorTotalRatingRequest) (*model.CreatorResponse, error)
 }
 
 type creatorUseCase struct {
@@ -66,11 +67,6 @@ func (u *creatorUseCase) CreateCreator(ctx context.Context, req *model.CreateCre
 		return nil, err
 	}
 
-	// _, err = u.transactionAdapter.CreateWallet(ctx, creator.Id)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	return converter.CreatorToResponse(creator), nil
 }
 
@@ -81,6 +77,37 @@ func (u *creatorUseCase) GetCreator(ctx context.Context, request *model.GetCreat
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user id")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find creator by user id", err)
+	}
+
+	return converter.CreatorToResponse(creator), nil
+}
+
+func (u *creatorUseCase) UpdateCreatorTotalReview(ctx context.Context, req *model.UpdateCreatorTotalRatingRequest) (*model.CreatorResponse, error) {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	now := time.Now()
+
+	creator := &entity.Creator{
+		Id:          req.Id,
+		Rating:      req.Rating,
+		RatingCount: req.RatingCount,
+		UpdatedAt:   &now,
+	}
+
+	creator, err = u.creatorRepository.UpdateCreatorRating(ctx, tx, creator)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to update creator total review to database", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return nil, err
 	}
 
 	return converter.CreatorToResponse(creator), nil

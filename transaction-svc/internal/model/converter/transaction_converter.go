@@ -56,10 +56,11 @@ func TransactionAndPhotoToSingleResponse(
 		detail, exists := detailMap[trx.CreatorId]
 		if !exists {
 			detail = &model.TransactionDetailResponse{
-				CreatorId:         trx.CreatorId,
-				CreatorDiscountId: trx.CreatorDiscountId,
-				IsReviewed:        trx.IsReviewed,
-				Photo:             &[]*model.PhotoResponse{},
+				TransactionDetailId: trx.TranscationDetailId,
+				CreatorId:           trx.CreatorId,
+				CreatorDiscountId:   trx.CreatorDiscountId,
+				IsReviewed:          trx.IsReviewed,
+				Photo:               &[]*model.PhotoResponse{},
 			}
 			detailMap[trx.CreatorId] = detail
 		}

@@ -57,6 +57,7 @@ func webServer() error {
 	midtransConfig := config.NewMidtransClient()
 	redisConfig := config.NewRedisClient()
 	goCronConfig := config.NewGocron()
+	jetStreamConfig := config.NewJetStream()
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -135,7 +136,8 @@ func webServer() error {
 	}
 	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
 	paymentAdapter := adapter.NewPaymentAdapter(midtransConfig, cacheAdapter, logs)
-	transactionProducer := producer.NewTransactionProducer(cacheAdapter)
+	messagingAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
+	transactionProducer := producer.NewTransactionProducer(cacheAdapter, messagingAdapter)
 
 	customValidator := helper.NewCustomValidator()
 	timeParserHelper := helper.NewTimeParserHelper(logs)
@@ -158,7 +160,7 @@ func webServer() error {
 	walletUseCase := usecase.NewWalletUseCase(walletRepository, dbConfig, logs)
 	bankUseCase := usecase.NewBankUseCase(dbConfig, bankRepository, logs)
 	bankWalletUseCase := usecase.NewBankWalletUseCase(dbConfig, bankWalletRepoistory, logs)
-	reviewUseCase := usecase.NewReviewUseCase(transactionDetailRepo, creatorReviewRepo, dbConfig, logs)
+	reviewUseCase := usecase.NewReviewUseCase(transactionDetailRepo, creatorReviewRepo, transactionProducer, dbConfig, logs)
 	withdrawalUseCase := usecase.NewWithdrawalUseCase(dbConfig, withdrawalRepository, walletRepository, logs)
 	transactionWalletUC := usecase.NewTransactionWalletUseCase(dbConfig, transactionWalletRepo, logs)
 	cancelationUseCase := usecase.NewCancelationUseCase(dbConfig, transactionRepo, logs)

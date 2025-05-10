@@ -69,7 +69,7 @@ func (r *transactionDetailRepository) UpdateReviewStatus(ctx context.Context, tx
 	const query = `
         UPDATE transaction_details SET is_reviewed = $1 WHERE id = $2
     `
-	_, err := tx.ExecContext(ctx, query, transactionDetail.Id)
+	_, err := tx.ExecContext(ctx, query, transactionDetail.IsReviewed, transactionDetail.Id)
 	if err != nil {
 		return nil, err
 	}

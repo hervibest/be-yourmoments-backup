@@ -27,6 +27,7 @@ func newCreatorPreparedStmt(db *sqlx.DB) (*creatorPreparedStmt, error) {
 type CreatorRepository interface {
 	Create(ctx context.Context, tx Querier, creator *entity.Creator) (*entity.Creator, error)
 	FindByUserId(ctx context.Context, userId string) (*entity.Creator, error)
+	UpdateCreatorRating(ctx context.Context, tx Querier, creator *entity.Creator) (*entity.Creator, error)
 }
 
 type creatorRepository struct {
@@ -68,12 +69,18 @@ func (r *creatorRepository) FindByUserId(ctx context.Context, userId string) (*e
 }
 
 func (r *creatorRepository) UpdateCreatorRating(ctx context.Context, tx Querier, creator *entity.Creator) (*entity.Creator, error) {
-	query := `INSERT INTO creators  (id, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4)`
+	query := `
+		UPDATE creators
+		SET
+			rating = $1,
+			rating_count = $2,
+			updated_at = $3
+		WHERE id = $4
+	`
 
-	_, err := tx.ExecContext(ctx, query, creator.Id, creator.UserId, creator.CreatedAt, creator.UpdatedAt)
-
+	_, err := tx.ExecContext(ctx, query, creator.Rating, creator.RatingCount, creator.UpdatedAt, creator.Id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert creator: %w", err)
+		return nil, fmt.Errorf("failed to update creator rating: %w", err)
 	}
 
 	return creator, nil

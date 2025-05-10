@@ -338,13 +338,16 @@ func (u *notificationUseCase) sendMulticast(ctx context.Context, userID string, 
 	for i, r := range res.Responses {
 		if !r.Success {
 			token := tokens[i]
+			u.logs.Log(fmt.Sprintf("[MULTICAST][CHECKER] userID=%s, token=%s, raw=%v", userID, token, r.Error))
+
 			fcmErr := helper.ParseFCMError(r.Error)
 
 			if fcmErr.IsInvalidToken() {
-				u.logs.Log(fmt.Sprintf("[MULTICAST][INVALID] userID=%s, token=%s, code=%s", userID, token, fcmErr.Code))
+				u.logs.Log(fmt.Sprintf("[MULTICAST][INVALID] userID=%s, token=%s, code=%s raw = %s", userID, token, fcmErr.Code, fcmErr.Raw))
 				_ = u.removeUserToken(ctx, userID, token)
 			} else {
 				u.logs.Log(fmt.Sprintf("[MULTICAST][FAIL] userID=%s, token=%s, code=%s, detail=%s", userID, token, fcmErr.Code, fcmErr.Details))
+				_ = u.removeUserToken(ctx, userID, token)
 			}
 		}
 	}

@@ -12,7 +12,8 @@ import (
 
 type CreatorReviewRepository interface {
 	Create(ctx context.Context, tx Querier, review *entity.CreatorReview) (*entity.CreatorReview, error)
-	FindAll(ctx context.Context, tx Querier, page int, size int, star int, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error)
+	FindAll(ctx context.Context, tx Querier, page int, size int, rating int, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error)
+	CountTotalReviewAndRating(ctx context.Context, tx Querier, creatorId string) (*entity.TotalReviewAndRating, error)
 }
 type creatorReviewRepository struct{}
 
@@ -26,13 +27,13 @@ func (r *creatorReviewRepository) Create(ctx context.Context, tx Querier, review
 	(id, transaction_detail_id, 
 	creator_id, 
 	user_id,
-	star, 
+	rating, 
 	comment, 
 	created_at, 
 	updated_at) 
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
 	`
-	_, err := tx.ExecContext(ctx, query, review.Id, review.TransactionDetailId, review.CreatorId, review.UserId, review.Star, review.Comment, review.CreatedAt, review.UpdatedAt)
+	_, err := tx.ExecContext(ctx, query, review.Id, review.TransactionDetailId, review.CreatorId, review.UserId, review.Rating, review.Comment, review.CreatedAt, review.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +42,7 @@ func (r *creatorReviewRepository) Create(ctx context.Context, tx Querier, review
 }
 
 // TODO tambahkan get by creator id atau kebalikkanya
-func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page, size int, star int, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error) {
+func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page, size int, rating int, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error) {
 	results := make([]*entity.CreatorReview, 0)
 	var totalItems int
 
@@ -52,9 +53,9 @@ func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page,
 	var args []interface{}
 	argIndex := 1
 
-	if star != 0 {
-		conditions = append(conditions, "star = $"+strconv.Itoa(argIndex))
-		args = append(args, star)
+	if rating != 0 {
+		conditions = append(conditions, "rating = $"+strconv.Itoa(argIndex))
+		args = append(args, rating)
 		argIndex++
 	}
 
@@ -87,4 +88,24 @@ func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page,
 	}
 
 	return results, pageMetadata, nil
+}
+
+func (r *creatorReviewRepository) CountTotalReviewAndRating(ctx context.Context, tx Querier, creatorId string) (*entity.TotalReviewAndRating, error) {
+	totalReviewAndRating := new(entity.TotalReviewAndRating)
+
+	query := `
+	SELECT
+		COUNT(*) AS total_review, 
+		AVG(rating) AS average_rating
+	FROM 
+		creator_reviews 
+	WHERE 
+		creator_id = $1
+	`
+
+	if err := tx.GetContext(ctx, totalReviewAndRating, query, creatorId); err != nil {
+		return nil, err
+	}
+
+	return totalReviewAndRating, nil
 }

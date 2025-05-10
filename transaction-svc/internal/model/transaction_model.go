@@ -148,10 +148,11 @@ type GetTransactionWithDetail struct {
 // }
 
 type TransactionDetailResponse struct {
-	CreatorId         string            `json:"creator_id"`
-	CreatorDiscountId string            `json:"creator_discount_id"`
-	IsReviewed        bool              `json:"is_reviewed"`
-	Photo             *[]*PhotoResponse `json:"photos"`
+	TransactionDetailId string            `json:"transaction_detail_id"`
+	CreatorId           string            `json:"creator_id"`
+	CreatorDiscountId   string            `json:"creator_discount_id"`
+	IsReviewed          bool              `json:"is_reviewed"`
+	Photo               *[]*PhotoResponse `json:"photos"`
 }
 
 type PhotoResponse struct {

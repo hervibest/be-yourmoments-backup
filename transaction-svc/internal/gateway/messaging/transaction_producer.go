@@ -8,19 +8,24 @@ import (
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/utils"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/event"
 )
 
 type TransactionProducer interface {
 	ScheduleTransactionTaskExpiration(ctx context.Context, transactionID string) error
+	ProduceCreateReviewEvent(ctx context.Context, creatorReviewCountEvent *event.CreatorReviewCountEvent) error
 }
 
 type transactionProducer struct {
-	transactionTTL time.Duration
-	cacheAdapter   adapter.CacheAdapter
+	transactionTTL   time.Duration
+	cacheAdapter     adapter.CacheAdapter
+	messagingAdapter adapter.MessagingAdapter
+	logs             *logger.Log
 }
 
-func NewTransactionProducer(cacheAdapter adapter.CacheAdapter) TransactionProducer {
+func NewTransactionProducer(cacheAdapter adapter.CacheAdapter, messagingAdapter adapter.MessagingAdapter, logs *logger.Log) TransactionProducer {
 	ttlStr := utils.GetEnv("TRANSACTION_EXPIRATION_TTL") // misal "60"
 	ttlInt, err := strconv.Atoi(ttlStr)
 	if err != nil || ttlInt <= 0 {
@@ -29,8 +34,10 @@ func NewTransactionProducer(cacheAdapter adapter.CacheAdapter) TransactionProduc
 	}
 
 	return &transactionProducer{
-		transactionTTL: time.Duration(ttlInt) * time.Second,
-		cacheAdapter:   cacheAdapter,
+		transactionTTL:   time.Duration(ttlInt) * time.Second,
+		cacheAdapter:     cacheAdapter,
+		messagingAdapter: messagingAdapter,
+		logs:             logs,
 	}
 }
 
@@ -42,5 +49,17 @@ func (s *transactionProducer) ScheduleTransactionTaskExpiration(ctx context.Cont
 	}
 
 	log.Printf("Transaction ID %s scheduled to expire in %.2f seconds", transactionID, s.transactionTTL.Seconds())
+	return nil
+}
+
+func (s *transactionProducer) ProduceCreateReviewEvent(ctx context.Context, creatorReviewCountEvent *event.CreatorReviewCountEvent) error {
+	subject := "creator.review.updated"
+
+	err := s.messagingAdapter.Publish(ctx, subject, creatorReviewCountEvent)
+	if err != nil {
+		return fmt.Errorf("failed to publish review update event: %w", err)
+	}
+
+	log.Printf("Published review update event for creator %s", creatorReviewCountEvent.Id)
 	return nil
 }

@@ -125,7 +125,7 @@ func (a *emailAdapter) SendEmail(email string, token string, category string) er
 
 		}
 		if lastErr != nil {
-			log.Printf("semua layanan SMTP gagal, error terakhir: %w", lastErr)
+			log.Printf("semua layanan SMTP gagal, error terakhir: %v", lastErr)
 		}
 
 		log.Println("email berhasil dikirimkan")

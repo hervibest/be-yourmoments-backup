@@ -3,11 +3,11 @@ package model
 import "time"
 
 type CreateReviewRequest struct {
-	TransactionDetailId string
-	CreatorId           string
-	UserId              string
-	Star                int
-	Comment             *string
+	TransactionDetailId string  `json:"transaction_detail_id" validate:"required"`
+	CreatorId           string  `json:"creator_id" validate:"required"`
+	UserId              string  `json:"user_id" validate:"required"`
+	Rating              int     `json:"rating" validate:"required"`
+	Comment             *string `json:"comment"`
 }
 
 type CreatorReviewResponse struct {
@@ -15,15 +15,15 @@ type CreatorReviewResponse struct {
 	TransactionDetailId string
 	CreatorId           string
 	UserId              string
-	Star                int
+	Rating              int
 	Comment             *string
 	CreatedAt           *time.Time
 	UpdatedAt           *time.Time
 }
 
 type GetAllReviewRequest struct {
-	Star  int    `json:"username" `
-	Order string `json:"order"`
-	Page  int    `json:"page" validate:"required"`
-	Size  int    `json:"size" validate:"required"`
+	Rating int    `json:"username" `
+	Order  string `json:"order"`
+	Page   int    `json:"page" validate:"required"`
+	Size   int    `json:"size" validate:"required"`
 }

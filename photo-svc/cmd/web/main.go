@@ -12,6 +12,7 @@ import (
 	http "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/controller"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/route"
+	subscriber "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 
 	"net"
@@ -51,6 +52,8 @@ func webServer() error {
 	serverConfig := config.NewServerConfig()
 	dbConfig := config.NewPostgresDatabase()
 	minioConfig := config.NewMinio()
+	jetStreamConfig := config.NewJetStream()
+	config.InitStream(jetStreamConfig)
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -179,6 +182,11 @@ func webServer() error {
 
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 	creatorMiddleware := middleware.NewCreatorMiddleware(creatorUseCase, tracer, logs)
+
+	creatorReviewSubscriber := subscriber.NewCreatorReviewSubscriber(jetStreamConfig, creatorUseCase)
+	go func() {
+		creatorReviewSubscriber.Start(ctx)
+	}()
 
 	go func() {
 		grpcServer := grpc.NewServer()

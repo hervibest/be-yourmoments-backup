@@ -8,11 +8,13 @@ import (
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 	errorcode "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum/error"
+	producer "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/nullable"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/event"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
 
 	"github.com/jmoiron/sqlx"
@@ -26,15 +28,17 @@ type ReviewUseCase interface {
 type reviewUseCase struct {
 	transactionDetailRepo repository.TransactionDetailRepository
 	creatorReviewRepo     repository.CreatorReviewRepository
+	transactionProducer   producer.TransactionProducer
 	db                    *sqlx.DB
 	logs                  *logger.Log
 }
 
 func NewReviewUseCase(transactionDetailRepo repository.TransactionDetailRepository, creatorReviewRepo repository.CreatorReviewRepository,
-	db *sqlx.DB, logs *logger.Log) ReviewUseCase {
+	transactionProducer producer.TransactionProducer, db *sqlx.DB, logs *logger.Log) ReviewUseCase {
 	return &reviewUseCase{
 		transactionDetailRepo: transactionDetailRepo,
 		creatorReviewRepo:     creatorReviewRepo,
+		transactionProducer:   transactionProducer,
 		db:                    db,
 		logs:                  logs,
 	}
@@ -59,7 +63,7 @@ func (u *reviewUseCase) Create(ctx context.Context, request *model.CreateReviewR
 		TransactionDetailId: request.TransactionDetailId,
 		CreatorId:           request.CreatorId,
 		UserId:              request.UserId,
-		Star:                request.Star,
+		Rating:              request.Rating,
 		Comment:             nullable.ToSQLString(request.Comment),
 		CreatedAt:           &now,
 		UpdatedAt:           &now,
@@ -89,11 +93,28 @@ func (u *reviewUseCase) Create(ctx context.Context, request *model.CreateReviewR
 		return nil, err
 	}
 
+	totalReviewAndRating, err := u.creatorReviewRepo.CountTotalReviewAndRating(ctx, u.db, request.CreatorId)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to count total review and rating in database", err)
+	}
+
+	totalReviewAndRating.CreatorId = request.CreatorId
+
+	creatorReviewCountEvent := &event.CreatorReviewCountEvent{
+		Id:          request.CreatorId,
+		Rating:      totalReviewAndRating.Rating,
+		RatingCount: totalReviewAndRating.TotalReview,
+	}
+
+	if err := u.transactionProducer.ProduceCreateReviewEvent(ctx, creatorReviewCountEvent); err != nil {
+		return nil, err
+	}
+
 	return converter.ReviewToResponse(review), err
 }
 
 func (u *reviewUseCase) GetCreatorReview(ctx context.Context, request *model.GetAllReviewRequest) (*[]*model.CreatorReviewResponse, *model.PageMetadata, error) {
-	userPublicChat, pageMetadata, err := u.creatorReviewRepo.FindAll(ctx, u.db, request.Page, request.Size, request.Star, request.Order)
+	userPublicChat, pageMetadata, err := u.creatorReviewRepo.FindAll(ctx, u.db, request.Page, request.Size, request.Rating, request.Order)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all creator review", err)
 	}

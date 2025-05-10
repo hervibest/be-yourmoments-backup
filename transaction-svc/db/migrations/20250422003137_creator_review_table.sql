@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS creator_reviews (
     transaction_detail_id CHAR(26) UNIQUE NOT NULL,
     creator_id CHAR(26) NOT NULL,
     user_id CHAR(26) NOT NULL,
-    star INT NOT NULL CHECK (star BETWEEN 1 AND 5),
+    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,

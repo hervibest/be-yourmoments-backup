@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
@@ -34,10 +35,12 @@ func NewReviewController(reviewUseCase usecase.ReviewUseCase,
 
 func (c *reviewController) CreateReview(ctx *fiber.Ctx) error {
 	request := new(model.CreateReviewRequest)
-	if err := helper.StrictBodyParser(ctx, request); err != nil {
+	if err := ctx.BodyParser(request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
 
+	auth := middleware.GetUser(ctx)
+	request.UserId = auth.UserId
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}
@@ -55,10 +58,10 @@ func (c *reviewController) CreateReview(ctx *fiber.Ctx) error {
 
 func (c *reviewController) GetAllReview(ctx *fiber.Ctx) error {
 	request := &model.GetAllReviewRequest{
-		Star:  ctx.QueryInt("username", 0),
-		Order: ctx.Query("order", "DESC"),
-		Page:  ctx.QueryInt("page", 1),
-		Size:  ctx.QueryInt("size", 10),
+		Rating: ctx.QueryInt("rating", 0),
+		Order:  ctx.Query("order", "DESC"),
+		Page:   ctx.QueryInt("page", 1),
+		Size:   ctx.QueryInt("size", 10),
 	}
 
 	response, pageMetadata, err := c.reviewUseCase.GetCreatorReview(ctx.Context(), request)

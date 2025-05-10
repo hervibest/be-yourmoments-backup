@@ -29,7 +29,7 @@ func ServiceConnection(ctx context.Context, serviceName string, registry Registr
 	}
 
 	if len(service) == 0 {
-		return nil, fmt.Errorf("service not found")
+		return nil, fmt.Errorf("service %s not found", serviceName)
 	}
 
 	serviceEntry := service[rand.Intn(len(service))]
