@@ -383,7 +383,14 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 
 		u.logs.Log(fmt.Sprintf("⏱️ TOTAL compression flow took: %v", time.Since(compressStart)))
 
-		u.aiAdapter.ProcessPhoto(ctx, newPhoto.Id, compressedPhoto.URL, compressedPhotoDetail.FileName)
+		request := &model.ProcessPhoto{
+			PhotoId:          newPhoto.Id,
+			CreatorId:        newPhoto.CreatorId,
+			FileURL:          compressedPhoto.URL,
+			OriginalFilename: compressedPhoto.Filename,
+		}
+
+		u.aiAdapter.ProcessPhoto(ctx, request)
 	}()
 
 	return nil

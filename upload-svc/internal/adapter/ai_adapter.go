@@ -5,6 +5,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	discovery "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
 
 	aipb "github.com/hervibest/be-yourmoments-backup/pb/ai"
 
@@ -13,8 +14,8 @@ import (
 )
 
 type AiAdapter interface {
-	ProcessPhoto(ctx context.Context, fileId, fileUrl, originalFilename string) error
-	ProcessFacecam(ctx context.Context, userId, fileUrl string) error
+	ProcessPhoto(ctx context.Context, request *model.ProcessPhoto) error
+	ProcessFacecam(ctx context.Context, request *model.ProcessFacecam) error
 	ProcessBulkPhoto(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo) error
 }
 
@@ -37,11 +38,12 @@ func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs logger.
 	}, nil
 }
 
-func (a *aiAdapter) ProcessPhoto(ctx context.Context, userId, fileUrl, originalFilename string) error {
+func (a *aiAdapter) ProcessPhoto(ctx context.Context, request *model.ProcessPhoto) error {
 	processPhotoRequest := &aipb.ProcessPhotoRequest{
-		Id:               userId,
-		Url:              fileUrl,
-		OriginalFilename: originalFilename,
+		Id:               request.PhotoId,
+		CreatorId:        request.CreatorId,
+		Url:              request.FileURL,
+		OriginalFilename: request.OriginalFilename,
 	}
 	a.logs.Log("PROCESSED PHOTO")
 
@@ -53,11 +55,12 @@ func (a *aiAdapter) ProcessPhoto(ctx context.Context, userId, fileUrl, originalF
 	return nil
 }
 
-func (a *aiAdapter) ProcessFacecam(ctx context.Context, fileId, fileUrl string) error {
+func (a *aiAdapter) ProcessFacecam(ctx context.Context, request *model.ProcessFacecam) error {
 	log.Println("REQUESTED PROCESS FACECAM VIA GRPC TO AI SERVER")
 	processPhotoRequest := &aipb.ProcessFacecamRequest{
-		Id:  fileId,
-		Url: fileUrl,
+		Id:        request.UserId,
+		CreatorId: request.CreatorId,
+		Url:       request.FileURL,
 	}
 
 	_, err := a.client.ProcessFacecam(ctx, processPhotoRequest)

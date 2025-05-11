@@ -15,6 +15,7 @@ import (
 	errorcode "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -98,8 +99,12 @@ func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.File
 
 	u.logs.Log(fmt.Sprintf("✅ Facecam uploaded in %v: %s", time.Since(start), uploaded.URL))
 
-	// Optional: proses AI async
-	go u.aiAdapter.ProcessFacecam(ctx, userId, uploaded.URL)
+	request := &model.ProcessFacecam{
+		UserId:  userId,
+		FileURL: uploaded.URL,
+	}
+
+	go u.aiAdapter.ProcessFacecam(ctx, request)
 
 	return nil
 }
