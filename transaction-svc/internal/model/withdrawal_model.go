@@ -18,7 +18,7 @@ type FindWithdrawalById struct {
 }
 
 type WithdrawalResponse struct {
-	Id           string     `json:"bank_id"`
+	Id           string     `json:"id"`
 	WalletId     string     `json:"wallet_id"`
 	BankWalletId string     `json:"bank_wallet_id"`
 	Amount       int        `json:"amount"`

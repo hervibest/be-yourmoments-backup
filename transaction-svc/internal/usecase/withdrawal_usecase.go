@@ -53,10 +53,10 @@ func (u *withdrawalUseCase) Create(ctx context.Context, request *model.CreateWit
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	wallet, err := u.walletRepository.FindById(ctx, tx, "33")
+	wallet, err := u.walletRepository.FindById(ctx, tx, request.WalletId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator discount id")
+			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Invalid creator discount id")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find creator discount by discount id", err)
 	}
@@ -66,7 +66,7 @@ func (u *withdrawalUseCase) Create(ctx context.Context, request *model.CreateWit
 	}
 
 	// TODO reduce balance
-	if err := u.walletRepository.ReduceBalance(ctx, tx, "33", int64(request.Amount)); err != nil {
+	if err := u.walletRepository.ReduceBalance(ctx, tx, request.WalletId, int64(request.Amount)); err != nil {
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find creator discount by discount id", err)
 	}
 

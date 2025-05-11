@@ -194,6 +194,8 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 		return nil, helper.WrapInternalServerError(u.logs, "failed to set transaction task expiration", err)
 	}
 
+	transaction.SnapToken.String = token
+
 	return converter.TransactionToResponse(transaction, redirectUrl), nil
 }
 

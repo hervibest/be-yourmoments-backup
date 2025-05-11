@@ -4,7 +4,7 @@ import "time"
 
 type CreateBankWalletRequest struct {
 	BankId        string `json:"bank_id" validate:"required"`
-	WalletId      string `json:"wallet_id" validate:"required"`
+	WalletId      string `validate:"required"`
 	FullName      string `json:"full_name" validate:"required"`
 	AccountNumber string `json:"account_number" validate:"required"`
 }

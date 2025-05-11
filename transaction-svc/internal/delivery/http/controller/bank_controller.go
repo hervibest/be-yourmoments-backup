@@ -7,6 +7,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase"
+	"github.com/oklog/ulid/v2"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -59,6 +60,10 @@ func (c *bankController) FindBankById(ctx *fiber.Ctx) error {
 	request := new(model.FindBankByIdRequest)
 	request.Id = ctx.Params("bankId")
 
+	if _, err := ulid.Parse(request.Id); err != nil {
+		return fiber.NewError(http.StatusUnprocessableEntity, "The provided Bank ID is not valid")
+	}
+
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}
@@ -89,6 +94,10 @@ func (c *bankController) FindAllBank(ctx *fiber.Ctx) error {
 func (c *bankController) DeleteBank(ctx *fiber.Ctx) error {
 	request := new(model.DeleteBankRequest)
 	request.Id = ctx.Params("bankId")
+	if _, err := ulid.Parse(request.Id); err != nil {
+		return fiber.NewError(http.StatusUnprocessableEntity, "The provided Bank ID is not valid")
+	}
+
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}

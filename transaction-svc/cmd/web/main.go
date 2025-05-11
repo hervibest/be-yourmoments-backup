@@ -137,7 +137,7 @@ func webServer() error {
 	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
 	paymentAdapter := adapter.NewPaymentAdapter(midtransConfig, cacheAdapter, logs)
 	messagingAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
-	transactionProducer := producer.NewTransactionProducer(cacheAdapter, messagingAdapter)
+	transactionProducer := producer.NewTransactionProducer(cacheAdapter, messagingAdapter, logs)
 
 	customValidator := helper.NewCustomValidator()
 	timeParserHelper := helper.NewTimeParserHelper(logs)

@@ -3,10 +3,12 @@ package http
 import (
 	"net/http"
 
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase"
+	"github.com/oklog/ulid/v2"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -35,8 +37,15 @@ func NewBankWalletController(bankWalletUseCase usecase.BankWalletUseCase,
 
 func (c *bankWalletController) CreateBankWallet(ctx *fiber.Ctx) error {
 	request := new(model.CreateBankWalletRequest)
-	if err := helper.StrictBodyParser(ctx, request); err != nil {
+	if err := ctx.BodyParser(request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	auth := middleware.GetUser(ctx)
+	request.WalletId = auth.WalletId
+
+	if _, err := ulid.Parse(request.BankId); err != nil {
+		return fiber.NewError(http.StatusUnprocessableEntity, "The provided Bank ID is not valid")
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
+	errorcode "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
+	"github.com/oklog/ulid/v2"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -49,4 +51,34 @@ func ErrUseCaseResponseJSON(ctx *fiber.Ctx, msg string, err error, logs *logger.
 	}
 
 	return fiber.NewError(fiber.StatusInternalServerError, "Something went wrong. Please try again later")
+}
+
+// if _, err := ulid.Parse(request.WalletId); err != nil {
+// 	return fiber.NewError(http.StatusUnprocessableEntity, "The provided Wallet ID is not valid")
+// }
+
+// if _, err := ulid.Parse(request.BankWalletId); err != nil {
+// 	return fiber.NewError(http.StatusUnprocessableEntity, "The provided Bank Wallet ID is not valid")
+// }
+
+func MultipleULIDParser(ulidMaps map[string]string) error {
+	for id, errValue := range ulidMaps {
+		if _, err := ulid.Parse(id); err != nil {
+			return fiber.NewError(http.StatusUnprocessableEntity, errValue)
+		}
+	}
+	return nil
+}
+
+func MultipleULIDSliceParser(ulidSlice []string) error {
+	invalidIds := make([]string, 0)
+	for _, id := range ulidSlice {
+		if _, err := ulid.Parse(id); err != nil {
+			invalidIds = append(invalidIds, id)
+		}
+	}
+	if len(invalidIds) != 0 {
+		return NewUseCaseError(errorcode.ErrInvalidArgument, fmt.Sprintf("Invalid photo ids : %s", invalidIds))
+	}
+	return nil
 }

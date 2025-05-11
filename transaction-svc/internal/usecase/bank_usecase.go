@@ -76,7 +76,7 @@ func (u *bankUseCase) FindById(ctx context.Context, request *model.FindBankByIdR
 	bank, err := u.bankRepository.FindById(ctx, u.db, request.Id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email or password")
+			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid Bank ID")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user by email", err)
 	}
@@ -88,7 +88,7 @@ func (u *bankUseCase) FindAll(ctx context.Context) (*[]*model.BankResponse, erro
 	banks, err := u.bankRepository.FindAll(ctx, u.db)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email or password")
+			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid Bank ID")
 		}
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find all bank in database", err)
 	}
@@ -104,6 +104,14 @@ func (u *bankUseCase) Delete(ctx context.Context, request *model.DeleteBankReque
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
+	}
+
+	_, err = u.bankRepository.FindById(ctx, u.db, request.Id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Invalid Bank ID")
+		}
+		return helper.WrapInternalServerError(u.logs, "failed to find user by email", err)
 	}
 
 	defer func() {

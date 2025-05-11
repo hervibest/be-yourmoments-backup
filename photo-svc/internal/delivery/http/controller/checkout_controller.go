@@ -34,6 +34,10 @@ func (c *checkoutController) PreviewCheckout(ctx *fiber.Ctx) error {
 	user := middleware.GetUser(ctx)
 	request.UserId = user.UserId
 
+	if err := helper.MultipleULIDSliceParser(request.PhotoIds); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Preview checkout : ", err, c.logs)
+	}
+
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}

@@ -15,9 +15,9 @@ type CreateTransactionRequest struct {
 }
 
 type CreateTransactionResponse struct {
-	TransactionId string
-	SnapToken     string
-	RedirectURL   string
+	TransactionId string `json:"transaction_id"`
+	SnapToken     string `json:"snap_token"`
+	RedirectURL   string `json:"redirect_url"`
 }
 
 type UpdateTransactionWebhookRequest struct {

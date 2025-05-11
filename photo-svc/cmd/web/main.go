@@ -183,7 +183,7 @@ func webServer() error {
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 	creatorMiddleware := middleware.NewCreatorMiddleware(creatorUseCase, tracer, logs)
 
-	creatorReviewSubscriber := subscriber.NewCreatorReviewSubscriber(jetStreamConfig, creatorUseCase)
+	creatorReviewSubscriber := subscriber.NewCreatorReviewSubscriber(jetStreamConfig, creatorUseCase, logs)
 	go func() {
 		creatorReviewSubscriber.Start(ctx)
 	}()

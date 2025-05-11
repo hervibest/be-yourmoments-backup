@@ -53,7 +53,7 @@ func (r *withdrawalRepository) FindById(ctx context.Context, db Querier, bankId 
 func (r *withdrawalRepository) FindAll(ctx context.Context, db Querier) (*[]*entity.Withdrawal, error) {
 	withdrawals := make([]*entity.Withdrawal, 0)
 	query := "SELECT * FROM withdrawals"
-	if err := db.SelectContext(ctx, withdrawals, query); err != nil {
+	if err := db.SelectContext(ctx, &withdrawals, query); err != nil {
 		return nil, err
 	}
 

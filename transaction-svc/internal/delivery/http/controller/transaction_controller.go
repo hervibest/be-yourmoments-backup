@@ -10,7 +10,6 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase/contract"
-	"github.com/oklog/ulid/v2"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -45,6 +44,10 @@ func (c *transactionController) CreateTransaction(ctx *fiber.Ctx) error {
 	request.CreatorId = auth.CreatorId
 	if err := helper.StrictBodyParser(ctx, request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if err := helper.MultipleULIDSliceParser(request.PhotoIds); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Invalid photo Ids : ", err, c.logs)
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
@@ -98,15 +101,15 @@ func (c *transactionController) GetUserTransactionWithDetail(ctx *fiber.Ctx) err
 	auth := middleware.GetUser(ctx)
 
 	request.UserID = auth.UserId
-	c.logs.Log(request.UserID)
 	request.TransactionId = ctx.Params("transactionID")
 
-	if _, err := uuid.Parse(request.TransactionId); err != nil {
-		return fiber.NewError(http.StatusBadRequest, "Invalid transaction id")
+	ulidErrMaps := map[string]string{
+		request.TransactionId: "The provided transaction ID is not valid",
+		request.UserID:        "The provided User ID is not valid",
 	}
 
-	if _, err := ulid.Parse(request.UserID); err != nil {
-		return fiber.NewError(http.StatusBadRequest, "Invalid user id")
+	if err := helper.MultipleULIDParser(ulidErrMaps); err != nil {
+		return err
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
