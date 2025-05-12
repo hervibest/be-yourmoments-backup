@@ -2,10 +2,7 @@ version: '3.8'
 
 services:
   photo-svc:
-    build:
-      context: .
-      dockerfile: photo-svc/Dockerfile
-
+    image: hervipro/be-yourmoments:photo-svc
     env_file:
       - .env.photo
     ports:
@@ -18,9 +15,7 @@ services:
       - nats
 
   transaction-svc:
-    build:
-      context: .
-      dockerfile: transaction-svc/Dockerfile
+    image: hervipro/be-yourmoments:transaction-svc
     env_file:
       - .env.transaction
     ports:
@@ -34,10 +29,7 @@ services:
       - nats
 
   upload-svc:
-    build:
-      context: .
-      dockerfile: upload-svc/Dockerfile
-
+    image: hervipro/be-yourmoments:upload-svc
     env_file:
       - .env.upload
     ports:
@@ -50,13 +42,11 @@ services:
       - nats
 
   user-svc:
-    build:
-      context: .
-      dockerfile: user-svc/Dockerfile
+    image: hervipro/be-yourmoments:user-svc
     env_file:
       - .env.user
     volumes:
-    - ./user-svc/serviceAccountKey.json:/app/serviceAccountKey.json
+      - ./user-svc/serviceAccountKey.json:/app/serviceAccountKey.json
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /app/serviceAccountKey.json
     ports:
@@ -68,6 +58,7 @@ services:
       - postgres
       - consul
       - nats
+
 
   redis:
     image: redis:7.2-alpine
