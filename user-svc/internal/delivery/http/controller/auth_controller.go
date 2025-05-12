@@ -1,7 +1,9 @@
 package http
 
 import (
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
@@ -91,9 +93,16 @@ func (c *authController) RegisterOrLoginByGoogle(ctx *fiber.Ctx) error {
 
 func (c *authController) RegisterByEmail(ctx *fiber.Ctx) error {
 	request := new(model.RegisterByEmailRequest)
-	if err := helper.StrictBodyParser(ctx, request); err != nil {
+	if err := ctx.BodyParser(request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
+
+	parsedDate, err := time.Parse("2006-01-02", request.BirthDateStr)
+	if err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, errors.New("Format tanggal lahir tidak valid, gunakan YYYY-MM-DD"))
+	}
+
+	request.BirthDate = &parsedDate
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)

@@ -9,8 +9,9 @@ import (
 )
 
 func NewJetStream() nats.JetStreamContext {
-	port := utils.GetEnv("NATS_JETSREAM_PORT")
-	nc, err := nats.Connect(fmt.Sprintf("nats://localhost:%s", port))
+	host := utils.GetEnv("NATS_HOST")
+	port := utils.GetEnv("NATS_PORT")
+	nc, err := nats.Connect(fmt.Sprintf("nats://%s:%s", host, port))
 	if err != nil {
 		log.Fatalf("Failed to connect to NATS: %v", err)
 	}

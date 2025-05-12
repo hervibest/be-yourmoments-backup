@@ -5,6 +5,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	discovery "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/utils"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
 
 	aipb "github.com/hervibest/be-yourmoments-backup/pb/ai"
@@ -25,7 +26,8 @@ type aiAdapter struct {
 }
 
 func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (AiAdapter, error) {
-	conn, err := discovery.ServiceConnection(ctx, "ai-svc-grpc", registry)
+	aiServiceName := utils.GetEnv("AI_SVC_NAME")
+	conn, err := discovery.ServiceConnection(ctx, aiServiceName, registry)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +64,8 @@ func (a *aiAdapter) ProcessFacecam(ctx context.Context, request *model.ProcessFa
 		CreatorId: request.CreatorId,
 		Url:       request.FileURL,
 	}
+
+	a.logs.CustomLog(" ini adakah process face cam request", request.CreatorId)
 
 	_, err := a.client.ProcessFacecam(ctx, processPhotoRequest)
 	if err != nil {

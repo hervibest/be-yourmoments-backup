@@ -2,7 +2,7 @@ module github.com/hervibest/be-yourmoments-backup/upload-svc
 
 require github.com/hervibest/be-yourmoments-backup/pb v0.0.0
 
-replace github.com/hervibest/be-yourmoments-backup/pb => ../pb
+replace github.com/hervibest/be-yourmoments-backup/pb => ./pb
 
 go 1.23
 

@@ -23,21 +23,43 @@ func GenerateServiceID(serviceName string) string {
 }
 
 func ServiceConnection(ctx context.Context, serviceName string, registry Registry) (*grpc.ClientConn, error) {
-	service, err := registry.GetService(ctx, serviceName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get service: %w", err)
+	const (
+		maxRetries = 3
+		retryDelay = 10 * time.Second
+	)
+
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		service, err := registry.GetService(ctx, serviceName)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to get service: %w", err)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		if len(service) == 0 {
+			lastErr = fmt.Errorf("service %s not found", serviceName)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		serviceEntry := service[rand.Intn(len(service))]
+
+		conn, err := grpc.NewClient(
+			fmt.Sprintf("%s:%d", serviceEntry.Service.Address, serviceEntry.Service.Port),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to connect: %w", err)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		// Berhasil terkoneksi
+		return conn, nil
 	}
 
-	if len(service) == 0 {
-		return nil, fmt.Errorf("service %s not found", serviceName)
-	}
-
-	serviceEntry := service[rand.Intn(len(service))]
-
-	conn, err := grpc.NewClient(fmt.Sprintf("%s:%d", serviceEntry.Service.Address, serviceEntry.Service.Port), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
-	}
-
-	return conn, nil
+	// Setelah semua percobaan gagal
+	return nil, fmt.Errorf("service connection failed after %d retries: %w", maxRetries, lastErr)
 }

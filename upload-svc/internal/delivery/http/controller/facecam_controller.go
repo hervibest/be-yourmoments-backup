@@ -37,7 +37,7 @@ func (c *facecamController) UploadFacecam(ctx *fiber.Ctx) error {
 
 	auth := middleware.GetUser(ctx)
 
-	err = c.facecamUseCase.UploadFacecam(ctx.UserContext(), file, auth.UserId)
+	err = c.facecamUseCase.UploadFacecam(ctx.UserContext(), file, auth.UserId, auth.CreatorId)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Upload facecam : ", err, c.logs)
 	}

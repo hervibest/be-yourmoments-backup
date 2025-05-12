@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/hervibest/be-yourmoments-backup/user-svc/cmd/migration"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
 	grpcHandler "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/grpc"
@@ -56,15 +57,15 @@ func webServer() error {
 
 	ctx := context.Background()
 
-	err = registry.RegisterService(ctx, serverConfig.Name+"-grpc", GRPCserviceID, serverConfig.GRPCAddr, grpcPortInt, []string{"grpc"})
+	err = registry.RegisterService(ctx, serverConfig.Name+"-grpc", GRPCserviceID, serverConfig.GRPCInternalAddr, grpcPortInt, []string{"grpc"})
 	if err != nil {
-		logs.Error("Failed to register gRPC book service to consul")
+		logs.Error("Failed to register user service to consul")
 		return err
 	}
 
-	err = registry.RegisterService(ctx, serverConfig.Name+"-http", HTTPserviceID, serverConfig.HTTPAddr, httpPortInt, []string{"http"})
+	err = registry.RegisterService(ctx, serverConfig.Name+"-http", HTTPserviceID, serverConfig.HTTPInternalAddr, httpPortInt, []string{"http"})
 	if err != nil {
-		logs.Error("Failed to register category service to consuls")
+		logs.Error("Failed to register user service to consuls")
 		return err
 	}
 
@@ -224,6 +225,7 @@ func webServer() error {
 }
 
 func main() {
+	migration.Run()
 	if err := webServer(); err != nil {
 		logs.Error(err)
 	}

@@ -21,7 +21,7 @@ import (
 )
 
 type FacecamUseCase interface {
-	UploadFacecam(ctx context.Context, file *multipart.FileHeader, userId string) error
+	UploadFacecam(ctx context.Context, file *multipart.FileHeader, userId, creatorId string) error
 	// UpdateProcessedPhoto(ctx context.Context, req *model.RequestUpdateProcessedPhoto) (error, error)
 }
 
@@ -45,7 +45,7 @@ func NewFacecamUseCase(aiAdapter adapter.AiAdapter, photoAdapter adapter.PhotoAd
 	}
 }
 
-func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.FileHeader, userId string) error {
+func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.FileHeader, userId, creatorId string) error {
 	start := time.Now()
 
 	srcFile, err := file.Open()
@@ -100,8 +100,9 @@ func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.File
 	u.logs.Log(fmt.Sprintf("✅ Facecam uploaded in %v: %s", time.Since(start), uploaded.URL))
 
 	request := &model.ProcessFacecam{
-		UserId:  userId,
-		FileURL: uploaded.URL,
+		UserId:    userId,
+		CreatorId: creatorId,
+		FileURL:   uploaded.URL,
 	}
 
 	go u.aiAdapter.ProcessFacecam(ctx, request)

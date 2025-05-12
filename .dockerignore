@@ -1,0 +1,28 @@
+# Ignore env files
+.env
+.env.*
+*.env
+
+# Ignore credential
+**/serviceAccountKey.json
+**/secrets/
+**/secrets/*
+
+# Ignore Git and IDE
+.git
+.gitignore
+.vscode/
+*.swp
+*.swo
+*.log
+
+# Ignore docs, examples, temp
+*.md
+*.txt
+README*
+todo*
+test/
+temp/
+init/
+
+# Optional: ignore docker-compose if not needed i

@@ -28,10 +28,11 @@ type GoogleSignInClaim struct {
 }
 
 type RegisterByEmailRequest struct {
-	Username  string     `json:"username" validate:"required,max=10"`
-	Email     string     `json:"email" validate:"required,email,max=255"`
-	Password  string     `json:"password" validate:"required"`
-	BirthDate *time.Time `json:"birth_date" validate:"required"`
+	Username     string     `json:"username" validate:"required,max=10"`
+	Email        string     `json:"email" validate:"required,email,max=255"`
+	Password     string     `json:"password" validate:"required"`
+	BirthDateStr string     `json:"birth_date"`
+	BirthDate    *time.Time `validate:"required"`
 }
 
 type ResendEmailUserRequest struct {

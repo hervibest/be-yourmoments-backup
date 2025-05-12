@@ -8,6 +8,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/nullable"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/utils"
 
 	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 
@@ -27,7 +28,8 @@ type photoAdapter struct {
 }
 
 func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (PhotoAdapter, error) {
-	conn, err := discovery.ServiceConnection(ctx, "photo-svc-grpc", registry)
+	photoServiceName := utils.GetEnv("PHOTO_SVC_NAME")
+	conn, err := discovery.ServiceConnection(ctx, photoServiceName, registry)
 	if err != nil {
 		return nil, err
 	}

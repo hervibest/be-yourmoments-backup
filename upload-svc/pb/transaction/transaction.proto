@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package transaction;
+
+option go_package = ".pkg/transaction;transactionpb";
+
+
+import "google/protobuf/timestamp.proto";
+
+
+service TransactionService{
+  rpc CreateWallet (CreateWalletRequest) returns (CreateWalletResponse);  
+  rpc GetWallet (GetWalletRequest) returns (GetWalletResponse);  
+
+}
+
+message CreateWalletRequest {
+  string creator_id = 1;
+}
+
+message CreateWalletResponse {
+  int64 status = 1;
+  Wallet wallet = 2;
+  string error = 3;
+}
+
+message Wallet {
+    string id = 1;
+    string creator_id = 2;
+    int32 balance = 3;
+    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp updated_at = 5;
+}
+
+message GetWalletRequest {
+  string creator_id = 1;
+}
+
+message GetWalletResponse {
+  int64 status = 1;
+  Wallet wallet = 2;
+  string error = 3;
+}

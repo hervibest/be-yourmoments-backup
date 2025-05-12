@@ -15,11 +15,11 @@ func NewRedisClient() *redis.Client {
 	port := utils.GetEnv("REDIS_PORT")
 	address := host + ":" + port
 
-	// password := utils.GetEnv("REDIS_PASSWORD")
+	password := utils.GetEnv("REDIS_PASSWORD")
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     address,
-		Password: "",
+		Password: password,
 		DB:       0,
 	})
 

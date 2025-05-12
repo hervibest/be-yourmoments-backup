@@ -52,8 +52,11 @@ func NewNotificationUseCase(db *sqlx.DB, redisClient *redis.Client, userDeviceRe
 
 func (u *notificationUseCase) ProcessAndSendSingleFacecamNotifications(ctx context.Context, datas []*photopb.UserSimilarPhoto) error {
 	log.Println("[USER][NOTIFICATION USECASE]Process and send single facecam notification")
-	lenData := len(datas)
 
+	lenData := len(datas)
+	if lenData == 0 {
+		return nil
+	}
 	userAuthentications, err := u.fetchFCMTokens(ctx, []string{datas[0].GetUserId()})
 	if err != nil {
 		log.Println("Error fetching tokens:", err)

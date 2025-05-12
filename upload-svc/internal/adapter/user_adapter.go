@@ -3,6 +3,7 @@ package adapter
 import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/utils"
 
 	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
 
@@ -19,7 +20,8 @@ type userAdapter struct {
 }
 
 func NewUserAdapter(ctx context.Context, registry discovery.Registry) (UserAdapter, error) {
-	conn, err := discovery.ServiceConnection(ctx, "user-svc-grpc", registry)
+	userServiceName := utils.GetEnv("USER_SVC_NAME")
+	conn, err := discovery.ServiceConnection(ctx, userServiceName, registry)
 	if err != nil {
 		return nil, err
 	}
