@@ -6,6 +6,7 @@ import (
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/utils"
 
 	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
@@ -24,9 +25,9 @@ type userAdapter struct {
 	client userpb.UserServiceClient
 }
 
-func NewUserAdapter(ctx context.Context, registry discovery.Registry) (UserAdapter, error) {
+func NewUserAdapter(ctx context.Context, registry discovery.Registry, logs *logger.Log) (UserAdapter, error) {
 	userServiceName := utils.GetEnv("USER_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, userServiceName, registry)
+	conn, err := discovery.ServiceConnection(ctx, userServiceName, registry, logs)
 	if err != nil {
 		return nil, err
 	}

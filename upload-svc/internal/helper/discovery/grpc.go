@@ -7,6 +7,7 @@ import (
 	"time"
 
 	consul "github.com/hashicorp/consul/api"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -22,18 +23,19 @@ func GenerateServiceID(serviceName string) string {
 	return fmt.Sprintf("%s-%d", serviceName, rand.New(rand.NewSource(time.Now().UnixNano())).Int())
 }
 
-func ServiceConnection(ctx context.Context, serviceName string, registry Registry) (*grpc.ClientConn, error) {
+func ServiceConnection(ctx context.Context, serviceName string, registry Registry, logs logger.Log) (*grpc.ClientConn, error) {
 	const (
-		maxRetries = 3
+		maxRetries = 5
 		retryDelay = 10 * time.Second
 	)
 
 	var lastErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		logs.Log(fmt.Sprintf("trying to connect services: %s with attempt: %d and max retries: %d", serviceName, attempt, maxRetries))
 		service, err := registry.GetService(ctx, serviceName)
 		if err != nil {
-			lastErr = fmt.Errorf("failed to get service: %w", err)
+			lastErr = fmt.Errorf("failed to get services: %w", err)
 			time.Sleep(retryDelay)
 			continue
 		}
@@ -56,10 +58,8 @@ func ServiceConnection(ctx context.Context, serviceName string, registry Registr
 			continue
 		}
 
-		// Berhasil terkoneksi
 		return conn, nil
 	}
 
-	// Setelah semua percobaan gagal
-	return nil, fmt.Errorf("service connection failed after %d retries: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("service connection failed afters %d retries: %w", maxRetries, lastErr)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/utils"
 
 	transcationpb "github.com/hervibest/be-yourmoments-backup/pb/transaction"
@@ -19,9 +20,9 @@ type transactionAdapter struct {
 	client transcationpb.TransactionServiceClient
 }
 
-func NewTransactionAdapter(ctx context.Context, registry discovery.Registry) (TransactionAdapter, error) {
+func NewTransactionAdapter(ctx context.Context, registry discovery.Registry, logs *logger.Log) (TransactionAdapter, error) {
 	transactionServiceName := utils.GetEnv("TRANSACTION_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, transactionServiceName, registry)
+	conn, err := discovery.ServiceConnection(ctx, transactionServiceName, registry, logs)
 	if err != nil {
 		return nil, err
 	}

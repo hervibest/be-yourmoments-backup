@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -33,7 +32,7 @@ import (
 
 var logs = logger.New("main")
 
-func webServer() error {
+func webServer(ctx context.Context) error {
 	app := config.NewApp()
 	serverConfig := config.NewServerConfig()
 	minioConfig := config.NewMinio()
@@ -50,8 +49,6 @@ func webServer() error {
 	grpcPortInt, _ := strconv.Atoi(serverConfig.GRPCPort)
 	httpPortInt, _ := strconv.Atoi(serverConfig.HTTPPort)
 
-	ctx := context.Background()
-
 	err = registry.RegisterService(ctx, serverConfig.Name+"-grpc", GRPCserviceID, serverConfig.GRPCInternalAddr, grpcPortInt, []string{"grpc"})
 	if err != nil {
 		logs.Error("Failed to register gRPC upload service to consul")
@@ -63,6 +60,13 @@ func webServer() error {
 		logs.Error("Failed to register upload service to consuls")
 		return err
 	}
+
+	go func() {
+		<-ctx.Done()
+		logs.Log("Context canceled. Deregistering services...")
+		registry.DeregisterService(context.Background(), GRPCserviceID)
+		registry.DeregisterService(context.Background(), HTTPserviceID)
+	}()
 
 	go func() {
 		failureCount := 0
@@ -82,7 +86,6 @@ func webServer() error {
 			time.Sleep(time.Second * 2)
 		}
 	}()
-	defer registry.DeregisterService(ctx, GRPCserviceID)
 
 	go func() {
 		failureCount := 0
@@ -102,7 +105,6 @@ func webServer() error {
 			time.Sleep(time.Second * 2)
 		}
 	}()
-	defer registry.DeregisterService(ctx, HTTPserviceID)
 
 	aiAdapter, err := adapter.NewAiAdapter(ctx, registry, logs)
 	if err != nil {
@@ -114,7 +116,7 @@ func webServer() error {
 		logs.Error(err)
 	}
 
-	userAdapter, err := adapter.NewUserAdapter(ctx, registry)
+	userAdapter, err := adapter.NewUserAdapter(ctx, registry, logs)
 	if err != nil {
 		logs.Error(err)
 	}
@@ -169,14 +171,14 @@ func webServer() error {
 }
 
 func main() {
-	if err := webServer(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if err := webServer(ctx); err != nil {
 		logs.Error(err)
 	}
 
-	logs.Log("Api gateway server started")
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-
-	sig := <-sigchan
-	logs.Log(fmt.Sprintf("Received signal: %s. Shutting down gracefully...", sig))
+	logs.Log("Received shutdown signal. Waiting for graceful shutdown...")
+	<-ctx.Done()
+	logs.Log("Shutdown complete.")
 }

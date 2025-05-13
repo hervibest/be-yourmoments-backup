@@ -15,7 +15,12 @@ func NewRedisClient() *redis.Client {
 	port := utils.GetEnv("REDIS_PORT")
 	address := host + ":" + port
 
-	password := utils.GetEnv("REDIS_PASSWORD")
+	var password string
+	if IsLocal() {
+		password = ""
+	} else {
+		password = utils.GetEnv("REDIS_PASSWORD")
+	}
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     address,

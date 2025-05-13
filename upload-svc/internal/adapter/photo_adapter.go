@@ -29,7 +29,7 @@ type photoAdapter struct {
 
 func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (PhotoAdapter, error) {
 	photoServiceName := utils.GetEnv("PHOTO_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, photoServiceName, registry)
+	conn, err := discovery.ServiceConnection(ctx, photoServiceName, registry, logs)
 	if err != nil {
 		return nil, err
 	}

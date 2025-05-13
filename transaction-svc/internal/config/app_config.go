@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/utils"
 )
 
 const (

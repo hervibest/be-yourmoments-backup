@@ -13,6 +13,7 @@ func NewJetStream() nats.JetStreamContext {
 	port := utils.GetEnv("NATS_PORT")
 	nc, err := nats.Connect(fmt.Sprintf("nats://%s:%s", host, port))
 	if err != nil {
+		log.Println("Nats dsn : ", host, port)
 		log.Fatalf("Failed to connect to NATS: %v", err)
 	}
 

@@ -37,7 +37,7 @@ import (
 
 var logs = logger.New("main")
 
-func webServer() error {
+func webServer(ctx context.Context) error {
 
 	tp := config.InitTracer()
 	defer func() {
@@ -68,8 +68,6 @@ func webServer() error {
 	grpcPortInt, _ := strconv.Atoi(serverConfig.GRPCPort)
 	httpPortInt, _ := strconv.Atoi(serverConfig.HTTPPort)
 
-	ctx := context.Background()
-
 	err = registry.RegisterService(ctx, serverConfig.Name+"-grpc", GRPCserviceID, serverConfig.GRPCInternalAddr, grpcPortInt, []string{"grpc"})
 	if err != nil {
 		logs.Error("Failed to register gRPC photo service to consul")
@@ -81,6 +79,13 @@ func webServer() error {
 		logs.Error("Failed to register category service to consuls")
 		return err
 	}
+
+	go func() {
+		<-ctx.Done()
+		logs.Log("Context canceled. Deregistering services...")
+		registry.DeregisterService(context.Background(), GRPCserviceID)
+		registry.DeregisterService(context.Background(), HTTPserviceID)
+	}()
 
 	go func() {
 		failureCount := 0
@@ -100,7 +105,6 @@ func webServer() error {
 			time.Sleep(time.Second * 2)
 		}
 	}()
-	defer registry.DeregisterService(ctx, GRPCserviceID)
 
 	go func() {
 		failureCount := 0
@@ -120,19 +124,18 @@ func webServer() error {
 			time.Sleep(time.Second * 2)
 		}
 	}()
-	defer registry.DeregisterService(ctx, HTTPserviceID)
 
-	aiAdapter, err := adapter.NewAiAdapter(ctx, registry)
+	aiAdapter, err := adapter.NewAiAdapter(ctx, registry, logs)
 	if err != nil {
 		logs.Error(err)
 	}
 
-	userAdapter, err := adapter.NewUserAdapter(ctx, registry)
+	userAdapter, err := adapter.NewUserAdapter(ctx, registry, logs)
 	if err != nil {
 		logs.Error(err)
 	}
 
-	transactionAdapter, err := adapter.NewTransactionAdapter(ctx, registry)
+	transactionAdapter, err := adapter.NewTransactionAdapter(ctx, registry, logs)
 	if err != nil {
 		logs.Error(err)
 	}
@@ -231,8 +234,14 @@ func webServer() error {
 }
 
 func main() {
-	migration.Run()
-	if err := webServer(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if !config.IsLocal() {
+		migration.Run()
+	}
+
+	if err := webServer(ctx); err != nil {
 		logs.Error(err)
 	}
 

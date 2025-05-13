@@ -7,6 +7,7 @@ import (
 	"time"
 
 	consul "github.com/hashicorp/consul/api"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -22,7 +23,7 @@ func GenerateServiceID(serviceName string) string {
 	return fmt.Sprintf("%s-%d", serviceName, rand.New(rand.NewSource(time.Now().UnixNano())).Int())
 }
 
-func ServiceConnection(ctx context.Context, serviceName string, registry Registry) (*grpc.ClientConn, error) {
+func ServiceConnection(ctx context.Context, serviceName string, registry Registry, logs *logger.Log) (*grpc.ClientConn, error) {
 	const (
 		maxRetries = 3
 		retryDelay = 10 * time.Second
@@ -31,6 +32,7 @@ func ServiceConnection(ctx context.Context, serviceName string, registry Registr
 	var lastErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		logs.Log(fmt.Sprintf("trying to connect service: %s with attempt: %d and max retries: %d", serviceName, attempt, maxRetries))
 		service, err := registry.GetService(ctx, serviceName)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get service: %w", err)

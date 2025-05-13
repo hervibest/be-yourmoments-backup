@@ -15,7 +15,12 @@ type MidtransClient struct {
 }
 
 func NewMidtransClient() *MidtransClient {
-	midtransKey := utils.GetEnv("MIDTRANS_SERVER_KEY")
+	var midtransKey string
+	if IsLocal() || IsDevelopment() {
+		midtransKey = utils.GetEnv("MIDTRANS_DEV_SERVER_KEY")
+	} else if IsProduction() {
+		midtransKey = utils.GetEnv("MIDTRANS_PROD_SERVER_KEY")
+	}
 
 	snap := &snap.Client{}
 	snap.New(midtransKey, midtrans.Sandbox)

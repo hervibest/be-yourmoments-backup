@@ -5,6 +5,7 @@ import (
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/utils"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 
@@ -22,9 +23,9 @@ type photoAdapter struct {
 	client photopb.PhotoServiceClient
 }
 
-func NewPhotoAdapter(ctx context.Context, registry discovery.Registry) (PhotoAdapter, error) {
+func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs *logger.Log) (PhotoAdapter, error) {
 	photoServiceName := utils.GetEnv("PHOTO_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, photoServiceName, registry)
+	conn, err := discovery.ServiceConnection(ctx, photoServiceName, registry, logs)
 	if err != nil {
 		return nil, err
 	}

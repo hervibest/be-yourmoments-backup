@@ -99,7 +99,7 @@ func (c *authController) RegisterByEmail(ctx *fiber.Ctx) error {
 
 	parsedDate, err := time.Parse("2006-01-02", request.BirthDateStr)
 	if err != nil {
-		return helper.ErrBodyParserResponseJSON(ctx, errors.New("Format tanggal lahir tidak valid, gunakan YYYY-MM-DD"))
+		return helper.ErrBodyParserResponseJSON(ctx, errors.New("Invalid birth date format, please use YYYY-MM-DD"))
 	}
 
 	request.BirthDate = &parsedDate

@@ -1,14 +1,4 @@
 # Load environment variables from .env file
-include .env
-export
-
-.PHONY: all proto migrate-up migrate-down \
-        photo-svc-migrate-up photo-svc-migrate-down photo-svc-migrate-reset \
-        user-svc-migrate-up user-svc-migrate-down user-svc-migrate-reset \
-        transaction-svc-migrate-up transaction-svc-migrate-down transaction-svc-migrate-reset \
-        start-photo-svc start-upload-svc start-user-svc start-transaction-svc \
-        mockgen-upload-svc
-
 ### === Start Services ===
 start-photo-svc:
 	cd photo-svc/cmd/web && go run main.go
@@ -21,6 +11,18 @@ start-user-svc:
 
 start-transaction-svc:
 	cd transaction-svc/cmd/web && go run main.go
+
+
+# include .env
+# export
+
+.PHONY: all proto migrate-up migrate-down \
+        photo-svc-migrate-up photo-svc-migrate-down photo-svc-migrate-reset \
+        user-svc-migrate-up user-svc-migrate-down user-svc-migrate-reset \
+        transaction-svc-migrate-up transaction-svc-migrate-down transaction-svc-migrate-reset \
+        start-photo-svc start-upload-svc start-user-svc start-transaction-svc \
+        mockgen-upload-svc
+
 
 ### === Migration Template ===
 migrate-up:

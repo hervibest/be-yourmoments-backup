@@ -27,7 +27,8 @@ type aiAdapter struct {
 
 func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (AiAdapter, error) {
 	aiServiceName := utils.GetEnv("AI_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, aiServiceName, registry)
+	logs.Log("trying to connect to")
+	conn, err := discovery.ServiceConnection(ctx, aiServiceName, registry, logs)
 	if err != nil {
 		return nil, err
 	}

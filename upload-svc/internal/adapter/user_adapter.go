@@ -3,6 +3,7 @@ package adapter
 import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/utils"
 
 	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
@@ -19,9 +20,9 @@ type userAdapter struct {
 	client userpb.UserServiceClient
 }
 
-func NewUserAdapter(ctx context.Context, registry discovery.Registry) (UserAdapter, error) {
+func NewUserAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (UserAdapter, error) {
 	userServiceName := utils.GetEnv("USER_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, userServiceName, registry)
+	conn, err := discovery.ServiceConnection(ctx, userServiceName, registry, logs)
 	if err != nil {
 		return nil, err
 	}

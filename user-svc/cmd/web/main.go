@@ -34,7 +34,7 @@ import (
 
 var logs = logger.New("USER-SVC")
 
-func webServer() error {
+func webServer(ctx context.Context) error {
 	app := config.NewApp()
 
 	serverConfig := config.NewServerConfig()
@@ -55,8 +55,6 @@ func webServer() error {
 	grpcPortInt, _ := strconv.Atoi(serverConfig.GRPCPort)
 	httpPortInt, _ := strconv.Atoi(serverConfig.HTTPPort)
 
-	ctx := context.Background()
-
 	err = registry.RegisterService(ctx, serverConfig.Name+"-grpc", GRPCserviceID, serverConfig.GRPCInternalAddr, grpcPortInt, []string{"grpc"})
 	if err != nil {
 		logs.Error("Failed to register user service to consul")
@@ -68,6 +66,13 @@ func webServer() error {
 		logs.Error("Failed to register user service to consuls")
 		return err
 	}
+
+	go func() {
+		<-ctx.Done()
+		logs.Log("Context canceled. Deregistering services...")
+		registry.DeregisterService(context.Background(), GRPCserviceID)
+		registry.DeregisterService(context.Background(), HTTPserviceID)
+	}()
 
 	go func() {
 		failureCount := 0
@@ -87,7 +92,6 @@ func webServer() error {
 			time.Sleep(time.Second * 2)
 		}
 	}()
-	defer registry.DeregisterService(ctx, GRPCserviceID)
 
 	go func() {
 		failureCount := 0
@@ -107,7 +111,6 @@ func webServer() error {
 			time.Sleep(time.Second * 2)
 		}
 	}()
-	defer registry.DeregisterService(ctx, HTTPserviceID)
 
 	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
 	emailAdapter := adapter.NewEmailAdapter()
@@ -121,12 +124,12 @@ func webServer() error {
 	perspectiveAdapter := adapter.NewPerspectiveAdapter()
 	customValidator := helper.NewCustomValidator()
 
-	photoAdapter, err := adapter.NewPhotoAdapter(ctx, registry)
+	photoAdapter, err := adapter.NewPhotoAdapter(ctx, registry, logs)
 	if err != nil {
 		log.Println(err)
 	}
 
-	transactionAdapter, err := adapter.NewTransactionAdapter(ctx, registry)
+	transactionAdapter, err := adapter.NewTransactionAdapter(ctx, registry, logs)
 	if err != nil {
 		log.Println(err)
 	}
@@ -193,26 +196,6 @@ func webServer() error {
 	}()
 
 	routeConfig.Setup()
-
-	// go func() {
-	// 	grpcServer := grpc.NewServer()
-	// 	reflection.Register(grpcServer)
-
-	// 	l, err := net.Listen("tcp", serverConfig.GRPC)
-	// 	if err != nil {
-	// 		logs.Error(fmt.Sprintf("Failed to listen: %v", err))
-	// 	}
-	// 	logs.Log(fmt.Sprintf("gRPC server started on %s", serverConfig.GRPC))
-	// 	defer l.Close()
-
-	// 	// grpcHandler.NewPhotoGRPCHandler(grpcServer, photoUsecase, faceCamUseCase, userSimilarPhotoUsecase)
-
-	// 	if err := grpcServer.Serve(l); err != nil {
-	// 		logs.Error(fmt.Sprintf("Failed to start gRPC category server: %v", err))
-	// 	}
-	// }()
-
-	// photoController.Route(app)
 	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
 
 	err = app.Listen(serverConfig.HTTP)
@@ -225,8 +208,14 @@ func webServer() error {
 }
 
 func main() {
-	migration.Run()
-	if err := webServer(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if !config.IsLocal() {
+		migration.Run()
+	}
+
+	if err := webServer(ctx); err != nil {
 		logs.Error(err)
 	}
 
