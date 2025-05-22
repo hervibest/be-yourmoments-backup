@@ -12,7 +12,6 @@ import (
 
 	"log"
 	"net"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -32,6 +31,7 @@ import (
 	"time"
 
 	"github.com/gofiber/contrib/otelfiber"
+	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
@@ -39,6 +39,10 @@ import (
 )
 
 var logs = logger.New("main")
+var (
+	grpcServer *grpc.Server
+	app        *fiber.App
+)
 
 func webServer(ctx context.Context) error {
 	tp := config.InitTracer()
@@ -48,7 +52,7 @@ func webServer(ctx context.Context) error {
 		}
 	}()
 
-	app := config.NewApp()
+	app = config.NewApp()
 	app.Use(otelfiber.Middleware())
 	var tracer = otel.Tracer("fiber-server")
 
@@ -88,45 +92,19 @@ func webServer(ctx context.Context) error {
 		logs.Log("Context canceled. Deregistering services...")
 		registry.DeregisterService(context.Background(), GRPCserviceID)
 		registry.DeregisterService(context.Background(), HTTPserviceID)
+
+		logs.Log("Shutting down servers...")
+		if err := app.Shutdown(); err != nil {
+			logs.Error(fmt.Sprintf("Error shutting down Fiber: %v", err))
+		}
+		if grpcServer != nil {
+			grpcServer.GracefulStop()
+		}
+		logs.Log("Successfully shutdown...")
 	}()
 
-	go func() {
-		failureCount := 0
-		const maxFailures = 5
-		for {
-			err := registry.HealthCheck(GRPCserviceID, serverConfig.Name+"-grpc")
-			if err != nil {
-				logs.Error(fmt.Sprintf("Failed to perform health check for gRPC service: %v", err))
-				failureCount++
-				if failureCount >= maxFailures {
-					logs.Error("Max health check failures reached for gRPC service. Exiting health check loop.")
-					break
-				}
-			} else {
-				failureCount = 0
-			}
-			time.Sleep(time.Second * 2)
-		}
-	}()
-
-	go func() {
-		failureCount := 0
-		const maxFailures = 5
-		for {
-			err := registry.HealthCheck(HTTPserviceID, serverConfig.Name)
-			if err != nil {
-				logs.Error(fmt.Sprintf("Failed to perform health check: %v", err))
-				failureCount++
-				if failureCount >= maxFailures {
-					logs.Error("Max health check failures reached for HTTP service. Exiting health check loop.")
-					break
-				}
-			} else {
-				failureCount = 0
-			}
-			time.Sleep(time.Second * 2)
-		}
-	}()
+	go startHealthCheckLoop(ctx, registry, GRPCserviceID, serverConfig.Name+"-grpc")
+	go startHealthCheckLoop(ctx, registry, HTTPserviceID, serverConfig.Name+"-http")
 
 	photoAdapter, err := adapter.NewPhotoAdapter(ctx, registry, logs)
 	if err != nil {
@@ -180,7 +158,7 @@ func webServer(ctx context.Context) error {
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 
 	go func() {
-		grpcServer := grpc.NewServer()
+		grpcServer = grpc.NewServer()
 		reflection.Register(grpcServer)
 
 		l, err := net.Listen("tcp", serverConfig.GRPC)
@@ -207,21 +185,48 @@ func webServer(ctx context.Context) error {
 		schedulerRunner.Start()
 	}()
 
+	serverErrors := make(chan error, 1)
 	route := route.NewRoute(app, transactionController, bankController, bankWalletController, reviewController,
 		withdarawlController, walletController, transactionWalletCtrl, authMiddleware)
 
 	route.SetupRoute()
 	app.Use(cors.New())
 
-	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
+	go func() {
+		logs.Log(fmt.Sprintf("Starting HTTP server at %s", serverConfig.HTTP))
+		serverErrors <- app.Listen(serverConfig.HTTP)
+	}()
 
-	err = app.Listen(serverConfig.HTTP)
-
-	if err != nil {
-		logs.Error(fmt.Sprintf("Failed to start HTTP category server: %v", err))
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-serverErrors:
 		return err
 	}
-	return nil
+}
+
+func startHealthCheckLoop(ctx context.Context, registry *consul.Registry, serviceID, serviceName string) {
+	failureCount := 0
+	const maxFailures = 5
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			err := registry.HealthCheck(serviceID, serviceName)
+			if err != nil {
+				logs.Error(fmt.Sprintf("Failed to perform health check for %s: %v", serviceName, err))
+				failureCount++
+				if failureCount >= maxFailures {
+					logs.Error(fmt.Sprintf("Max health check failures reached for %s. Exiting loop.", serviceName))
+					return
+				}
+			} else {
+				failureCount = 0
+			}
+			time.Sleep(2 * time.Second)
+		}
+	}
 }
 
 func main() {
@@ -235,11 +240,4 @@ func main() {
 	if err := webServer(ctx); err != nil {
 		logs.Error(err)
 	}
-
-	logs.Log("Transaction service server started")
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-
-	sig := <-sigchan
-	logs.Log(fmt.Sprintf("Received signal: %s. Shutting down gracefully...", sig))
 }

@@ -48,7 +48,6 @@ type userProfileRepository struct {
 }
 
 func NewUserProfileRepository(db *sqlx.DB) (UserProfileRepository, error) {
-
 	userProfilePreparedStmt, err := newUserProfilePreraredStmt(db)
 	if err != nil {
 		return nil, err

@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	consul "github.com/hashicorp/consul/api"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -24,26 +26,38 @@ func GenerateServiceID(serviceName string) string {
 }
 
 func ServiceConnection(ctx context.Context, serviceName string, registry Registry, logs logger.Log) (*grpc.ClientConn, error) {
-	const (
-		maxRetries = 3
-		retryDelay = 10 * time.Second
-	)
+	retryTime, _ := strconv.Atoi(utils.GetEnv("SERVICE_DISCOVERY_RETRY_TIME"))
+	maxRetries, _ := strconv.Atoi(utils.GetEnv("SERVICE_DISCOVERY_MAX_RETRIES"))
+	retryDelay := time.Duration(retryTime) * time.Second
 
 	var lastErr error
-
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		logs.Log(fmt.Sprintf("trying to connect service: %s with attempt: %d and max retries: %d", serviceName, attempt, maxRetries))
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("service connection cancelled by context: %w", ctx.Err())
+		default:
+			logs.Log(fmt.Sprintf("trying to connect service: %s with attempt: %d and max retries: %d", serviceName, attempt, maxRetries))
+		}
+
 		service, err := registry.GetService(ctx, serviceName)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to get service: %w", err)
-			time.Sleep(retryDelay)
-			continue
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("service connection cancelled by context: %w", ctx.Err())
+			case <-time.After(retryDelay):
+				continue
+			}
 		}
 
 		if len(service) == 0 {
 			lastErr = fmt.Errorf("service %s not found", serviceName)
-			time.Sleep(retryDelay)
-			continue
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("service connection cancelled by context: %w", ctx.Err())
+			case <-time.After(retryDelay):
+				continue
+			}
 		}
 
 		serviceEntry := service[rand.Intn(len(service))]
@@ -54,14 +68,16 @@ func ServiceConnection(ctx context.Context, serviceName string, registry Registr
 		)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to connect: %w", err)
-			time.Sleep(retryDelay)
-			continue
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("service connection cancelled by context: %w", ctx.Err())
+			case <-time.After(retryDelay):
+				continue
+			}
 		}
 
-		// Berhasil terkoneksi
 		return conn, nil
 	}
 
-	// Setelah semua percobaan gagal
 	return nil, fmt.Errorf("service connection failed after %d retries: %w", maxRetries, lastErr)
 }

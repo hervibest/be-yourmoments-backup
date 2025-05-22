@@ -52,7 +52,7 @@ func (u *checkoutUseCase) PreviewCheckout(ctx context.Context, previewRequest *m
 		PhotoIds: previewRequest.PhotoIds,
 	}
 
-	result, total, err := u.calculatePrice(ctx, u.db, request)
+	result, total, err := u.calculatePrice(ctx, u.db, request, false)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePrice(ctx context.Context, reque
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	result, total, err := u.calculatePrice(ctx, tx, request)
+	result, total, err := u.calculatePrice(ctx, tx, request, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -86,17 +86,21 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePrice(ctx context.Context, reque
 	return result, total, err
 }
 
-func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Querier, request *model.CalculateRequest) (*[]*model.CheckoutItem, *model.Total, error) {
-	//ISSUE #3 creator_id should not checked (redudant from auth middleware)
-	//Find creator to make sure creator cannot buy their own photos
-
-	// TODO tambahkan permistic locking ? dengan db transaction
-	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, true)
+func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Querier, request *model.CalculateRequest, isTransaction bool) (*[]*model.CheckoutItem, *model.Total, error) {
+	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, isTransaction)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
 		}
 		return nil, nil, helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
+	}
+
+	if len(*photos) == 0 {
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "No available photos found")
+	}
+
+	if len(*photos) != len(request.PhotoIds) {
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Some photos is missing, please try again later")
 	}
 
 	// 1. Calculate each creator's photos and save to map
@@ -221,12 +225,17 @@ func (u *checkoutUseCase) OwnerOwnPhotos(ctx context.Context, request *model.Own
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	_, err = u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.OwnerId, request.PhotoIds, true)
+	photos, err := u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.OwnerId, request.PhotoIds, true)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
-		}
 		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
+	}
+
+	if len(*photos) == 0 {
+		return helper.NewUseCaseError(errorcode.ErrResourceNotFound, "No available photos found")
+	}
+
+	if len(*photos) != len(request.PhotoIds) {
+		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Some photos is missing, please try again later")
 	}
 
 	if err := u.photoRepository.UpdatePhotoOwnerAndStatusByIds(ctx, tx, request.OwnerId, request.PhotoIds); err != nil {
@@ -250,12 +259,17 @@ func (u *checkoutUseCase) CancelPhotos(ctx context.Context, request *model.Cance
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	_, err = u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.UserId, request.PhotoIds, true)
+	photos, err := u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.UserId, request.PhotoIds, true)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
-		}
 		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
+	}
+
+	if len(*photos) == 0 {
+		return helper.NewUseCaseError(errorcode.ErrResourceNotFound, "No available photos found")
+	}
+
+	if len(*photos) != len(request.PhotoIds) {
+		return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Some photos is missing, please try again later")
 	}
 
 	if err := u.photoRepository.UpdatePhotoStatusesByIDs(ctx, tx, enum.PhotoStatusAvailableEnum, request.PhotoIds); err != nil {

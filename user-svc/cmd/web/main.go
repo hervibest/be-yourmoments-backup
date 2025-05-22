@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gofiber/fiber/v2"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/cmd/migration"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
@@ -9,7 +10,6 @@ import (
 
 	"log"
 	"net"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -33,10 +33,13 @@ import (
 )
 
 var logs = logger.New("USER-SVC")
+var (
+	grpcServer *grpc.Server
+	app        *fiber.App
+)
 
 func webServer(ctx context.Context) error {
-	app := config.NewApp()
-
+	app = config.NewApp()
 	serverConfig := config.NewServerConfig()
 	dbConfig := config.NewDB()
 	minioConfig := config.NewMinio()
@@ -45,7 +48,7 @@ func webServer(ctx context.Context) error {
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
-		logs.Error("Failed to create consul registry for category service" + err.Error())
+		logs.Error("Failed to create consul registry for service" + err.Error())
 		return err
 	}
 
@@ -72,45 +75,19 @@ func webServer(ctx context.Context) error {
 		logs.Log("Context canceled. Deregistering services...")
 		registry.DeregisterService(context.Background(), GRPCserviceID)
 		registry.DeregisterService(context.Background(), HTTPserviceID)
+
+		logs.Log("Shutting down servers...")
+		if err := app.Shutdown(); err != nil {
+			logs.Error(fmt.Sprintf("Error shutting down Fiber: %v", err))
+		}
+		if grpcServer != nil {
+			grpcServer.GracefulStop()
+		}
+		logs.Log("Successfully shutdown...")
 	}()
 
-	go func() {
-		failureCount := 0
-		const maxFailures = 5
-		for {
-			err := registry.HealthCheck(GRPCserviceID, serverConfig.Name+"-grpc")
-			if err != nil {
-				logs.Error(fmt.Sprintf("Failed to perform health check for gRPC service: %v", err))
-				failureCount++
-				if failureCount >= maxFailures {
-					logs.Error("Max health check failures reached for gRPC service. Exiting health check loop.")
-					break
-				}
-			} else {
-				failureCount = 0
-			}
-			time.Sleep(time.Second * 2)
-		}
-	}()
-
-	go func() {
-		failureCount := 0
-		const maxFailures = 5
-		for {
-			err := registry.HealthCheck(HTTPserviceID, serverConfig.Name)
-			if err != nil {
-				logs.Error(fmt.Sprintf("Failed to perform health check: %v", err))
-				failureCount++
-				if failureCount >= maxFailures {
-					logs.Error("Max health check failures reached for HTTP service. Exiting health check loop.")
-					break
-				}
-			} else {
-				failureCount = 0
-			}
-			time.Sleep(time.Second * 2)
-		}
-	}()
+	go startHealthCheckLoop(ctx, registry, GRPCserviceID, serverConfig.Name+"-grpc")
+	go startHealthCheckLoop(ctx, registry, HTTPserviceID, serverConfig.Name+"-http")
 
 	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
 	emailAdapter := adapter.NewEmailAdapter()
@@ -122,17 +99,9 @@ func webServer(ctx context.Context) error {
 	authClientAdapter := adapter.NewAuthClientAdapter(firebaseConfig)
 	cloudMessagingAdapter := adapter.NewCloudMessagingAdapter(firebaseConfig)
 	perspectiveAdapter := adapter.NewPerspectiveAdapter()
+	photoAdapter, _ := adapter.NewPhotoAdapter(ctx, registry, logs)
+	transactionAdapter, _ := adapter.NewTransactionAdapter(ctx, registry, logs)
 	customValidator := helper.NewCustomValidator()
-
-	photoAdapter, err := adapter.NewPhotoAdapter(ctx, registry, logs)
-	if err != nil {
-		log.Println(err)
-	}
-
-	transactionAdapter, err := adapter.NewTransactionAdapter(ctx, registry, logs)
-	if err != nil {
-		log.Println(err)
-	}
 
 	userRepository, err := repository.NewUserRepository(dbConfig)
 	if err != nil {
@@ -178,12 +147,12 @@ func webServer(ctx context.Context) error {
 	}
 
 	go func() {
-		grpcServer := grpc.NewServer()
+		grpcServer = grpc.NewServer()
 		reflection.Register(grpcServer)
-
 		l, err := net.Listen("tcp", serverConfig.GRPC)
 		if err != nil {
 			logs.Error(fmt.Sprintf("Failed to listen: %v", err))
+			return
 		}
 		logs.Log(fmt.Sprintf("gRPC server started on %s", serverConfig.GRPC))
 		defer l.Close()
@@ -191,20 +160,47 @@ func webServer(ctx context.Context) error {
 		grpcHandler.NewUserGRPCHandler(grpcServer, authUseCase, notificationUseCase)
 
 		if err := grpcServer.Serve(l); err != nil {
-			logs.Error(fmt.Sprintf("Failed to start gRPC category server: %v", err))
+			logs.Error(fmt.Sprintf("Failed to start gRPC server: %v", err))
 		}
 	}()
 
 	routeConfig.Setup()
-	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
+	serverErrors := make(chan error, 1)
+	go func() {
+		logs.Log(fmt.Sprintf("Starting HTTP server at %s", serverConfig.HTTP))
+		serverErrors <- app.Listen(serverConfig.HTTP)
+	}()
 
-	err = app.Listen(serverConfig.HTTP)
-
-	if err != nil {
-		logs.Error(fmt.Sprintf("Failed to start HTTP category server: %v", err))
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-serverErrors:
 		return err
 	}
-	return nil
+}
+
+func startHealthCheckLoop(ctx context.Context, registry *consul.Registry, serviceID, serviceName string) {
+	failureCount := 0
+	const maxFailures = 5
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			err := registry.HealthCheck(serviceID, serviceName)
+			if err != nil {
+				logs.Error(fmt.Sprintf("Failed to perform health check for %s: %v", serviceName, err))
+				failureCount++
+				if failureCount >= maxFailures {
+					logs.Error(fmt.Sprintf("Max health check failures reached for %s. Exiting loop.", serviceName))
+					return
+				}
+			} else {
+				failureCount = 0
+			}
+			time.Sleep(2 * time.Second)
+		}
+	}
 }
 
 func main() {
@@ -218,11 +214,4 @@ func main() {
 	if err := webServer(ctx); err != nil {
 		logs.Error(err)
 	}
-
-	logs.Log("Api gateway server started")
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-
-	sig := <-sigchan
-	logs.Log(fmt.Sprintf("Received signal: %s. Shutting down gracefully...", sig))
 }

@@ -51,6 +51,7 @@ func BeginTxx(db BeginTx, ctx context.Context, logs *logger.Log) (*sqlx.Tx, erro
 
 func Rollback(err error, tx *sqlx.Tx, ctx context.Context, logs *logger.Log) {
 	if err != nil {
+		logs.Log("Rollback terpanggil")
 		if tx != nil {
 			_ = tx.Rollback() // abaikan error rollback
 		}

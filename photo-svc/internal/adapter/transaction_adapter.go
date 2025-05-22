@@ -2,7 +2,6 @@ package adapter
 
 import (
 	"context"
-	"log"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
@@ -24,10 +23,11 @@ func NewTransactionAdapter(ctx context.Context, registry discovery.Registry, log
 	transactionServiceName := utils.GetEnv("TRANSACTION_SVC_NAME")
 	conn, err := discovery.ServiceConnection(ctx, transactionServiceName, registry, logs)
 	if err != nil {
+		logs.CustomError("failed to connect transaction service with error : ", err)
 		return nil, err
 	}
 
-	log.Print("successfuly connected to transaction-svc-grpc")
+	logs.Log("successfuly connected to transaction-svc-grpc")
 	client := transcationpb.NewTransactionServiceClient(conn)
 
 	return &transactionAdapter{

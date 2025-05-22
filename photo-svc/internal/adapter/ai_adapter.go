@@ -21,6 +21,7 @@ func NewAiAdapter(ctx context.Context, registry discovery.Registry, logs *logger
 	aiServiceName := utils.GetEnv("AI_SVC_NAME")
 	conn, err := discovery.ServiceConnection(ctx, aiServiceName, registry, logs)
 	if err != nil {
+		logs.CustomError("failed to connect to ai service due to an error : ", err)
 		return nil, err
 	}
 

@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
-	"os"
+	"net"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	migration "github.com/hervibest/be-yourmoments-backup/photo-svc/cmd/migrations"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
@@ -15,30 +19,26 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/route"
 	subscriber "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
-
-	"net"
-
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/consul"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/usecase"
 
-	"context"
-	"fmt"
-	"strconv"
-	"time"
-
 	"github.com/gofiber/contrib/otelfiber"
+	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 var logs = logger.New("main")
+var (
+	grpcServer *grpc.Server
+	app        *fiber.App
+)
 
 func webServer(ctx context.Context) error {
-
 	tp := config.InitTracer()
 	defer func() {
 		if err := tp.Shutdown(context.Background()); err != nil {
@@ -46,9 +46,9 @@ func webServer(ctx context.Context) error {
 		}
 	}()
 
-	app := config.NewApp()
+	app = config.NewApp()
 	app.Use(otelfiber.Middleware())
-	var tracer = otel.Tracer("fiber-server")
+	tracer := otel.Tracer("fiber-server")
 
 	serverConfig := config.NewServerConfig()
 	dbConfig := config.NewPostgresDatabase()
@@ -58,7 +58,7 @@ func webServer(ctx context.Context) error {
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
-		logs.Error("Failed to create consul registry for category service" + err.Error())
+		logs.Error("Failed to create consul registry: " + err.Error())
 		return err
 	}
 
@@ -76,7 +76,7 @@ func webServer(ctx context.Context) error {
 
 	err = registry.RegisterService(ctx, serverConfig.Name+"-http", HTTPserviceID, serverConfig.HTTPInternalAddr, httpPortInt, []string{"http"})
 	if err != nil {
-		logs.Error("Failed to register category service to consuls")
+		logs.Error("Failed to register HTTP photo service to consul")
 		return err
 	}
 
@@ -85,89 +85,34 @@ func webServer(ctx context.Context) error {
 		logs.Log("Context canceled. Deregistering services...")
 		registry.DeregisterService(context.Background(), GRPCserviceID)
 		registry.DeregisterService(context.Background(), HTTPserviceID)
-	}()
 
-	go func() {
-		failureCount := 0
-		const maxFailures = 5
-		for {
-			err := registry.HealthCheck(GRPCserviceID, serverConfig.Name+"-grpc")
-			if err != nil {
-				logs.Error(fmt.Sprintf("Failed to perform health check for gRPC service: %v", err))
-				failureCount++
-				if failureCount >= maxFailures {
-					logs.Error("Max health check failures reached for gRPC service. Exiting health check loop.")
-					break
-				}
-			} else {
-				failureCount = 0
-			}
-			time.Sleep(time.Second * 2)
+		logs.Log("Shutting down servers...")
+		if err := app.Shutdown(); err != nil {
+			logs.Error(fmt.Sprintf("Error shutting down Fiber: %v", err))
 		}
-	}()
-
-	go func() {
-		failureCount := 0
-		const maxFailures = 5
-		for {
-			err := registry.HealthCheck(HTTPserviceID, serverConfig.Name)
-			if err != nil {
-				logs.Error(fmt.Sprintf("Failed to perform health check: %v", err))
-				failureCount++
-				if failureCount >= maxFailures {
-					logs.Error("Max health check failures reached for HTTP service. Exiting health check loop.")
-					break
-				}
-			} else {
-				failureCount = 0
-			}
-			time.Sleep(time.Second * 2)
+		if grpcServer != nil {
+			grpcServer.GracefulStop()
 		}
+		logs.Log("Successfully shutdown...")
 	}()
 
-	aiAdapter, err := adapter.NewAiAdapter(ctx, registry, logs)
-	if err != nil {
-		logs.Error(err)
-	}
+	go startHealthCheckLoop(ctx, registry, GRPCserviceID, serverConfig.Name+"-grpc")
+	go startHealthCheckLoop(ctx, registry, HTTPserviceID, serverConfig.Name+"-http")
 
-	userAdapter, err := adapter.NewUserAdapter(ctx, registry, logs)
-	if err != nil {
-		logs.Error(err)
-	}
-
-	transactionAdapter, err := adapter.NewTransactionAdapter(ctx, registry, logs)
-	if err != nil {
-		logs.Error(err)
-	}
-
-	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
-
+	aiAdapter, _ := adapter.NewAiAdapter(ctx, registry, logs)
+	userAdapter, _ := adapter.NewUserAdapter(ctx, registry, logs)
+	transactionAdapter, _ := adapter.NewTransactionAdapter(ctx, registry, logs)
 	storageAdapter := adapter.NewStorageAdapter(minioConfig)
 	CDNAdapter := adapter.NewCDNadapter()
 	customValidator := helper.NewCustomValidator()
 
-	photoRepo, err := repository.NewPhotoRepository(dbConfig)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
+	photoRepo, _ := repository.NewPhotoRepository(dbConfig)
 	photoDetailRepo := repository.NewPhotoDetailRepository()
 	facecamRepo := repository.NewFacecamRepository()
 	userSimilarRepo := repository.NewUserSimilarRepository()
-	exploreRepo, err := repository.NewExploreRepository(dbConfig)
-	if err != nil {
-		logs.Error(err)
-	}
-
-	creatorRepository, err := repository.NewCreatorRepository(dbConfig)
-	if err != nil {
-		log.Println(err)
-	}
-
-	creatorDiscountRepository, err := repository.NewCreatorDiscountRepository(dbConfig)
-	if err != nil {
-		log.Println(err)
-	}
+	exploreRepo, _ := repository.NewExploreRepository(dbConfig)
+	creatorRepository, _ := repository.NewCreatorRepository(dbConfig)
+	creatorDiscountRepository, _ := repository.NewCreatorDiscountRepository(dbConfig)
 	bulkPhotoRepository := repository.NewBulkPhotoRepository()
 
 	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, aiAdapter, storageAdapter, CDNAdapter, logs)
@@ -183,34 +128,33 @@ func webServer(ctx context.Context) error {
 	healthCheckController := http.NewHealthCheckController()
 	checkoutController := http.NewCheckoutController(checkoutUseCase, customValidator, logs)
 	photoController := http.NewPhotoController(photoUseCase, customValidator, logs)
-
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 	creatorMiddleware := middleware.NewCreatorMiddleware(creatorUseCase, tracer, logs)
 
 	creatorReviewSubscriber := subscriber.NewCreatorReviewSubscriber(jetStreamConfig, creatorUseCase, logs)
 	go func() {
-		creatorReviewSubscriber.Start(ctx)
+		if err := creatorReviewSubscriber.Start(ctx); err != nil {
+			logs.Error(fmt.Sprintf("Subscriber error: %v", err))
+		}
 	}()
 
 	go func() {
-		grpcServer := grpc.NewServer()
+		grpcServer = grpc.NewServer()
 		reflection.Register(grpcServer)
-
 		l, err := net.Listen("tcp", serverConfig.GRPC)
 		if err != nil {
 			logs.Error(fmt.Sprintf("Failed to listen: %v", err))
+			return
 		}
 		logs.Log(fmt.Sprintf("gRPC server started on %s", serverConfig.GRPC))
 		defer l.Close()
-
 		grpcHandler.NewPhotoGRPCHandler(grpcServer, photoUseCase, faceCamUseCase, userSimilarPhotoUsecase, creatorUseCase, checkoutUseCase)
-
 		if err := grpcServer.Serve(l); err != nil {
-			logs.Error(fmt.Sprintf("Failed to start gRPC category server: %v", err))
+			logs.Error(fmt.Sprintf("Failed to start gRPC server: %v", err))
 		}
 	}()
 
-	routeConfig := route.RouteConfig{
+	routes := route.RouteConfig{
 		App:                      app,
 		ExploreController:        exploreController,
 		HealthCheckController:    healthCheckController,
@@ -220,17 +164,44 @@ func webServer(ctx context.Context) error {
 		CreatorMiddleware:        creatorMiddleware,
 		CheckoutController:       checkoutController,
 	}
-	routeConfig.Setup()
 
-	logs.Log(fmt.Sprintf("Successfully connected http service at port: %v", serverConfig.HTTP))
+	routes.Setup()
+	serverErrors := make(chan error, 1)
+	go func() {
+		logs.Log(fmt.Sprintf("Starting HTTP server at %s", serverConfig.HTTP))
+		serverErrors <- app.Listen(serverConfig.HTTP)
+	}()
 
-	err = app.Listen(serverConfig.HTTP)
-
-	if err != nil {
-		logs.Error(fmt.Sprintf("Failed to start HTTP category server: %v", err))
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-serverErrors:
 		return err
 	}
-	return nil
+}
+
+func startHealthCheckLoop(ctx context.Context, registry *consul.Registry, serviceID, serviceName string) {
+	failureCount := 0
+	const maxFailures = 5
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			err := registry.HealthCheck(serviceID, serviceName)
+			if err != nil {
+				logs.Error(fmt.Sprintf("Failed to perform health check for %s: %v", serviceName, err))
+				failureCount++
+				if failureCount >= maxFailures {
+					logs.Error(fmt.Sprintf("Max health check failures reached for %s. Exiting loop.", serviceName))
+					return
+				}
+			} else {
+				failureCount = 0
+			}
+			time.Sleep(2 * time.Second)
+		}
+	}
 }
 
 func main() {
@@ -244,11 +215,4 @@ func main() {
 	if err := webServer(ctx); err != nil {
 		logs.Error(err)
 	}
-
-	logs.Log("Api gateway server started")
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-
-	sig := <-sigchan
-	logs.Log(fmt.Sprintf("Received signal: %s. Shutting down gracefully...", sig))
 }

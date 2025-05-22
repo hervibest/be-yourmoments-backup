@@ -122,7 +122,6 @@ type userRepository struct {
 }
 
 func NewUserRepository(db *sqlx.DB) (UserRepository, error) {
-
 	userPreparedStmt, err := newUserPreparedStmt(db)
 	if err != nil {
 		return nil, err

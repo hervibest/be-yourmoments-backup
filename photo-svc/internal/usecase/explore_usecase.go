@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
@@ -28,9 +29,9 @@ type ExploreUseCase interface {
 	UserAddCart(ctx context.Context, request *model.UserAddCartRequest) error
 	UserAddFavorite(ctx context.Context, request *model.UserAddFavoriteRequest) error
 	UserAddWishlist(ctx context.Context, request *model.UserAddWishlistRequest) error
-	UserDeleteCart(ctx context.Context, request *model.UserDeleteCartReqeust) error
-	UserDeleteFavorite(ctx context.Context, request *model.UserDeleteFavoriteReqeust) error
-	UserDeleteWishlist(ctx context.Context, request *model.UserDeleteWishlistReqeust) error
+	UserDeleteCart(ctx context.Context, request *model.UserDeleteCartRequest) error
+	UserDeleteFavorite(ctx context.Context, request *model.UserDeleteFavoriteRequest) error
+	UserDeleteWishlist(ctx context.Context, request *model.UserDeleteWishlistRequest) error
 }
 
 type exploreUseCase struct {
@@ -59,7 +60,8 @@ func (u *exploreUseCase) GetUserExploreSimilar(ctx context.Context, request *mod
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserExploreSimilar", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.Similarity,
+		request.UserId, request.CreatorId, false, false, false)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all explore similar in database", err)
 	}
@@ -71,7 +73,8 @@ func (u *exploreUseCase) GetUserWishlist(ctx context.Context, request *model.Get
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserWishlist", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllUserWishlist(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.Similarity,
+		request.UserId, request.CreatorId, true, false, false)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user wishlist photo in database", err)
 	}
@@ -80,7 +83,17 @@ func (u *exploreUseCase) GetUserWishlist(ctx context.Context, request *model.Get
 }
 
 func (u *exploreUseCase) UserAddWishlist(ctx context.Context, request *model.UserAddWishlistRequest) error {
-	_, err := u.photoRepository.FindByPhotoId(ctx, u.db, request.PhotoId)
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		u.logs.Log("Gonna call rollback method in defer func")
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	_, err = u.photoRepository.FindBuyableByPhotoId(ctx, tx, request.PhotoId, true)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
@@ -88,35 +101,21 @@ func (u *exploreUseCase) UserAddWishlist(ctx context.Context, request *model.Use
 		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	if err := u.exploreRepository.UserAddWishlist(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
+	if err = u.exploreRepository.UserAddStage(ctx, tx, request.PhotoId, request.UserId, enum.PhotoStageWishlist); err != nil {
+		if err.Error() == "no rows updated, possibly already unset or not found" {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
 		return helper.WrapInternalServerError(u.logs, "failed to add photo wishlist in database", err)
 	}
 
-	if err := repository.Commit(tx, u.logs); err != nil {
+	if err = repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (u *exploreUseCase) UserDeleteWishlist(ctx context.Context, request *model.UserDeleteWishlistReqeust) error {
-	_, err := u.photoRepository.FindByPhotoId(ctx, u.db, request.PhotoId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
-		}
-		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
-	}
-
+func (u *exploreUseCase) UserDeleteWishlist(ctx context.Context, request *model.UserDeleteWishlistRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -126,11 +125,22 @@ func (u *exploreUseCase) UserDeleteWishlist(ctx context.Context, request *model.
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserAddWishlist(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
+	_, err = u.photoRepository.FindBuyableByPhotoId(ctx, tx, request.PhotoId, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
+	}
+
+	if err = u.exploreRepository.UserDeleteStage(ctx, tx, request.PhotoId, request.UserId, enum.PhotoStageWishlist); err != nil {
+		if err.Error() == "no rows updated, possibly already unset or not found" {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
 		return helper.WrapInternalServerError(u.logs, "failed to delete wishlist in database", err)
 	}
 
-	if err := repository.Commit(tx, u.logs); err != nil {
+	if err = repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 
@@ -141,7 +151,8 @@ func (u *exploreUseCase) GetUserFavorite(ctx context.Context, request *model.Get
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserFavorite", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllUserFavorite(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.Similarity,
+		request.UserId, request.CreatorId, false, true, false)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user favorite photo in database", err)
 	}
@@ -150,14 +161,6 @@ func (u *exploreUseCase) GetUserFavorite(ctx context.Context, request *model.Get
 }
 
 func (u *exploreUseCase) UserAddFavorite(ctx context.Context, request *model.UserAddFavoriteRequest) error {
-	_, err := u.photoRepository.FindByPhotoId(ctx, u.db, request.PhotoId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
-		}
-		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
-	}
-
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -167,26 +170,29 @@ func (u *exploreUseCase) UserAddFavorite(ctx context.Context, request *model.Use
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserAddFavorite(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
+	_, err = u.photoRepository.FindBuyableByPhotoId(ctx, tx, request.PhotoId, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
+	}
+
+	if err = u.exploreRepository.UserAddStage(ctx, tx, request.PhotoId, request.UserId, enum.PhotoStageFavorite); err != nil {
+		if err.Error() == "no rows updated, possibly already unset or not found" {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
 		return helper.WrapInternalServerError(u.logs, "failed to add user favorite photo in database", err)
 	}
 
-	if err := repository.Commit(tx, u.logs); err != nil {
+	if err = repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (u *exploreUseCase) UserDeleteFavorite(ctx context.Context, request *model.UserDeleteFavoriteReqeust) error {
-	_, err := u.photoRepository.FindByPhotoId(ctx, u.db, request.PhotoId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
-		}
-		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
-	}
-
+func (u *exploreUseCase) UserDeleteFavorite(ctx context.Context, request *model.UserDeleteFavoriteRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -196,11 +202,21 @@ func (u *exploreUseCase) UserDeleteFavorite(ctx context.Context, request *model.
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserDeleteFavorite(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to delete user favorite photo in database", err)
+	_, err = u.photoRepository.FindBuyableByPhotoId(ctx, tx, request.PhotoId, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
 	}
 
-	if err := repository.Commit(tx, u.logs); err != nil {
+	if err = u.exploreRepository.UserDeleteStage(ctx, tx, request.PhotoId, request.UserId, enum.PhotoStageFavorite); err != nil {
+		if err.Error() == "no rows updated, possibly already unset or not found" {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+	}
+
+	if err = repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 
@@ -208,11 +224,11 @@ func (u *exploreUseCase) UserDeleteFavorite(ctx context.Context, request *model.
 }
 
 func (u *exploreUseCase) GetUserCart(ctx context.Context, request *model.GetAllCartRequest) (*[]*model.ExploreUserSimilarResponse, *model.PageMetadata, error) {
-
 	_, span := u.tracer.Start(ctx, "exploreUseCase.GetUserCart", oteltrace.WithAttributes(attribute.String("user.id", request.UserId)))
 	defer span.End()
 
-	explores, pageMetadata, err := u.exploreRepository.FindAllUserCart(ctx, u.db, request.Page, request.Size, request.Similarity, request.UserId)
+	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.Similarity,
+		request.UserId, request.CreatorId, false, true, false)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user cart photo in database", err)
 	}
@@ -220,15 +236,8 @@ func (u *exploreUseCase) GetUserCart(ctx context.Context, request *model.GetAllC
 	return converter.ExploresToResponses(&explores, u.CDNAdapter.GenerateCDN), pageMetadata, nil
 }
 
+// ISSUE #2 U SHOULD LOCK FIND BY PHOTO ID YEAH
 func (u *exploreUseCase) UserAddCart(ctx context.Context, request *model.UserAddCartRequest) error {
-	_, err := u.photoRepository.FindByPhotoId(ctx, u.db, request.PhotoId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
-		}
-		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
-	}
-
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -238,26 +247,29 @@ func (u *exploreUseCase) UserAddCart(ctx context.Context, request *model.UserAdd
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserAddCart(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
+	_, err = u.photoRepository.FindBuyableByPhotoId(ctx, tx, request.PhotoId, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Invalid photo id")
+		}
+		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
+	}
+
+	if err = u.exploreRepository.UserAddStage(ctx, tx, request.PhotoId, request.UserId, enum.PhotoStageCart); err != nil {
+		if err.Error() == "no rows updated, possibly already unset or not found" {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
 		return helper.WrapInternalServerError(u.logs, "failed to add user cart photo in database", err)
 	}
 
-	if err := repository.Commit(tx, u.logs); err != nil {
+	if err = repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (u *exploreUseCase) UserDeleteCart(ctx context.Context, request *model.UserDeleteCartReqeust) error {
-	_, err := u.photoRepository.FindByPhotoId(ctx, u.db, request.PhotoId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
-		}
-		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
-	}
-
+func (u *exploreUseCase) UserDeleteCart(ctx context.Context, request *model.UserDeleteCartRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -267,11 +279,21 @@ func (u *exploreUseCase) UserDeleteCart(ctx context.Context, request *model.User
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	if err := u.exploreRepository.UserDeleteCart(ctx, tx, request.Similarity, request.PhotoId, request.UserId); err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to delete user cart photo in database", err)
+	_, err = u.photoRepository.FindBuyableByPhotoId(ctx, tx, request.PhotoId, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+		return helper.WrapInternalServerError(u.logs, "failed to find photo by photo id in database", err)
 	}
 
-	if err := repository.Commit(tx, u.logs); err != nil {
+	if err = u.exploreRepository.UserDeleteStage(ctx, tx, request.PhotoId, request.UserId, enum.PhotoStageCart); err != nil {
+		if err.Error() == "no rows updated, possibly already unset or not found" {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+		}
+	}
+
+	if err = repository.Commit(tx, u.logs); err != nil {
 		return err
 	}
 

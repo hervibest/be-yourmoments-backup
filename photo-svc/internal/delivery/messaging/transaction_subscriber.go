@@ -46,7 +46,7 @@ func (s *CreatorReviewSubscriber) Start(ctx context.Context) error {
 
 	s.logs.CustomLog("Started synchronous subscriber for", s.subject)
 
-	go func() {
+	func() {
 		for {
 			select {
 			case <-ctx.Done():

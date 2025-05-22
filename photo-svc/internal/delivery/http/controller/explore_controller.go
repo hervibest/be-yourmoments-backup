@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/middleware"
@@ -49,11 +48,11 @@ func (c *exploreController) GetAllExploreSimilar(ctx *fiber.Ctx) error {
 	request := &model.GetAllExploreSimilarRequest{
 		UserId:     auth.UserId,
 		Similarity: auth.Similarity,
+		CreatorId:  auth.CreatorId,
 		Page:       ctx.QueryInt("page", 1),
 		Size:       ctx.QueryInt("size", 10),
 	}
 
-	log.Println("Ini adalah similarity", auth.Similarity)
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}
@@ -77,10 +76,13 @@ func (c *exploreController) GetAllUserWishlist(ctx *fiber.Ctx) error {
 	auth := middleware.GetUser(ctx)
 	context, span := c.tracer.Start(ctx.Context(), "getUserWishlist", oteltrace.WithAttributes(attribute.String("id", auth.UserId)))
 	defer span.End()
+
 	request := &model.GetAllWishlistRequest{
-		UserId: auth.UserId,
-		Page:   ctx.QueryInt("page", 1),
-		Size:   ctx.QueryInt("size", 10),
+		UserId:     auth.UserId,
+		Similarity: auth.Similarity,
+		CreatorId:  auth.CreatorId,
+		Page:       ctx.QueryInt("page", 1),
+		Size:       ctx.QueryInt("size", 10),
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
@@ -137,16 +139,16 @@ func (c *exploreController) UserDeleteWishlist(ctx *fiber.Ctx) error {
 	context, span := c.tracer.Start(ctx.Context(), "userAddWishlist", oteltrace.WithAttributes(attribute.String("id", auth.UserId)))
 	defer span.End()
 
-	request := &model.UserDeleteWishlistReqeust{
+	request := &model.UserDeleteWishlistRequest{
 		UserId: auth.UserId,
-	}
-
-	if _, err := ulid.Parse(request.PhotoId); err != nil {
-		return fiber.NewError(http.StatusBadRequest, "The provided photo ID is not valid")
 	}
 
 	if err := helper.StrictBodyParser(ctx, request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	if _, err := ulid.Parse(request.PhotoId); err != nil {
+		return fiber.NewError(http.StatusBadRequest, "The provided photo ID is not valid")
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
@@ -167,9 +169,11 @@ func (c *exploreController) GetAllUserFavorite(ctx *fiber.Ctx) error {
 	context, span := c.tracer.Start(ctx.Context(), "getUserFavorite", oteltrace.WithAttributes(attribute.String("id", auth.UserId)))
 	defer span.End()
 	request := &model.GetAllFavoriteRequest{
-		UserId: auth.UserId,
-		Page:   ctx.QueryInt("page", 1),
-		Size:   ctx.QueryInt("size", 10),
+		UserId:     auth.UserId,
+		Similarity: auth.Similarity,
+		CreatorId:  auth.CreatorId,
+		Page:       ctx.QueryInt("page", 1),
+		Size:       ctx.QueryInt("size", 10),
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
@@ -226,7 +230,7 @@ func (c *exploreController) UserDeleteFavorite(ctx *fiber.Ctx) error {
 	context, span := c.tracer.Start(ctx.Context(), "userAddFavorite", oteltrace.WithAttributes(attribute.String("id", auth.UserId)))
 	defer span.End()
 
-	request := &model.UserDeleteFavoriteReqeust{
+	request := &model.UserDeleteFavoriteRequest{
 		UserId: auth.UserId,
 	}
 
@@ -256,9 +260,11 @@ func (c *exploreController) GetAllUserCart(ctx *fiber.Ctx) error {
 	context, span := c.tracer.Start(ctx.Context(), "getUserCart", oteltrace.WithAttributes(attribute.String("id", auth.UserId)))
 	defer span.End()
 	request := &model.GetAllCartRequest{
-		UserId: auth.UserId,
-		Page:   ctx.QueryInt("page", 1),
-		Size:   ctx.QueryInt("size", 10),
+		UserId:     auth.UserId,
+		Similarity: auth.Similarity,
+		CreatorId:  auth.CreatorId,
+		Page:       ctx.QueryInt("page", 1),
+		Size:       ctx.QueryInt("size", 10),
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
@@ -315,7 +321,7 @@ func (c *exploreController) UserDeleteCart(ctx *fiber.Ctx) error {
 	context, span := c.tracer.Start(ctx.Context(), "userDeleteCart", oteltrace.WithAttributes(attribute.String("id", auth.UserId)))
 	defer span.End()
 
-	request := &model.UserDeleteCartReqeust{
+	request := &model.UserDeleteCartRequest{
 		UserId: auth.UserId,
 	}
 

@@ -24,10 +24,11 @@ type transactionAdapter struct {
 func NewTransactionAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (TransactionAdapter, error) {
 	conn, err := discovery.ServiceConnection(ctx, "transaction-svc-grpc", registry, logs)
 	if err != nil {
+		logs.CustomError("failed to connect to the transaction service due to an error : ", err)
 		return nil, err
 	}
 
-	log.Print("transaction-svc-grpc")
+	logs.Log("transaction-svc-grpc")
 	client := transcationpb.NewTransactionServiceClient(conn)
 
 	return &transactionAdapter{

@@ -29,6 +29,7 @@ func NewUserAdapter(ctx context.Context, registry discovery.Registry, logs *logg
 	userServiceName := utils.GetEnv("USER_SVC_NAME")
 	conn, err := discovery.ServiceConnection(ctx, userServiceName, registry, logs)
 	if err != nil {
+		logs.CustomError("failed to connect to user service due to an error : ", err)
 		return nil, err
 	}
 

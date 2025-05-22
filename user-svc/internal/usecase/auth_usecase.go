@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -206,7 +205,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
 		}
 
-		userProfRes, creatorRes, walletRes, err := u.getUseProfileWalletAndRepo(ctx, &wg, user.Id)
+		userProfRes, creatorRes, walletRes, err := u.getUserProfileWalletAndRepo(ctx, &wg, user.Id)
 		if err != nil {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
 		}
@@ -318,7 +317,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 	return converter.UserToResponse(user), token, nil
 }
 
-func (u *authUseCase) getUseProfileWalletAndRepo(ctx context.Context, wg *sync.WaitGroup, userId string) (*entity.UserProfile, *entity.Creator, *entity.Wallet, error) {
+func (u *authUseCase) getUserProfileWalletAndRepo(ctx context.Context, wg *sync.WaitGroup, userId string) (*entity.UserProfile, *entity.Creator, *entity.Wallet, error) {
 	var (
 		userProfile *entity.UserProfile
 		creator     *entity.Creator
@@ -343,17 +342,20 @@ func (u *authUseCase) getUseProfileWalletAndRepo(ctx context.Context, wg *sync.W
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err1 error
-		creator, err1 = u.photoAdapter.GetCreator(ctx, userId)
+		creatorRes, err1 := u.photoAdapter.GetCreator(ctx, userId)
 		if err1 != nil {
 			u.logs.Error(fmt.Sprint("failed to get creator from photo service with error : ", err1))
 			return
 		}
 
-		wallet, err1 = u.transactionAdapter.GetWallet(ctx, creator.Id)
+		creator = creatorRes
+		walletRes, err1 := u.transactionAdapter.GetWallet(ctx, creator.Id)
 		if err1 != nil {
 			u.logs.Error(fmt.Sprint("failed to get wallet by creator id from wallet service with error : ", err1))
+			return
 		}
+
+		wallet = walletRes
 	}()
 
 	wg.Wait()
@@ -758,10 +760,6 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to send reset password email", err)
 	}
 
-	if user.HasVerifiedPhoneNumber() {
-		log.Printf("have phone numbers")
-	}
-
 	if user.HasEmail() && strings.EqualFold(user.Email.String, request.MultipleParam) {
 		if !user.HasVerifiedEmail() {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrValidationFailed, "Email must be verified")
@@ -779,7 +777,7 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 	}
 
 	var wg sync.WaitGroup
-	userProfile, creator, wallet, err := u.getUseProfileWalletAndRepo(ctx, &wg, user.Id)
+	userProfile, creator, wallet, err := u.getUserProfileWalletAndRepo(ctx, &wg, user.Id)
 	if err != nil {
 		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
 	}
@@ -824,7 +822,7 @@ func (u *authUseCase) generateToken(ctx context.Context, auth *entity.Auth) (*mo
 
 	//TODO -- SYNC with update ()
 	//set user persistence data in cache (redis) for better verify auth flow (should be synced with update profile usecase)
-	if err := u.cacheAdapter.Set(ctx, auth.Id, jsonValue, time.Until(refreshTokenDetail.ExpiresAt)); err != nil {
+	if err := u.cacheAdapter.Set(ctx, auth.Id, jsonValue, time.Until(accessTokenDetail.ExpiresAt)); err != nil {
 		return nil, fmt.Errorf("save user body into cache : %+v", err)
 	}
 
@@ -900,36 +898,15 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 		user, err := u.userRepository.FindById(ctx, accessTokenDetail.UserId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
+				u.logs.Debug("Err no rows for user id in user repo find by id (access token user id)")
 				return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "invalid refresh token")
 			}
 			return nil, helper.WrapInternalServerError(u.logs, "failed to find user by id", err)
 		}
 
-		var wg sync.WaitGroup
-		userProfile, creator, wallet, err := u.getUseProfileWalletAndRepo(ctx, &wg, user.Id)
-		if err != nil {
-			return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "invalid refresh token")
+		if err = u.setAuthCache(ctx, user, auth, accessTokenDetail); err != nil {
+			return nil, err
 		}
-
-		auth = &entity.Auth{
-			Id:          user.Id,
-			Username:    user.Username,
-			Email:       user.Email.String,
-			PhoneNumber: user.PhoneNumber.String,
-			Similarity:  userProfile.Similarity,
-			CreatorId:   creator.Id,
-			WalletId:    wallet.Id,
-		}
-
-		jsonValue, err := sonic.ConfigFastest.Marshal(auth)
-		if err != nil {
-			return nil, fmt.Errorf("marshal user : %+v", err)
-		}
-
-		if err := u.cacheAdapter.Set(ctx, auth.Id, jsonValue, time.Until(time.Now().Add(time.Hour*24*1))); err != nil {
-			return nil, fmt.Errorf("save user body into cache : %+v", err)
-		}
-
 	} else {
 		if err := sonic.ConfigFastest.Unmarshal([]byte(cachedUserStr), &auth); err != nil {
 			return nil, helper.WrapInternalServerError(u.logs, "failed to unmarshal user body from cached", err)
@@ -949,6 +926,41 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 	}
 
 	return authResponse, nil
+}
+
+func (u *authUseCase) setAuthCache(ctx context.Context, user *entity.User, auth *entity.Auth, accessTokenDetail *entity.AccessToken) error {
+	if auth == nil {
+		auth = new(entity.Auth)
+	}
+
+	var wg sync.WaitGroup
+	userProfile, creator, wallet, err := u.getUserProfileWalletAndRepo(ctx, &wg, user.Id)
+	if err != nil {
+		u.logs.Debug("Err no get user profile and wallet repo")
+		return helper.NewUseCaseError(errorcode.ErrUnauthorized, "invalid refresh token")
+	}
+
+	fmt.Println("Ini adalah creator :", creator)
+	auth = &entity.Auth{
+		Id:          user.Id,
+		Username:    user.Username,
+		Email:       user.Email.String,
+		PhoneNumber: user.PhoneNumber.String,
+		Similarity:  userProfile.Similarity,
+		CreatorId:   creator.Id,
+		WalletId:    wallet.Id,
+	}
+
+	jsonValue, err := sonic.ConfigFastest.Marshal(auth)
+	if err != nil {
+		return fmt.Errorf("marshal user : %+v", err)
+	}
+
+	if err := u.cacheAdapter.Set(ctx, auth.Id, jsonValue, time.Until(accessTokenDetail.ExpiresAt)); err != nil {
+		return fmt.Errorf("save user body into cache : %+v", err)
+	}
+
+	return nil
 }
 
 func (u *authUseCase) Logout(ctx context.Context, request *model.LogoutUserRequest) (bool, error) {
@@ -977,6 +989,7 @@ func (u *authUseCase) AccessTokenRequest(ctx context.Context, refreshToken strin
 	user, err := u.userRepository.FindById(ctx, refreshTokenDetail.UserId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			u.logs.Debug("Err no rows for user id in user repo find by id (access token user id)")
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "invalid refresh token")
 		}
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find user by id", err)
@@ -985,6 +998,10 @@ func (u *authUseCase) AccessTokenRequest(ctx context.Context, refreshToken strin
 	accessTokenDetail, err := u.jwtAdapter.GenerateAccessToken(user.Id)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to generate access token", err)
+	}
+
+	if err := u.setAuthCache(ctx, user, nil, accessTokenDetail); err != nil {
+		return nil, nil, err
 	}
 
 	tokenResponse := &model.TokenResponse{

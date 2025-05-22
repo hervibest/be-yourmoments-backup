@@ -14,7 +14,7 @@ start-transaction-svc:
 
 
 # include .env
-# export
+# expor
 
 .PHONY: all proto migrate-up migrate-down \
         photo-svc-migrate-up photo-svc-migrate-down photo-svc-migrate-reset \

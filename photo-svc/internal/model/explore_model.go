@@ -72,6 +72,7 @@ type ExploreUserSimilarResponse struct {
 type GetAllExploreSimilarRequest struct {
 	UserId     string `validate:"required"`
 	Similarity uint32 `validate:"required"`
+	CreatorId  string `validate:"required"`
 	Page       int    `json:"page" validate:"required"`
 	Size       int    `json:"size" validate:"required"`
 }
@@ -79,56 +80,53 @@ type GetAllExploreSimilarRequest struct {
 type GetAllWishlistRequest struct {
 	UserId     string `validate:"required"`
 	Similarity uint32 `validate:"required"`
+	CreatorId  string `validate:"required"`
 	Page       int    `json:"page" validate:"required"`
 	Size       int    `json:"size" validate:"required"`
 }
 
 type UserAddWishlistRequest struct {
-	UserId     string `json:"user_id" validate:"required"`
-	Similarity uint32 `validate:"required"`
-	PhotoId    string `json:"photo_id" validate:"required"`
+	UserId  string `json:"user_id" validate:"required"`
+	PhotoId string `json:"photo_id" validate:"required"`
 }
 
-type UserDeleteWishlistReqeust struct {
-	UserId     string `json:"user_id" validate:"required"`
-	Similarity uint32 `validate:"required"`
-	PhotoId    string `json:"photo_id" validate:"required"`
+type UserDeleteWishlistRequest struct {
+	UserId  string `json:"user_id" validate:"required"`
+	PhotoId string `json:"photo_id" validate:"required"`
 }
 
 type GetAllFavoriteRequest struct {
 	UserId     string `validate:"required"`
-	Page       int    `json:"page" validate:"required"`
 	Similarity uint32 `validate:"required"`
+	CreatorId  string `validate:"required"`
+	Page       int    `json:"page" validate:"required"`
 	Size       int    `json:"size" validate:"required"`
 }
 
 type UserAddFavoriteRequest struct {
-	UserId     string `json:"user_id" validate:"required"`
-	Similarity uint32 `validate:"required"`
-	PhotoId    string `json:"photo_id" validate:"required"`
+	UserId  string `json:"user_id" validate:"required"`
+	PhotoId string `json:"photo_id" validate:"required"`
 }
 
-type UserDeleteFavoriteReqeust struct {
-	UserId     string `json:"user_id" validate:"required"`
-	Similarity uint32 `validate:"required"`
-	PhotoId    string `json:"photo_id" validate:"required"`
+type UserDeleteFavoriteRequest struct {
+	UserId  string `json:"user_id" validate:"required"`
+	PhotoId string `json:"photo_id" validate:"required"`
 }
 
 type GetAllCartRequest struct {
 	UserId     string `validate:"required"`
-	Page       int    `json:"page" validate:"required"`
 	Similarity uint32 `validate:"required"`
+	CreatorId  string `validate:"required"`
 	Size       int    `json:"size" validate:"required"`
+	Page       int    `json:"page" validate:"required"`
 }
 
 type UserAddCartRequest struct {
-	UserId     string `json:"user_id" validate:"required"`
-	Similarity uint32 `validate:"required"`
-	PhotoId    string `json:"photo_id" validate:"required"`
+	UserId  string `json:"user_id" validate:"required"`
+	PhotoId string `json:"photo_id" validate:"required"`
 }
 
-type UserDeleteCartReqeust struct {
-	UserId     string `json:"user_id" validate:"required"`
-	Similarity uint32 `validate:"required"`
-	PhotoId    string `json:"photo_id" validate:"required"`
+type UserDeleteCartRequest struct {
+	UserId  string `json:"user_id" validate:"required"`
+	PhotoId string `json:"photo_id" validate:"required"`
 }

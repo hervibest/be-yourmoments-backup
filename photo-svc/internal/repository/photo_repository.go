@@ -31,6 +31,7 @@ func newPhotoPreparedStmt(db *sqlx.DB) (*photoPreparedStmt, error) {
 type PhotoRepository interface {
 	Create(tx Querier, photo *entity.Photo) (*entity.Photo, error)
 	FindByPhotoId(ctx context.Context, tx Querier, photoId string) (*entity.Photo, error)
+	FindBuyableByPhotoId(ctx context.Context, tx Querier, photoId string, forUpdate bool) (*entity.Photo, error)
 	UpdateProcessedUrl(tx Querier, photo *entity.Photo) error
 	UpdateCompressedUrl(tx Querier, photo *entity.Photo) error
 	GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
@@ -103,9 +104,22 @@ func (r *photoRepository) UpdateProcessedUrl(tx Querier, photo *entity.Photo) er
 
 func (r *photoRepository) FindByPhotoId(ctx context.Context, tx Querier, photoId string) (*entity.Photo, error) {
 	photo := new(entity.Photo)
-
 	row := r.photoPreparedStmt.findByPhotoId.QueryRowxContext(ctx, photoId)
 	if err := row.StructScan(photo); err != nil {
+		return nil, err
+	}
+
+	return photo, nil
+}
+
+func (r *photoRepository) FindBuyableByPhotoId(ctx context.Context, tx Querier, photoId string, forUpdate bool) (*entity.Photo, error) {
+	photo := new(entity.Photo)
+	query := "SELECT * FROM photos WHERE id = $1 AND owned_by_user_id IS NULL AND status = 'AVAILABLE'"
+	if forUpdate {
+		query += " FOR UPDATE"
+	}
+
+	if err := tx.GetContext(ctx, photo, query, photoId); err != nil {
 		return nil, err
 	}
 
@@ -134,6 +148,8 @@ func (r *photoRepository) GetSimilarPhotosByIDsWithoutCreatorFilter(ctx context.
 			up.user_id = $2 
 		AND 
 			p.owned_by_user_id IS NULL
+		AND
+			p.status = 'IN_TRANSACTION'
 			`
 	if forUpdate {
 		query += ` FOR UPDATE`
@@ -169,6 +185,8 @@ func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, tx Querier,
 			p.owned_by_user_id IS NULL
 		AND 
 			p.creator_id != $3
+		AND
+			p.status = 'AVAILABLE'
 			`
 	if forUpdate {
 		query += ` FOR UPDATE`

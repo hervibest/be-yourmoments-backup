@@ -24,6 +24,7 @@ func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs logg
 	photoServiceName := utils.GetEnv("PHOTO_SVC_NAME")
 	conn, err := discovery.ServiceConnection(ctx, photoServiceName, registry, logs)
 	if err != nil {
+		logs.CustomError("failed to connect to the photo service due to an error : ", err)
 		return nil, err
 	}
 	client := photopb.NewPhotoServiceClient(conn)
