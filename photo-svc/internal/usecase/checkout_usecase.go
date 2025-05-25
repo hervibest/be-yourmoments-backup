@@ -86,6 +86,7 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePrice(ctx context.Context, reque
 	return result, total, err
 }
 
+// #M231 ISSUE - Discount consistency (if creator deactivate the discount when user already previewed it)
 func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Querier, request *model.CalculateRequest, isTransaction bool) (*[]*model.CheckoutItem, *model.Total, error) {
 	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, isTransaction)
 	if err != nil {
@@ -95,10 +96,12 @@ func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Quer
 		return nil, nil, helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
 	}
 
+	// Case kalaus semisal semua foto sudah dibeli orang lain
 	if len(*photos) == 0 {
 		return nil, nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "No available photos found")
 	}
 
+	// Case kalaus semisal beberapa foto sudah dibeli orang lain
 	if len(*photos) != len(request.PhotoIds) {
 		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Some photos is missing, please try again later")
 	}
