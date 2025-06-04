@@ -20,16 +20,7 @@ func BankWalletToResponse(bankWallet *entity.BankWallet) *model.BankWalletRespon
 func BankWalletsToResponses(bankWallets *[]*entity.BankWallet) *[]*model.BankWalletResponse {
 	responses := make([]*model.BankWalletResponse, 0)
 	for _, bankWallet := range *bankWallets {
-		bankWalletResponse := &model.BankWalletResponse{
-			Id:            bankWallet.Id,
-			BankId:        bankWallet.BankId,
-			WalletId:      bankWallet.WalletId,
-			FullName:      bankWallet.FullName,
-			AccountNumber: bankWallet.AccountNumber,
-			CreatedAt:     bankWallet.CreatedAt,
-			UpdatedAt:     bankWallet.UpdatedAt,
-		}
-
+		bankWalletResponse := BankWalletToResponse(bankWallet)
 		responses = append(responses, bankWalletResponse)
 	}
 	return &responses

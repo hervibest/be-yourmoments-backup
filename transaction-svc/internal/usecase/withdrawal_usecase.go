@@ -53,7 +53,7 @@ func (u *withdrawalUseCase) Create(ctx context.Context, request *model.CreateWit
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	wallet, err := u.walletRepository.FindById(ctx, tx, request.WalletId)
+	wallet, err := u.walletRepository.FindById(ctx, tx, request.WalletId, true)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Invalid creator discount id")
@@ -117,6 +117,7 @@ func (u *withdrawalUseCase) FindById(ctx context.Context, request *model.FindWit
 	return converter.WithdrawalToResponse(withdrawal), nil
 }
 
+// TODO - status
 func (u *withdrawalUseCase) Update(ctx context.Context, request *model.UpdateWithdrawalStatusRequest) (*model.WithdrawalResponse, error) {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {

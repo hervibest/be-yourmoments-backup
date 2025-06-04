@@ -13,7 +13,7 @@ type WalletRepository interface {
 	AddBalance(ctx context.Context, db Querier, walletID string, amount int64) error
 	Create(ctx context.Context, db Querier, wallet *entity.Wallet) (*entity.Wallet, error)
 	FindByCreatorIDs(ctx context.Context, db Querier, creatorIDs []string) (*[]*entity.Wallet, error)
-	FindById(ctx context.Context, db Querier, walletId string) (*entity.Wallet, error)
+	FindById(ctx context.Context, db Querier, walletId string, forUpdate bool) (*entity.Wallet, error)
 	FindByCreatorId(ctx context.Context, db Querier, creatorId string) (*entity.Wallet, error)
 	ReduceBalance(ctx context.Context, db Querier, walletID string, amount int64) error
 }
@@ -53,12 +53,15 @@ func (r *walletRepository) FindByCreatorIDs(ctx context.Context, db Querier, cre
 	return &wallets, nil
 }
 
-func (r *walletRepository) FindById(ctx context.Context, db Querier, walletId string) (*entity.Wallet, error) {
-	const query = `
+func (r *walletRepository) FindById(ctx context.Context, db Querier, walletId string, forUpdate bool) (*entity.Wallet, error) {
+	query := `
         SELECT id, creator_id, balance, created_at, updated_at
         FROM wallets
         WHERE id = $1
     `
+	if forUpdate {
+		query += " FOR UDPATE"
+	}
 	wallet := new(entity.Wallet)
 	err := db.GetContext(ctx, wallet, query, walletId)
 	if err != nil {

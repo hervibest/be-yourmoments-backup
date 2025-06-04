@@ -37,6 +37,7 @@ func (r *photoDetailRepository) Create(tx Querier, photoDetail *entity.PhotoDeta
 	return photoDetail, nil
 }
 
+// TODO ISSUE -- bulk create
 func (r *photoDetailRepository) BulkCreate(ctx context.Context, tx Querier, items []*entity.PhotoDetail) (*[]*entity.PhotoDetail, error) {
 	query := `INSERT INTO photo_details (id, photo_id, file_name, file_key, size, type, checksum, width, height, url, your_moments_type, created_at, updated_at)
 	          VALUES (:id, :photo_id, :file_name, :file_key, :size, :type, :checksum, :width, :height, :url, :your_moments_type, :created_at, :updated_at)`

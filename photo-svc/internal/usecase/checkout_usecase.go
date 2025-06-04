@@ -96,12 +96,12 @@ func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Quer
 		return nil, nil, helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
 	}
 
-	// Case kalaus semisal semua foto sudah dibeli orang lain
+	// Case kalau semisal semua foto sudah dibeli orang lain
 	if len(*photos) == 0 {
 		return nil, nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "No available photos found")
 	}
 
-	// Case kalaus semisal beberapa foto sudah dibeli orang lain
+	// Case kalau semisal beberapa foto sudah dibeli orang lain
 	if len(*photos) != len(request.PhotoIds) {
 		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Some photos is missing, please try again later")
 	}

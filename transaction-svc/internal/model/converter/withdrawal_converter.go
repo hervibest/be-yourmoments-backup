@@ -21,17 +21,7 @@ func WithdrawalToResponse(withdrawal *entity.Withdrawal) *model.WithdrawalRespon
 func WithdrawalsToResponses(withdrawals *[]*entity.Withdrawal) *[]*model.WithdrawalResponse {
 	responses := make([]*model.WithdrawalResponse, 0)
 	for _, withdrawal := range *withdrawals {
-		withdrawalReponse := &model.WithdrawalResponse{
-			Id:           withdrawal.Id,
-			WalletId:     withdrawal.WalletId,
-			BankWalletId: withdrawal.BankWalletId,
-			Amount:       withdrawal.Amount,
-			Status:       withdrawal.Status,
-			Description:  withdrawal.Description,
-			CreatedAt:    withdrawal.CreatedAt,
-			UpdatedAt:    withdrawal.UpdatedAt,
-		}
-
+		withdrawalReponse := WithdrawalToResponse(withdrawal)
 		responses = append(responses, withdrawalReponse)
 	}
 	return &responses

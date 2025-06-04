@@ -2,33 +2,18 @@ package converter
 
 import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/nullable"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 )
 
 func BankToResponse(bank *entity.Bank) *model.BankResponse {
-	var (
-		aliasPtr     *string
-		swiftCodePtr *string
-		LogoUrlPtr   *string
-	)
-
-	if bank.Alias.Valid {
-		aliasPtr = &bank.Alias.String
-	}
-	if bank.SwiftCode.Valid {
-		swiftCodePtr = &bank.SwiftCode.String
-	}
-	if bank.LogoUrl.Valid {
-		LogoUrlPtr = &bank.LogoUrl.String
-	}
-
 	return &model.BankResponse{
 		Id:        bank.Id,
 		BankCode:  bank.BankCode,
 		Name:      bank.Name,
-		Alias:     aliasPtr,
-		SwiftCode: swiftCodePtr,
-		LogoUrl:   LogoUrlPtr,
+		Alias:     nullable.SQLStringToPtr(bank.Alias),
+		SwiftCode: nullable.SQLStringToPtr(bank.SwiftCode),
+		LogoUrl:   nullable.SQLStringToPtr(bank.LogoUrl),
 		CreatedAt: bank.CreatedAt,
 		UpdatedAt: bank.UpdatedAt,
 	}
@@ -37,33 +22,7 @@ func BankToResponse(bank *entity.Bank) *model.BankResponse {
 func BanksToResponses(banks *[]*entity.Bank) *[]*model.BankResponse {
 	bankReponses := make([]*model.BankResponse, 0)
 	for _, bank := range *banks {
-		var (
-			aliasPtr     *string
-			swiftCodePtr *string
-			LogoUrlPtr   *string
-		)
-
-		if bank.Alias.Valid {
-			aliasPtr = &bank.Alias.String
-		}
-		if bank.SwiftCode.Valid {
-			swiftCodePtr = &bank.SwiftCode.String
-		}
-		if bank.LogoUrl.Valid {
-			LogoUrlPtr = &bank.LogoUrl.String
-		}
-
-		bankResponse := &model.BankResponse{
-			Id:        bank.Id,
-			BankCode:  bank.BankCode,
-			Name:      bank.Name,
-			Alias:     aliasPtr,
-			SwiftCode: swiftCodePtr,
-			LogoUrl:   LogoUrlPtr,
-			CreatedAt: bank.CreatedAt,
-			UpdatedAt: bank.UpdatedAt,
-		}
-
+		bankResponse := BankToResponse(bank)
 		bankReponses = append(bankReponses, bankResponse)
 	}
 	return &bankReponses
