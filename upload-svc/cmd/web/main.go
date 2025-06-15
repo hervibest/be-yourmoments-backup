@@ -12,6 +12,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/delivery/http/route"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/discovery"
+	producer "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/messaging"
 
 	"net"
 
@@ -41,6 +42,7 @@ func webServer(ctx context.Context) error {
 	app = config.NewApp()
 	serverConfig := config.NewServerConfig()
 	minioConfig := config.NewMinio()
+	jetStreamConfig := config.NewJetStream()
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -85,10 +87,10 @@ func webServer(ctx context.Context) error {
 	go startHealthCheckLoop(ctx, registry, GRPCserviceID, serverConfig.Name+"-grpc")
 	go startHealthCheckLoop(ctx, registry, HTTPserviceID, serverConfig.Name+"-http")
 
-	aiAdapter, err := adapter.NewAiAdapter(ctx, registry, logs)
-	if err != nil {
-		logs.Error(err)
-	}
+	// aiAdapter, err := adapter.NewAiAdapter(ctx, registry, logs)
+	// if err != nil {
+	// 	logs.Error(err)
+	// }
 
 	photoAdapter, err := adapter.NewPhotoAdapter(ctx, registry, logs)
 	if err != nil {
@@ -104,12 +106,15 @@ func webServer(ctx context.Context) error {
 
 	storageAdapter := adapter.NewStorageAdapter(minioConfig)
 	compressAdapter := adapter.NewCompressAdapter()
+	messagingAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
+	uploadProducer := producer.NewUploadProducer(messagingAdapter, logs)
+
 	customValidator := helper.NewCustomValidator()
 
-	photoUsecase := usecase.NewPhotoUsecase(aiAdapter, photoAdapter, storageAdapter, compressAdapter, logs)
+	photoUsecase := usecase.NewPhotoUsecase(photoAdapter, storageAdapter, compressAdapter, uploadProducer, logs)
 	photoController := http.NewPhotoController(photoUsecase, logs, customValidator)
 
-	facecamUsecase := usecase.NewFacecamUseCase(aiAdapter, photoAdapter, storageAdapter, compressAdapter, logs)
+	facecamUsecase := usecase.NewFacecamUseCase(photoAdapter, storageAdapter, compressAdapter, uploadProducer, logs)
 	facecamController := http.NewFacecamController(facecamUsecase, logs)
 
 	go func() {
@@ -131,13 +136,14 @@ func webServer(ctx context.Context) error {
 		}
 	}()
 
-	newUserMiddleware := middleware.NewUserAuth(userAdapter, logs)
+	userMiddleware := middleware.NewUserAuth(userAdapter, logs)
+	creatorMiddleware := middleware.NewCreatorMiddleware(photoAdapter, logs)
 
 	app.Use(cors.New(
 		cors.ConfigDefault,
 	))
 
-	routeConfig := route.NewRouteConfig(app, photoController, facecamController, newUserMiddleware)
+	routeConfig := route.NewRouteConfig(app, photoController, facecamController, userMiddleware, creatorMiddleware)
 	routeConfig.Setup()
 	serverErrors := make(chan error, 1)
 	go func() {

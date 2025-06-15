@@ -25,3 +25,15 @@ func NewJetStream() nats.JetStreamContext {
 
 	return js
 }
+
+func InitCreatorStream(js nats.JetStreamContext) {
+	err := js.DeleteStream("Creator_STREAM")
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name:     "CREATOR_STREAM",
+		Subjects: []string{"creator.created"},
+		Storage:  nats.FileStorage,
+	})
+	if err != nil && err != nats.ErrStreamNameAlreadyInUse {
+		log.Fatalf("failed to create stream: %v", err)
+	}
+}

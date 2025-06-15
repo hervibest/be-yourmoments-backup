@@ -20,6 +20,7 @@ type PhotoAdapter interface {
 	CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkPhoto, photos *[]*entity.Photo, photoDetails *[]*entity.PhotoDetail) error
 	UpdatePhotoDetail(ctx context.Context, facecam *entity.PhotoDetail) error
 	CreateFacecam(ctx context.Context, facecam *entity.Facecam) error
+	GetCreator(ctx context.Context, userId string) (*entity.Creator, error)
 }
 
 type photoAdapter struct {
@@ -253,4 +254,21 @@ func (a *photoAdapter) CreatePhotos(ctx context.Context, bulkPhoto *entity.BulkP
 	}
 
 	return nil
+}
+
+func (a *photoAdapter) GetCreator(ctx context.Context, userId string) (*entity.Creator, error) {
+	pbRequest := &photopb.GetCreatorRequest{
+		UserId: userId,
+	}
+
+	pbResponse, err := a.client.GetCreator(context.Background(), pbRequest)
+	if err != nil {
+		return nil, helper.FromGRPCError(err)
+	}
+
+	creator := &entity.Creator{
+		Id: pbResponse.GetCreator().GetId(),
+	}
+
+	return creator, nil
 }

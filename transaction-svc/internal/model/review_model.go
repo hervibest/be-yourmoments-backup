@@ -22,8 +22,9 @@ type CreatorReviewResponse struct {
 }
 
 type GetAllReviewRequest struct {
-	Rating int    `json:"username" `
-	Order  string `json:"order"`
-	Page   int    `json:"page" validate:"required"`
-	Size   int    `json:"size" validate:"required"`
+	Rating    int    `json:"username" `
+	CreatorId string `json:"creator_id"`
+	Order     string `json:"order"`
+	Page      int    `json:"page" validate:"required"`
+	Size      int    `json:"size" validate:"required"`
 }

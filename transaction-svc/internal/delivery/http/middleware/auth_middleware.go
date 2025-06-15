@@ -34,8 +34,8 @@ func NewUserAuth(userAdapter adapter.UserAdapter, tracer trace.Tracer, logs *log
 			Email:       authResponse.GetUser().GetEmail(),
 			PhoneNumber: authResponse.GetUser().GetPhoneNumber(),
 			Similarity:  authResponse.GetUser().GetSimilarity(),
-			CreatorId:   authResponse.GetUser().GetCreatorId(),
-			WalletId:    authResponse.GetUser().GetWalletId(),
+			// CreatorId:   authResponse.GetUser().GetCreatorId(),
+			// WalletId:    authResponse.GetUser().GetWalletId(),
 		}
 
 		ctx.Locals("auth", auth)

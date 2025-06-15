@@ -42,10 +42,10 @@ type photoUsecase struct {
 	userSimilarRepo repository.UserSimilarRepository
 	creatorRepo     repository.CreatorRepository
 	bulkPhotoRepo   repository.BulkPhotoRepository
-	aiAdapter       adapter.AiAdapter
-	storageAdapter  adapter.StorageAdapter
-	CDNAdapter      adapter.CDNAdapter
-	logs            *logger.Log
+	// aiAdapter       adapter.AiAdapter
+	storageAdapter adapter.StorageAdapter
+	CDNAdapter     adapter.CDNAdapter
+	logs           *logger.Log
 }
 
 func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
@@ -53,7 +53,8 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	userSimilarRepo repository.UserSimilarRepository,
 	creatorRepo repository.CreatorRepository,
 	bulkPhotoRepo repository.BulkPhotoRepository,
-	aiAdapter adapter.AiAdapter, storageAdapter adapter.StorageAdapter,
+	// aiAdapter adapter.AiAdapter,
+	storageAdapter adapter.StorageAdapter,
 	CDNAdapter adapter.CDNAdapter, logs *logger.Log) PhotoUseCase {
 	return &photoUsecase{
 		db:              db,
@@ -62,10 +63,10 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 		userSimilarRepo: userSimilarRepo,
 		creatorRepo:     creatorRepo,
 		bulkPhotoRepo:   bulkPhotoRepo,
-		aiAdapter:       aiAdapter,
-		CDNAdapter:      CDNAdapter,
-		storageAdapter:  storageAdapter,
-		logs:            logs,
+		// aiAdapter:       aiAdapter,
+		CDNAdapter:     CDNAdapter,
+		storageAdapter: storageAdapter,
+		logs:           logs,
 	}
 }
 

@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/discovery"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
@@ -17,6 +18,7 @@ type PhotoAdapter interface {
 	OwnerOwnPhotos(ctx context.Context, ownerId string, photoIds []string) error
 	GetPhotoWithDetails(ctx context.Context, photoIds []string, userId string) (*[]*photopb.Photo, error)
 	CancelPhotos(ctx context.Context, userId string, photoIds []string) error
+	GetCreator(ctx context.Context, userId string) (*entity.Creator, error)
 }
 
 type photoAdapter struct {
@@ -115,4 +117,21 @@ func (a *photoAdapter) GetPhotoWithDetails(ctx context.Context, photoIds []strin
 	}
 
 	return &response.PhotoWithDetails, nil
+}
+
+func (a *photoAdapter) GetCreator(ctx context.Context, userId string) (*entity.Creator, error) {
+	pbRequest := &photopb.GetCreatorRequest{
+		UserId: userId,
+	}
+
+	pbResponse, err := a.client.GetCreator(context.Background(), pbRequest)
+	if err != nil {
+		return nil, helper.FromGRPCError(err)
+	}
+
+	creator := &entity.Creator{
+		Id: pbResponse.GetCreator().GetId(),
+	}
+
+	return creator, nil
 }

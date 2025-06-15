@@ -15,6 +15,7 @@ import (
 	errorcode "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
+	producer "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/messaging"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
 
 	"github.com/oklog/ulid/v2"
@@ -26,21 +27,25 @@ type FacecamUseCase interface {
 }
 
 type facecamUseCase struct {
-	aiAdapter       adapter.AiAdapter
+	// aiAdapter       adapter.AiAdapter
 	photoAdapter    adapter.PhotoAdapter
 	storageAdapter  adapter.StorageAdapter
 	compressAdapter adapter.CompressAdapter
+	uploadProducer  producer.UploadProducer
 	logs            logger.Log
 }
 
-func NewFacecamUseCase(aiAdapter adapter.AiAdapter, photoAdapter adapter.PhotoAdapter,
+func NewFacecamUseCase(
+	photoAdapter adapter.PhotoAdapter,
+	// aiAdapter adapter.AiAdapter,
 	storageAdapter adapter.StorageAdapter, compressAdapter adapter.CompressAdapter,
-	logs logger.Log) FacecamUseCase {
+	uploadProducer producer.UploadProducer, logs logger.Log) FacecamUseCase {
 	return &facecamUseCase{
-		aiAdapter:       aiAdapter,
-		photoAdapter:    photoAdapter,
+		photoAdapter: photoAdapter,
+		// aiAdapter:       aiAdapter,
 		storageAdapter:  storageAdapter,
 		compressAdapter: compressAdapter,
+		uploadProducer:  uploadProducer,
 		logs:            logs,
 	}
 }
@@ -105,7 +110,10 @@ func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.File
 		FileURL:   uploaded.URL,
 	}
 
-	go u.aiAdapter.ProcessFacecam(ctx, request)
+	// go u.aiAdapter.ProcessFacecam(ctx, request)
+	if err := u.uploadProducer.ProcessFacecam(ctx, request); err != nil {
+		u.logs.CustomError("failed to process facecam", err)
+	}
 
 	return nil
 }

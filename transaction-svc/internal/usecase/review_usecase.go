@@ -23,7 +23,7 @@ import (
 
 type ReviewUseCase interface {
 	Create(ctx context.Context, request *model.CreateReviewRequest) (*model.CreatorReviewResponse, error)
-	GetCreatorReview(ctx context.Context, request *model.GetAllReviewRequest) (*[]*model.CreatorReviewResponse, *model.PageMetadata, error)
+	CreatorGetReview(ctx context.Context, request *model.GetAllReviewRequest) (*[]*model.CreatorReviewResponse, *model.PageMetadata, error)
 }
 type reviewUseCase struct {
 	transactionDetailRepo repository.TransactionDetailRepository
@@ -113,8 +113,8 @@ func (u *reviewUseCase) Create(ctx context.Context, request *model.CreateReviewR
 	return converter.ReviewToResponse(review), err
 }
 
-func (u *reviewUseCase) GetCreatorReview(ctx context.Context, request *model.GetAllReviewRequest) (*[]*model.CreatorReviewResponse, *model.PageMetadata, error) {
-	userPublicChat, pageMetadata, err := u.creatorReviewRepo.FindAll(ctx, u.db, request.Page, request.Size, request.Rating, request.Order)
+func (u *reviewUseCase) CreatorGetReview(ctx context.Context, request *model.GetAllReviewRequest) (*[]*model.CreatorReviewResponse, *model.PageMetadata, error) {
+	userPublicChat, pageMetadata, err := u.creatorReviewRepo.FindAll(ctx, u.db, request.Page, request.Size, request.Rating, request.CreatorId, request.Order)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all creator review", err)
 	}

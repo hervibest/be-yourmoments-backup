@@ -11,31 +11,24 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-// TODO SHOULD TOKEN VALIDATED ?
 func NewCreatorMiddleware(creatorUseCase usecase.CreatorUseCase, tracer trace.Tracer, logs *logger.Log) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		context, span := tracer.Start(ctx.Context(), "creatorMiddleware", oteltrace.WithAttributes())
 		defer span.End()
 
 		auth := GetUser(ctx)
-		request := &model.GetCreatorRequest{
+		request := &model.GetCreatorIdRequest{
 			UserId: auth.UserId,
 		}
 
-		creatorResponse, err := creatorUseCase.GetCreator(context, request)
+		creatorId, err := creatorUseCase.GetCreatorId(context, request)
 		if err != nil {
 			return helper.ErrUseCaseResponseJSON(ctx, "Get creator error : ", err, logs)
 		}
 
-		creator := &model.CreatorResponse{
-			Id: creatorResponse.Id,
-		}
+		auth.CreatorId = creatorId
 
-		ctx.Locals("creator", creator)
+		ctx.Locals("auth", auth)
 		return ctx.Next()
 	}
-}
-
-func GetCreator(ctx *fiber.Ctx) *model.CreatorResponse {
-	return ctx.Locals("creator").(*model.CreatorResponse)
 }

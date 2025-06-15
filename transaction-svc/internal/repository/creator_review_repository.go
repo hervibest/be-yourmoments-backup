@@ -12,7 +12,7 @@ import (
 
 type CreatorReviewRepository interface {
 	Create(ctx context.Context, tx Querier, review *entity.CreatorReview) (*entity.CreatorReview, error)
-	FindAll(ctx context.Context, tx Querier, page int, size int, rating int, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error)
+	FindAll(ctx context.Context, tx Querier, page int, size int, rating int, creatorId, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error)
 	CountTotalReviewAndRating(ctx context.Context, tx Querier, creatorId string) (*entity.TotalReviewAndRating, error)
 }
 type creatorReviewRepository struct{}
@@ -42,7 +42,7 @@ func (r *creatorReviewRepository) Create(ctx context.Context, tx Querier, review
 }
 
 // TODO tambahkan get by creator id atau kebalikkanya
-func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page, size int, rating int, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error) {
+func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page, size int, rating int, creatorId, timeOrder string) ([]*entity.CreatorReview, *model.PageMetadata, error) {
 	results := make([]*entity.CreatorReview, 0)
 	var totalItems int
 
@@ -58,6 +58,10 @@ func (r *creatorReviewRepository) FindAll(ctx context.Context, tx Querier, page,
 		args = append(args, rating)
 		argIndex++
 	}
+
+	conditions = append(conditions, "creator_id = $"+strconv.Itoa(argIndex))
+	args = append(args, creatorId)
+	argIndex++
 
 	if len(conditions) > 0 {
 		whereClause := " WHERE " + strings.Join(conditions, " AND ")

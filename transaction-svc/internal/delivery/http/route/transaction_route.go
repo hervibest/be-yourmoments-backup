@@ -2,7 +2,7 @@ package route
 
 func (r *route) setupTransactionRoute() {
 	transactionRoute := r.app.Group("/api/transaction", r.authMiddleware)
-	transactionRoute.Post("/create", r.transactionController.CreateTransaction)
+	transactionRoute.Post("/create", r.creatorMiddleware, r.transactionController.CreateTransaction)
 	transactionRoute.Get("/:transactionID", r.transactionController.GetUserTransactionWithDetail)
 	transactionRoute.Get("/", r.transactionController.GetAllUserTransaction)
 }

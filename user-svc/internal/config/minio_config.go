@@ -32,18 +32,10 @@ func NewMinio() *Minio {
 	minioLocation := utils.GetEnv("MINIO_LOCATION")
 	endpoint := minioHost + ":" + minioPort
 
-	log.Println("Minio root user : ", minioRootUser)
-	log.Println("Minio root password : ", minioRootPassword)
-
 	minioClient, err = minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(minioRootUser, minioRootPassword, ""),
 		Secure: false,
 	})
-	if err != nil {
-		log.Println("Minio root user : ", minioRootUser)
-		log.Println("Minio root password : ", minioRootPassword)
-		log.Fatalln("Minio config error when checking connection", err)
-	}
 
 	err = minioClient.MakeBucket(ctx, minioTicketsBucket, minio.MakeBucketOptions{Region: minioLocation})
 	if err != nil {
@@ -68,11 +60,9 @@ func NewMinio() *Minio {
 }
 
 func (m *Minio) GetBucketName() string {
-	BucketName := m.minioBucketName
-	return BucketName
+	return m.minioBucketName
 }
 
 func (m *Minio) GetEndpoint() string {
-	Endpoint := m.enpoint
-	return Endpoint
+	return m.enpoint
 }

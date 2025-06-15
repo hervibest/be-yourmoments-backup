@@ -117,7 +117,7 @@ func UserTransactionToResponse(userTransactions *[]*entity.Transaction) *[]*mode
 			PaymentAt:           userTransaction.PaymentAt,
 			CheckoutAt:          userTransaction.CheckoutAt,
 			Amount:              userTransaction.Amount,
-			// CreatedAt:           userTransaction.CreatedAt,
+			// CreatedAt:           userTransaction.CreatedAt, 
 			// UpdatedAt:           userTransaction.UpdatedAt,
 		}
 		userTransactionReponses = append(userTransactionReponses, userTransactionResponse)

@@ -13,8 +13,8 @@ import (
 )
 
 type ReviewController interface {
-	CreateReview(ctx *fiber.Ctx) error
-	GetAllReview(ctx *fiber.Ctx) error
+	UserCreateReview(ctx *fiber.Ctx) error
+	CreatorGetReview(ctx *fiber.Ctx) error
 }
 
 type reviewController struct {
@@ -33,7 +33,7 @@ func NewReviewController(reviewUseCase usecase.ReviewUseCase,
 	}
 }
 
-func (c *reviewController) CreateReview(ctx *fiber.Ctx) error {
+func (c *reviewController) UserCreateReview(ctx *fiber.Ctx) error {
 	request := new(model.CreateReviewRequest)
 	if err := ctx.BodyParser(request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
@@ -57,7 +57,7 @@ func (c *reviewController) CreateReview(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *reviewController) GetAllReview(ctx *fiber.Ctx) error {
+func (c *reviewController) CreatorGetReview(ctx *fiber.Ctx) error {
 	request := &model.GetAllReviewRequest{
 		Rating: ctx.QueryInt("rating", 0),
 		Order:  ctx.Query("order", "DESC"),
@@ -65,7 +65,10 @@ func (c *reviewController) GetAllReview(ctx *fiber.Ctx) error {
 		Size:   ctx.QueryInt("size", 10),
 	}
 
-	response, pageMetadata, err := c.reviewUseCase.GetCreatorReview(ctx.Context(), request)
+	auth := middleware.GetUser(ctx)
+	request.CreatorId = auth.CreatorId
+
+	response, pageMetadata, err := c.reviewUseCase.CreatorGetReview(ctx.Context(), request)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Get all review error : ", err, c.logs)
 	}

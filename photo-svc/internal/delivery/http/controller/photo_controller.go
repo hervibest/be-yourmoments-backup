@@ -30,6 +30,7 @@ func NewPhotoController(photoUseCase usecase.PhotoUseCase, customValidator helpe
 	return &photoController{photoUseCase: photoUseCase, customValidator: customValidator, logs: logs}
 }
 
+// TODO doesnt implemented
 func (c *photoController) GetBulkPhotoDetail(ctx *fiber.Ctx) error {
 	auth := middleware.GetUser(ctx)
 	request := new(model.GetBulkPhotoDetailRequest)

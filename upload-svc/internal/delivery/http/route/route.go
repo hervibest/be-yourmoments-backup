@@ -15,18 +15,21 @@ type routeConfig struct {
 	photoController   http.PhotoController
 	facecamController http.FacecamController
 	authMiddleware    fiber.Handler
+	creatorMiddleware fiber.Handler
 }
 
 func NewRouteConfig(app *fiber.App,
 	photoController http.PhotoController,
 	facecamController http.FacecamController,
 	authMiddleware fiber.Handler,
+	creatorMiddleware fiber.Handler,
 ) RouteConfig {
 	return &routeConfig{
 		app:               app,
 		photoController:   photoController,
 		facecamController: facecamController,
 		authMiddleware:    authMiddleware,
+		creatorMiddleware: creatorMiddleware,
 	}
 }
 

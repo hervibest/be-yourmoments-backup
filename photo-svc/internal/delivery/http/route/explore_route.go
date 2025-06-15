@@ -1,7 +1,7 @@
 package route
 
 func (r *RouteConfig) SetupExploreRoute() {
-	exploreRoutes := r.App.Group("/api/explore", r.AuthMiddleware)
+	exploreRoutes := r.App.Group("/api/explore", r.AuthMiddleware, r.CreatorMiddleware)
 	// exploreRoutes.Get("/", r.ExploreController.GetUserExploreSimilar)
 	exploreRoutes.Get("/", r.ExploreController.GetAllExploreSimilar)
 	exploreRoutes.Get("/wishlist", r.ExploreController.GetAllUserWishlist)
@@ -18,7 +18,7 @@ func (r *RouteConfig) SetupExploreRoute() {
 }
 
 func (r *RouteConfig) SetupDiscountRoute() {
-	exploreRoutes := r.App.Group("/api/discount", r.AuthMiddleware)
+	exploreRoutes := r.App.Group("/api/discount", r.AuthMiddleware, r.CreatorMiddleware)
 	exploreRoutes.Get("/:discountId", r.CreatorDiscountControler.GetDiscount)
 	exploreRoutes.Get("/", r.CreatorDiscountControler.GetAllDiscount)
 	exploreRoutes.Post("/create", r.CreatorDiscountControler.CreateDiscount)

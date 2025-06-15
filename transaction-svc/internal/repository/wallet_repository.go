@@ -15,6 +15,7 @@ type WalletRepository interface {
 	FindByCreatorIDs(ctx context.Context, db Querier, creatorIDs []string) (*[]*entity.Wallet, error)
 	FindById(ctx context.Context, db Querier, walletId string, forUpdate bool) (*entity.Wallet, error)
 	FindByCreatorId(ctx context.Context, db Querier, creatorId string) (*entity.Wallet, error)
+	FindIdByCreatorId(ctx context.Context, db Querier, creatorId string) (string, error)
 	ReduceBalance(ctx context.Context, db Querier, walletID string, amount int64) error
 }
 
@@ -110,4 +111,18 @@ func (r *walletRepository) ReduceBalance(ctx context.Context, db Querier, wallet
 		return err
 	}
 	return nil
+}
+
+func (r *walletRepository) FindIdByCreatorId(ctx context.Context, db Querier, creatorId string) (string, error) {
+	const query = `
+        SELECT id
+        FROM wallets
+        WHERE creator_id = $1
+    `
+	var walletId string
+	err := db.GetContext(ctx, &walletId, query, creatorId)
+	if err != nil {
+		return "", err
+	}
+	return walletId, nil
 }

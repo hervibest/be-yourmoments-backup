@@ -14,7 +14,7 @@ type RouteConfig struct {
 	CreatorDiscountControler http.CreatorDiscountController
 	PhotoController          http.PhotoController
 	AuthMiddleware           fiber.Handler
-	CreatorMiddleware        fiber.Handler //TODO doesnt used
+	CreatorMiddleware        fiber.Handler
 }
 
 func (r *RouteConfig) Setup() {

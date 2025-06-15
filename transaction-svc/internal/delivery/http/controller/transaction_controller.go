@@ -103,13 +103,9 @@ func (c *transactionController) GetUserTransactionWithDetail(ctx *fiber.Ctx) err
 	request.UserID = auth.UserId
 	request.TransactionId = ctx.Params("transactionID")
 
-	ulidErrMaps := map[string]string{
-		request.TransactionId: "The provided transaction ID is not valid",
-		request.UserID:        "The provided User ID is not valid",
-	}
-
-	if err := helper.MultipleULIDParser(ulidErrMaps); err != nil {
-		return err
+	_, err := uuid.Parse(request.TransactionId)
+	if err != nil {
+		return fiber.NewError(http.StatusUnprocessableEntity, "The provided transaction ID is not valid")
 	}
 
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {

@@ -27,6 +27,7 @@ func newCreatorPreparedStmt(db *sqlx.DB) (*creatorPreparedStmt, error) {
 type CreatorRepository interface {
 	Create(ctx context.Context, tx Querier, creator *entity.Creator) (*entity.Creator, error)
 	FindByUserId(ctx context.Context, userId string) (*entity.Creator, error)
+	FindIdByUserId(ctx context.Context, tx Querier, userId string) (string, error)
 	UpdateCreatorRating(ctx context.Context, tx Querier, creator *entity.Creator) (*entity.Creator, error)
 }
 
@@ -66,6 +67,16 @@ func (r *creatorRepository) FindByUserId(ctx context.Context, userId string) (*e
 	}
 
 	return creator, nil
+}
+
+func (r *creatorRepository) FindIdByUserId(ctx context.Context, tx Querier, userId string) (string, error) {
+	var creatorId string
+	query := "SELECT id FROM creators WHERE user_id = $1"
+	if err := tx.GetContext(ctx, &creatorId, query, userId); err != nil {
+		return "", err
+	}
+
+	return creatorId, nil
 }
 
 func (r *creatorRepository) UpdateCreatorRating(ctx context.Context, tx Querier, creator *entity.Creator) (*entity.Creator, error) {

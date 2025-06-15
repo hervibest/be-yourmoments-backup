@@ -7,6 +7,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
 	grpcHandler "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/grpc"
 	http "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/controller"
+	producer "github.com/hervibest/be-yourmoments-backup/user-svc/internal/gateway/messaging"
 
 	"log"
 	"net"
@@ -45,6 +46,7 @@ func webServer(ctx context.Context) error {
 	minioConfig := config.NewMinio()
 	redisConfig := config.NewRedisClient()
 	firebaseConfig := config.NewFirebaseConfig()
+	jetStreamConfig := config.NewJetStream()
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -99,8 +101,12 @@ func webServer(ctx context.Context) error {
 	authClientAdapter := adapter.NewAuthClientAdapter(firebaseConfig)
 	cloudMessagingAdapter := adapter.NewCloudMessagingAdapter(firebaseConfig)
 	perspectiveAdapter := adapter.NewPerspectiveAdapter()
-	photoAdapter, _ := adapter.NewPhotoAdapter(ctx, registry, logs)
-	transactionAdapter, _ := adapter.NewTransactionAdapter(ctx, registry, logs)
+	// photoAdapter, _ := adapter.NewPhotoAdapter(ctx, registry, logs)
+	// transactionAdapter, _ := adapter.NewTransactionAdapter(ctx, registry, logs)
+	messagingAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
+
+	userProducer := producer.NewUserProducer(messagingAdapter, logs)
+
 	customValidator := helper.NewCustomValidator()
 
 	userRepository, err := repository.NewUserRepository(dbConfig)
@@ -128,7 +134,8 @@ func webServer(ctx context.Context) error {
 	userDeviceRepository := repository.NewUserDeviceRepository()
 
 	authUseCase := usecase.NewAuthUseCase(dbConfig, userRepository, userProfileRepository, emailVerificationRepository, resetPasswordRepository,
-		userDeviceRepository, googleTokenAdapter, emailAdapter, jwtAdapter, securityAdapter, cacheAdapter, firestoreAdapter, photoAdapter, transactionAdapter, logs)
+		userDeviceRepository, googleTokenAdapter, emailAdapter, jwtAdapter, securityAdapter, cacheAdapter, firestoreAdapter,
+		userProducer, logs)
 	userUseCase := usecase.NewUserUseCase(dbConfig, userRepository, userProfileRepository, userImageRepository, uploadAdapter, cacheAdapter, logs)
 	chatUseCase := usecase.NewChatUseCase(firestoreAdapter, authClientAdapter, cloudMessagingAdapter, perspectiveAdapter, logs)
 	notificationUseCase := usecase.NewNotificationUseCase(dbConfig, redisConfig, userDeviceRepository, cloudMessagingAdapter, logs)

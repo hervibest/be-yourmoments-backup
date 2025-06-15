@@ -6,6 +6,4 @@ type Auth struct {
 	Email       string `json:"email" db:"email"`
 	PhoneNumber string `json:"phone_number"`
 	Similarity  uint   `json:"similarity"`
-	CreatorId   string `json:"creator_id"`
-	WalletId    string `json:"wallet_id"`
 }

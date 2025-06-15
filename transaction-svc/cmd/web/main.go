@@ -63,6 +63,8 @@ func webServer(ctx context.Context) error {
 	goCronConfig := config.NewGocron()
 	jetStreamConfig := config.NewJetStream()
 
+	config.InitCreatorStream(jetStreamConfig)
+
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
 		logs.Error("Failed to create consul registry for category service")
@@ -138,7 +140,7 @@ func webServer(ctx context.Context) error {
 		transactionItemRepo, transactionDetailRepo, walletRepository, transactionWalletRepo, paymentAdapter,
 		cacheAdapter, timeParserHelper, transactionProducer, logs)
 
-	walletUseCase := usecase.NewWalletUseCase(walletRepository, dbConfig, logs)
+	walletUseCase := usecase.NewWalletUseCase(walletRepository, cacheAdapter, dbConfig, logs)
 	bankUseCase := usecase.NewBankUseCase(dbConfig, bankRepository, logs)
 	bankWalletUseCase := usecase.NewBankWalletUseCase(dbConfig, bankWalletRepoistory, logs)
 	reviewUseCase := usecase.NewReviewUseCase(transactionDetailRepo, creatorReviewRepo, transactionProducer, dbConfig, logs)
@@ -156,6 +158,8 @@ func webServer(ctx context.Context) error {
 	transactionWalletCtrl := http.NewTransactionWalletController(transactionWalletUC, customValidator, logs)
 
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
+	creatorMiddleware := middleware.NewCreatorMiddleware(photoAdapter, tracer, logs)
+	walletMiddleware := middleware.NewWalletMiddleware(walletUseCase, tracer, logs)
 
 	go func() {
 		grpcServer = grpc.NewServer()
@@ -180,14 +184,22 @@ func webServer(ctx context.Context) error {
 		transactionSubscriber.SubscribeTransactionExpire(ctx)
 	}()
 
+	//TODO NEW - implement ctx for cancl orchestration
 	schedulerRunner := scheduler.NewSchedulerRunner(goCronConfig, schedulerUseCase, logs)
 	go func() {
 		schedulerRunner.Start()
 	}()
 
+	creatorSubscriber := messaging.NewCreatorSubscriber(jetStreamConfig, walletUseCase, logs)
+	go func() {
+		if err := creatorSubscriber.Start(ctx); err != nil {
+			logs.Error(fmt.Sprintf("Subscriber error: %v", err))
+		}
+	}()
+
 	serverErrors := make(chan error, 1)
 	route := route.NewRoute(app, transactionController, bankController, bankWalletController, reviewController,
-		withdarawlController, walletController, transactionWalletCtrl, authMiddleware)
+		withdarawlController, walletController, transactionWalletCtrl, authMiddleware, creatorMiddleware, walletMiddleware)
 
 	route.SetupRoute()
 	app.Use(cors.New())

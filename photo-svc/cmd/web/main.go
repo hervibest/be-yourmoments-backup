@@ -18,6 +18,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/route"
 	subscriber "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging"
+	producer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/consul"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
@@ -54,7 +55,10 @@ func webServer(ctx context.Context) error {
 	dbConfig := config.NewPostgresDatabase()
 	minioConfig := config.NewMinio()
 	jetStreamConfig := config.NewJetStream()
-	config.InitStream(jetStreamConfig)
+	redisConfig := config.NewRedisClient()
+
+	config.InitCreatorReviewStream(jetStreamConfig)
+	config.InitUserStream(jetStreamConfig)
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -99,11 +103,14 @@ func webServer(ctx context.Context) error {
 	go startHealthCheckLoop(ctx, registry, GRPCserviceID, serverConfig.Name+"-grpc")
 	go startHealthCheckLoop(ctx, registry, HTTPserviceID, serverConfig.Name+"-http")
 
-	aiAdapter, _ := adapter.NewAiAdapter(ctx, registry, logs)
+	// aiAdapter, _ := adapter.NewAiAdapter(ctx, registry, logs)
 	userAdapter, _ := adapter.NewUserAdapter(ctx, registry, logs)
-	transactionAdapter, _ := adapter.NewTransactionAdapter(ctx, registry, logs)
 	storageAdapter := adapter.NewStorageAdapter(minioConfig)
 	CDNAdapter := adapter.NewCDNadapter()
+	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
+	messaginAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
+	creatorProducer := producer.NewCreatorProducer(messaginAdapter, logs)
+
 	customValidator := helper.NewCustomValidator()
 
 	photoRepo, _ := repository.NewPhotoRepository(dbConfig)
@@ -115,10 +122,10 @@ func webServer(ctx context.Context) error {
 	creatorDiscountRepository, _ := repository.NewCreatorDiscountRepository(dbConfig)
 	bulkPhotoRepository := repository.NewBulkPhotoRepository()
 
-	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, aiAdapter, storageAdapter, CDNAdapter, logs)
-	faceCamUseCase := usecase.NewFacecamUseCase(dbConfig, facecamRepo, userSimilarRepo, aiAdapter, storageAdapter, logs)
+	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, storageAdapter, CDNAdapter, logs)
+	faceCamUseCase := usecase.NewFacecamUseCase(dbConfig, facecamRepo, userSimilarRepo, storageAdapter, logs)
 	userSimilarPhotoUsecase := usecase.NewUserSimilarUsecase(dbConfig, photoRepo, photoDetailRepo, facecamRepo, userSimilarRepo, bulkPhotoRepository, userAdapter, logs)
-	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, transactionAdapter, logs)
+	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, cacheAdapter, creatorProducer, logs)
 	exploreUseCase := usecase.NewExploreUseCase(dbConfig, exploreRepo, photoRepo, CDNAdapter, tracer, logs)
 	creatorDiscountUseCase := usecase.NewCreatorDiscountUseCase(dbConfig, creatorDiscountRepository, logs)
 	checkoutUseCase := usecase.NewCheckoutUseCase(dbConfig, photoRepo, creatorRepository, creatorDiscountRepository, logs)
@@ -134,6 +141,13 @@ func webServer(ctx context.Context) error {
 	creatorReviewSubscriber := subscriber.NewCreatorReviewSubscriber(jetStreamConfig, creatorUseCase, logs)
 	go func() {
 		if err := creatorReviewSubscriber.Start(ctx); err != nil {
+			logs.Error(fmt.Sprintf("Subscriber error: %v", err))
+		}
+	}()
+
+	userSubscriber := subscriber.NewUserSubscriber(jetStreamConfig, creatorUseCase, logs)
+	go func() {
+		if err := userSubscriber.Start(ctx); err != nil {
 			logs.Error(fmt.Sprintf("Subscriber error: %v", err))
 		}
 	}()

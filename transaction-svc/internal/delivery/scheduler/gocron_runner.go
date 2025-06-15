@@ -20,7 +20,6 @@ type schedulerRunner struct {
 }
 
 func NewSchedulerRunner(s gocron.Scheduler, usecase usecase.SchedulerUseCase, logs *logger.Log) SchedulerRunner {
-
 	return &schedulerRunner{scheduler: s, usecase: usecase, logs: logs}
 }
 

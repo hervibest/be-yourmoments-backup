@@ -27,10 +27,21 @@ func NewJetStream() nats.JetStreamContext {
 	return js
 }
 
-func InitStream(js nats.JetStreamContext) {
+func InitCreatorReviewStream(js nats.JetStreamContext) {
 	_, err := js.AddStream(&nats.StreamConfig{
 		Name:     "CREATOR_REVIEW_STREAM",
 		Subjects: []string{"creator.review.updated"},
+		Storage:  nats.FileStorage,
+	})
+	if err != nil && err != nats.ErrStreamNameAlreadyInUse {
+		log.Fatalf("failed to create stream: %v", err)
+	}
+}
+
+func InitUserStream(js nats.JetStreamContext) {
+	_, err := js.AddStream(&nats.StreamConfig{
+		Name:     "USER_STREAM",
+		Subjects: []string{"user.created"},
 		Storage:  nats.FileStorage,
 	})
 	if err != nil && err != nats.ErrStreamNameAlreadyInUse {

@@ -1,19 +1,19 @@
 # Load environment variables from .env file
 ### === Start Services ===
+start-user-svc:
+	cd user-svc/cmd/web && go run main.go
+
 start-photo-svc:
 	cd photo-svc/cmd/web && go run main.go
 
 start-upload-svc:
 	cd upload-svc/cmd/web && go run main.go
 
-start-user-svc:
-	cd user-svc/cmd/web && go run main.go
-
 start-transaction-svc:
 	cd transaction-svc/cmd/web && go run main.go
 
 
-# include .env
+include .env
 # expor
 
 .PHONY: all proto migrate-up migrate-down \
@@ -33,6 +33,19 @@ migrate-down:
 	@echo "⚠️  Please set DB_URL when calling this target, e.g., make migrate-down DB_URL=$(USER_DB_URL)"
 	goose -dir $(MIGRATIONS_DIR) postgres "$(DB_URL)" down
 
+### === User Service Migration ===
+user-svc-migrate-up:
+	cd user-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" up
+
+user-svc-migrate-down:
+	cd user-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" down
+
+user-svc-migrate-reset:
+	cd user-svc && \
+	goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" down-to 0 && \
+	goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" up
+
+
 ### === Photo Service Migration ===
 photo-svc-migrate-up:
 	cd photo-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(PHOTO_DB_URL)" up
@@ -45,17 +58,6 @@ photo-svc-migrate-reset:
 	goose -dir $(MIGRATIONS_DIR) postgres "$(PHOTO_DB_URL)" down-to 0 && \
 	goose -dir $(MIGRATIONS_DIR) postgres "$(PHOTO_DB_URL)" up
 
-### === User Service Migration ===
-user-svc-migrate-up:
-	cd user-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" up
-
-user-svc-migrate-down:
-	cd user-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" down
-
-user-svc-migrate-reset:
-	cd user-svc && \
-	goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" down-to 0 && \
-	goose -dir $(MIGRATIONS_DIR) postgres "$(USER_DB_URL)" up
 
 ### === Transaction Service Migration ===
 transaction-svc-migrate-up:

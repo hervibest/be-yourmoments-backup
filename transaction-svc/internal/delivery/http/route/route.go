@@ -20,6 +20,8 @@ type route struct {
 	walletControler       http.WalletController
 	transactionWalletCtrl http.TransactionWalletController
 	authMiddleware        fiber.Handler
+	creatorMiddleware     fiber.Handler
+	walletMiddleware      fiber.Handler
 }
 
 func NewRoute(app *fiber.App, transactionController http.TransactionController,
@@ -29,7 +31,9 @@ func NewRoute(app *fiber.App, transactionController http.TransactionController,
 	withdrawalController http.WithdrawalController,
 	walletControler http.WalletController,
 	transactionWalletCtrl http.TransactionWalletController,
-	authMiddleware fiber.Handler) Route {
+	authMiddleware fiber.Handler,
+	creatorMiddleware fiber.Handler,
+	walletMiddleware fiber.Handler) Route {
 	return &route{
 		app:                   app,
 		transactionController: transactionController,
@@ -40,6 +44,8 @@ func NewRoute(app *fiber.App, transactionController http.TransactionController,
 		walletControler:       walletControler,
 		transactionWalletCtrl: transactionWalletCtrl,
 		authMiddleware:        authMiddleware,
+		creatorMiddleware:     creatorMiddleware,
+		walletMiddleware:      walletMiddleware,
 	}
 }
 

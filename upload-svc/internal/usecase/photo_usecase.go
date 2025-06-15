@@ -22,6 +22,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/helper/nullable"
+	producer "github.com/hervibest/be-yourmoments-backup/upload-svc/internal/messaging"
 	"github.com/hervibest/be-yourmoments-backup/upload-svc/internal/model"
 
 	_ "image/jpeg"
@@ -36,21 +37,24 @@ type PhotoUsecase interface {
 }
 
 type photoUsecase struct {
-	aiAdapter       adapter.AiAdapter
-	photoAdapter    adapter.PhotoAdapter
+	photoAdapter adapter.PhotoAdapter
+	// aiAdapter       adapter.AiAdapter
 	storageAdapter  adapter.StorageAdapter
 	compressAdapter adapter.CompressAdapter
+	uploadProducer  producer.UploadProducer
 	logs            logger.Log
 }
 
-func NewPhotoUsecase(aiAdapter adapter.AiAdapter, photoAdapter adapter.PhotoAdapter,
+func NewPhotoUsecase(photoAdapter adapter.PhotoAdapter,
+	// aiAdapter adapter.AiAdapter,
 	storageAdapter adapter.StorageAdapter, compressAdapter adapter.CompressAdapter,
-	logs logger.Log) PhotoUsecase {
+	uploadProducer producer.UploadProducer, logs logger.Log) PhotoUsecase {
 	return &photoUsecase{
-		aiAdapter:       aiAdapter,
-		photoAdapter:    photoAdapter,
+		photoAdapter: photoAdapter,
+		// aiAdapter:       aiAdapter,
 		storageAdapter:  storageAdapter,
 		compressAdapter: compressAdapter,
+		uploadProducer:  uploadProducer,
 		logs:            logs,
 	}
 }
@@ -320,6 +324,7 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 
 	u.logs.Log(fmt.Sprintf("⏱️ TOTAL sync flow took: %v", time.Since(startTotal)))
 
+	//
 	// Goroutine: Async compression
 	go func() {
 		compressStart := time.Now()
@@ -390,7 +395,10 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 			OriginalFilename: compressedPhoto.Filename,
 		}
 
-		u.aiAdapter.ProcessPhoto(ctx, request)
+		// u.aiAdapter.ProcessPhoto(ctx, request)
+		if err := u.uploadProducer.ProcessPhoto(ctx, request); err != nil {
+			u.logs.CustomError("failed to produce process photo :", err)
+		}
 	}()
 
 	return nil
@@ -508,11 +516,15 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 		return helper.WrapInternalServerError(u.logs, "failed to create photo entities", err)
 	}
 
-	go func() {
-		if err := u.aiAdapter.ProcessBulkPhoto(ctx, bulkPhoto, &photoEntities); err != nil {
-			log.Printf("failed to process bulk photo via grpc: %v", err)
-		}
-	}()
+	// go func() {
+	// 	if err := u.aiAdapter.ProcessBulkPhoto(ctx, bulkPhoto, &photoEntities); err != nil {
+	// 		log.Printf("failed to process bulk photo via grpc: %v", err)
+	// 	}
+	// }()
+
+	if err := u.uploadProducer.ProcessBulkPhoto(ctx, bulkPhoto, &photoEntities); err != nil {
+		u.logs.CustomError("failed to produce process bulk photo", err)
+	}
 
 	return nil
 }

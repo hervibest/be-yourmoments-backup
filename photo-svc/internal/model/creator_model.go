@@ -10,6 +10,9 @@ type GetCreatorRequest struct {
 	UserId string `json:"user_id" validate:"required,max=100"`
 }
 
+type GetCreatorIdRequest struct {
+	UserId string `json:"user_id" validate:"required,max=100"`
+}
 type UpdateCreatorTotalRatingRequest struct {
 	Id          string  `json:"id"`
 	Rating      float32 `json:"rating"`
