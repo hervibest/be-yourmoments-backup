@@ -3,11 +3,14 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
@@ -25,11 +28,14 @@ type schedulerUseCase struct {
 	transactionRepository repository.TransactionRepository
 	paymentAdapter        adapter.PaymentAdapter
 	transactionUseCase    contract.TransactionUseCase
+	cancelationUseCase    contract.CancelationUseCase
 	logs                  *logger.Log
 }
 
-func NewSchedulerUseCase(db *sqlx.DB, transactionRepository repository.TransactionRepository, transactionUseCase contract.TransactionUseCase, paymentAdapter adapter.PaymentAdapter, logs *logger.Log) SchedulerUseCase {
-	return &schedulerUseCase{db: db, transactionRepository: transactionRepository, transactionUseCase: transactionUseCase, paymentAdapter: paymentAdapter, logs: logs}
+func NewSchedulerUseCase(db *sqlx.DB, transactionRepository repository.TransactionRepository, transactionUseCase contract.TransactionUseCase,
+	cancelationUseCase contract.CancelationUseCase, paymentAdapter adapter.PaymentAdapter, logs *logger.Log) SchedulerUseCase {
+	return &schedulerUseCase{db: db, transactionRepository: transactionRepository, transactionUseCase: transactionUseCase,
+		cancelationUseCase: cancelationUseCase, paymentAdapter: paymentAdapter, logs: logs}
 }
 
 type Job struct {
@@ -58,6 +64,16 @@ func (u *schedulerUseCase) CheckTransactionStatus(ctx context.Context) error {
 		go func() {
 			defer wgCheck.Done()
 			for tx := range checkJobs {
+				if tx.CreatedAt != nil && tx.Status != enum.TransactionStatusExpired {
+					if time.Since(*tx.CreatedAt) > 15*time.Minute {
+						// Mark transaksi sebagai expired
+						err := u.cancelationUseCase.ExpirePendingTransaction(ctx, tx.Id)
+						if err != nil {
+							log.Printf("Gagal meng-expire transaksi %s: %v", tx.Id, err)
+						}
+						continue // skip pengecekan ke payment gateway
+					}
+				}
 				resp, err := u.paymentAdapter.CheckTransactionStatus(context.Background(), tx.Id)
 				if err != nil {
 					u.logs.Log(fmt.Sprintf("failed check status for %s: %v", tx.Id, err))

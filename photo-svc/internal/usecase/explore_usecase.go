@@ -82,6 +82,7 @@ func (u *exploreUseCase) GetUserWishlist(ctx context.Context, request *model.Get
 	return converter.ExploresToResponses(&explores, u.CDNAdapter.GenerateCDN), pageMetadata, nil
 }
 
+//apa alasanya menggunakan pesimistic lock ?
 func (u *exploreUseCase) UserAddWishlist(ctx context.Context, request *model.UserAddWishlistRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {

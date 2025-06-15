@@ -10,13 +10,9 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase/contract"
 	"github.com/jmoiron/sqlx"
 )
-
-type CancelationUseCase interface {
-	ExpirePendingTransaction(ctx context.Context, transactionId string) error
-	CancelPendingTransaction(ctx context.Context, transactionId string) error
-}
 
 type cancelationUseCase struct {
 	db              *sqlx.DB
@@ -24,7 +20,7 @@ type cancelationUseCase struct {
 	logs            *logger.Log
 }
 
-func NewCancelationUseCase(db *sqlx.DB, transactionRepo repository.TransactionRepository, logs *logger.Log) CancelationUseCase {
+func NewCancelationUseCase(db *sqlx.DB, transactionRepo repository.TransactionRepository, logs *logger.Log) contract.CancelationUseCase {
 	return &cancelationUseCase{db: db, transactionRepo: transactionRepo, logs: logs}
 }
 

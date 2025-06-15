@@ -147,7 +147,7 @@ func webServer(ctx context.Context) error {
 	withdrawalUseCase := usecase.NewWithdrawalUseCase(dbConfig, withdrawalRepository, walletRepository, logs)
 	transactionWalletUC := usecase.NewTransactionWalletUseCase(dbConfig, transactionWalletRepo, logs)
 	cancelationUseCase := usecase.NewCancelationUseCase(dbConfig, transactionRepo, logs)
-	schedulerUseCase := usecase.NewSchedulerUseCase(dbConfig, transactionRepo, transactionUseCase, paymentAdapter, logs)
+	schedulerUseCase := usecase.NewSchedulerUseCase(dbConfig, transactionRepo, transactionUseCase, cancelationUseCase, paymentAdapter, logs)
 
 	transactionController := http.NewTransactionController(transactionUseCase, customValidator, logs)
 	bankController := http.NewBankController(bankUseCase, customValidator, logs)

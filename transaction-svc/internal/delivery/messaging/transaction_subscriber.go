@@ -8,7 +8,7 @@ import (
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
-	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase/contract"
 )
 
 type TransactionSubscriber interface {
@@ -17,12 +17,12 @@ type TransactionSubscriber interface {
 
 type transactionSubscriber struct {
 	cacheAdapter       adapter.CacheAdapter
-	cancelationUseCase usecase.CancelationUseCase
+	cancelationUseCase contract.CancelationUseCase
 	logs               *logger.Log
 }
 
 func NewTransactionSubsciber(cacheAdapter adapter.CacheAdapter,
-	cancelationUseCase usecase.CancelationUseCase,
+	cancelationUseCase contract.CancelationUseCase,
 	logs *logger.Log) TransactionSubscriber {
 	return &transactionSubscriber{
 		cacheAdapter:       cacheAdapter,

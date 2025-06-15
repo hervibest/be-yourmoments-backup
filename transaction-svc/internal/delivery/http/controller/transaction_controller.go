@@ -59,7 +59,12 @@ func (c *transactionController) CreateTransaction(ctx *fiber.Ctx) error {
 		return helper.ErrUseCaseResponseJSON(ctx, "Create transaction error : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(model.WebResponse[*model.CreateTransactionResponse]{
+	var httpStatus = http.StatusCreated
+	if (response.RedirectURL == "") || (response.SnapToken == "") {
+		httpStatus = http.StatusAccepted
+	}
+
+	return ctx.Status(httpStatus).JSON(model.WebResponse[*model.CreateTransactionResponse]{
 		Success: true,
 		Data:    response,
 	})

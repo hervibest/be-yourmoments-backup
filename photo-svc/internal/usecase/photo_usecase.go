@@ -70,7 +70,6 @@ func NewPhotoUseCase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	}
 }
 
-// ISSUE #1 : creator_id should be called form pb contract and come from AuthMiddleware (centralized auth)
 func (u *photoUsecase) CreatePhoto(ctx context.Context, request *photopb.CreatePhotoRequest) error {
 	log.Print(request.Photo.GetUserId())
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
@@ -189,7 +188,6 @@ func (u *photoUsecase) UpdatePhotoDetail(ctx context.Context, request *photopb.U
 
 }
 
-// ISSUE #1 : creator_id should be called form pb contract and come from AuthMiddleware (centralized auth)
 func (u *photoUsecase) CreateBulkPhoto(ctx context.Context, request *photopb.CreateBulkPhotoRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {

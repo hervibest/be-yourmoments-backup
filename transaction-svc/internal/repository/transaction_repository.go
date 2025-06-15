@@ -49,7 +49,15 @@ func (r *transactionRepository) Create(ctx context.Context, tx Querier, transact
 func (r *transactionRepository) UpdateToken(ctx context.Context, tx Querier, transaction *entity.Transaction) error {
 	query := `UPDATE transactions SET internal_status = $1, snap_token = $2, updated_at = $3 WHERE id = $4`
 
-	_, err := tx.ExecContext(ctx, query, transaction.InternalStatus, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
+	row, err := tx.ExecContext(ctx, query, transaction.InternalStatus, transaction.SnapToken, transaction.UpdatedAt, transaction.Id)
+	affected, err := row.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("No rows affected")
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to update transaction token: %w", err)
 	}
@@ -236,7 +244,7 @@ func (r *transactionRepository) FindManyCheckable(ctx context.Context, tx Querie
 
 	query := `
 	SELECT
-		id, user_id, status
+		id, user_id, status, created_at
 	FROM
 		transactions
 	WHERE

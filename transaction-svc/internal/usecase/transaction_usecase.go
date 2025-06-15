@@ -183,7 +183,7 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 
 	token, redirectUrl, err := u.getPaymentToken(ctx, transaction)
 	if err != nil {
-		return nil, helper.WrapExternalServiceUnavailable(u.logs, "failed to get payment token from midtrans", err)
+		return converter.TransactionToResponse(transaction, ""), nil
 	}
 
 	if err := u.updateTransactionToken(ctx, token, transaction.Id); err != nil {
@@ -200,6 +200,7 @@ func (u *transactionUseCase) CreateTransaction(ctx context.Context, request *mod
 }
 
 func (u *transactionUseCase) updateTransactionToken(ctx context.Context, token, transactionId string) error {
+	u.logs.Log(fmt.Sprintf("Update transaction token :%s with trx id : %s", token, transactionId))
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
 		return err
@@ -213,9 +214,10 @@ func (u *transactionUseCase) updateTransactionToken(ctx context.Context, token, 
 	transaction := &entity.Transaction{
 		Id:             transactionId,
 		InternalStatus: enum.TrxInternalStatusTokenReady,
-		SnapToken:      sql.NullString{String: token},
+		SnapToken:      sql.NullString{String: token, Valid: true},
 		UpdatedAt:      &now,
 	}
+	u.logs.Log(fmt.Sprintf("Update transaction transaction %v", transaction))
 
 	err = u.transactionRepository.UpdateToken(ctx, tx, transaction)
 	if err != nil {
@@ -232,7 +234,7 @@ func (u *transactionUseCase) getPaymentToken(ctx context.Context, transaction *e
 	snapRequest := &model.PaymentSnapshotRequest{
 		OrderID:     transaction.Id,
 		GrossAmount: int64(transaction.Amount),
-		Email:       "", // optional, diisi jika diperlukan Midtrans
+		Email:       "",
 	}
 
 	snapResponse, err := u.paymentAdapter.CreateSnapshot(ctx, snapRequest)
@@ -250,6 +252,7 @@ func (u *transactionUseCase) getPaymentToken(ctx context.Context, transaction *e
 
 			snapResponse, retryErr := u.paymentAdapter.CreateSnapshot(context.TODO(), snapRequest)
 			if retryErr == nil {
+				u.logs.CustomLog("snap response :", snapResponse)
 				u.logs.Log(fmt.Sprintf("[RetrySuccess] Transaction %s berhasil mendapatkan snap token setelah %d retry", transaction.Id, retry))
 				if err := u.updateTransactionToken(ctx, snapResponse.Token, transaction.Id); err != nil {
 					u.logs.Error(fmt.Sprintf("[UpdateFailed] Update transaction token failed with reason : %v", err))
@@ -395,6 +398,11 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 	} else {
 		switch request.MidtransTransactionStatus {
 		case string(enum.PaymentStatusCapture), string(enum.PaymentStatusSettlement):
+			settlementTime, err := u.timeParserHelper.TimeParseInDefaultLocation(request.SettlementTime)
+			if err != nil {
+				return err
+			}
+			settlementTimePtr = &settlementTime
 			transactionStatus = enum.TransactionStatusSuccess
 			transactionInternalStatus = enum.TrxInternalStatusSettled
 			updateTransaction.PaymentAt = &now
