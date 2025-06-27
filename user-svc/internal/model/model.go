@@ -19,6 +19,12 @@ type PageMetadata struct {
 	PreviousPageURL string
 }
 
+type ValidationError struct {
+	Field   string `json:"field"`
+	Rule    string `json:"rule"`
+	Message string `json:"message"`
+}
+
 type BodyParseErrorResponse struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message,omitempty"`
@@ -26,9 +32,9 @@ type BodyParseErrorResponse struct {
 }
 
 type ValidationErrorResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
-	Errors  interface{} `json:"errors,omitempty"`
+	Success bool              `json:"success"`
+	Message string            `json:"message,omitempty"`
+	Errors  []ValidationError `json:"errors,omitempty"`
 }
 
 type ErrorResponse struct {

@@ -30,13 +30,18 @@ func NewSecurityAdapter() SecurityAdapter {
 	}
 
 	keySecret := []byte(keySecretStr)
-
+	if keySecret == nil || len(keySecret) != 32 {
+		log.Fatal("KEY_SECRET_ENCRYPT must be 32 bytes long")
+	}
 	return &securityAdapter{
 		keySecret: keySecret,
 	}
 }
 
 func (c *securityAdapter) Encrypt(plaintext string) (string, error) {
+	if plaintext == "" {
+		return "", nil // Return empty string if plaintext is empty
+	}
 	key := c.keySecret
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -56,6 +61,10 @@ func (c *securityAdapter) Encrypt(plaintext string) (string, error) {
 }
 
 func (c *securityAdapter) Decrypt(ciphertext string) (string, error) {
+	if ciphertext == "" {
+		return "", nil // Return empty string if ciphertext is empty
+	}
+
 	key := c.keySecret
 	ciphertextBytes, err := hex.DecodeString(ciphertext)
 	if err != nil {

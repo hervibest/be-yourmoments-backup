@@ -70,7 +70,6 @@ func (a *uploadAdapter) UploadFile(ctx context.Context, file *multipart.FileHead
 }
 
 func (a *uploadAdapter) DeleteFile(ctx context.Context, fileName string) (bool, error) {
-
 	err := a.minio.MinioClient.RemoveObject(ctx, a.minio.GetBucketName(), fileName, minio.RemoveObjectOptions{ForceDelete: true})
 	if err != nil {
 		return false, fmt.Errorf("failed to delete file: %w", err)

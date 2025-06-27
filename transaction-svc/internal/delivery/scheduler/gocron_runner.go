@@ -25,7 +25,7 @@ func NewSchedulerRunner(s gocron.Scheduler, usecase usecase.SchedulerUseCase, lo
 
 func (r *schedulerRunner) Start() {
 	// 1. Define a “run every 5 minutes” job
-	jobDef := gocron.DurationJob(15 * time.Second)
+	jobDef := gocron.DurationJob(100 * time.Second)
 
 	// 2. Register it with the scheduler
 	_, err := r.scheduler.NewJob(

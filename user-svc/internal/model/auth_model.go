@@ -7,10 +7,11 @@ import (
 )
 
 type RegisterByPhoneRequest struct {
-	Username    string     `json:"username" validate:"required,max=100"`
-	Password    string     `json:"password" validate:"required"`
-	PhoneNumber string     `json:"phone_number" validate:"required,min=10,max=15"`
-	BirthDate   *time.Time `json:"birth_date" validate:"required"`
+	Username     string     `json:"username" validate:"required,max=100"`
+	Password     string     `json:"password" validate:"required"`
+	PhoneNumber  string     `json:"phone_number" validate:"required,min=10,max=15"`
+	BirthDate    *time.Time `json:"-" validate:"required"`
+	BirthDateStr string     `json:"birth_date"`
 	//TODO
 }
 

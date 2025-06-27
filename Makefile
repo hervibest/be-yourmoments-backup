@@ -85,3 +85,10 @@ mockgen-upload-svc:
 	mockgen -source=./adapter/user_adapter.go \
 	        -destination=./mocks/adapter/mock_user_adapter.go \
 	        -package=mockadapter
+
+### === Mock Generation ===
+mockgen-user-svc:
+	cd user-svc/internal && \
+	mockgen -source=./helper/logger/logger.go \
+	        -destination=./mocks/helper/logger/mock_log.go \
+	        -package=mocklogger

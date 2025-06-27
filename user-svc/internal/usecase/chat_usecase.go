@@ -10,9 +10,6 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
-
-	"cloud.google.com/go/firestore"
-	"github.com/oklog/ulid/v2"
 )
 
 type ChatUseCase interface {
@@ -22,21 +19,21 @@ type ChatUseCase interface {
 }
 
 type chatUseCase struct {
-	firestoreClientAdapter adapter.FirestoreClientAdapter
-	authClientAdapter      adapter.AuthClientAdapter
-	cloudMessagingAdapter  adapter.CloudMessagingAdapter
-	perspectiveAdapter     adapter.PerspectiveAdapter
-	logs                   logger.Log
+	realtimeChatAdapter   adapter.RealtimeChatAdapter
+	authClientAdapter     adapter.AuthClientAdapter
+	cloudMessagingAdapter adapter.CloudMessagingAdapter
+	perspectiveAdapter    adapter.PerspectiveAdapter
+	logs                  logger.Log
 }
 
-func NewChatUseCase(firestoreClientAdapter adapter.FirestoreClientAdapter, authClientAdapter adapter.AuthClientAdapter,
-	cloudMessagingAdapter adapter.CloudMessagingAdapter, perspectiveAdapter adapter.PerspectiveAdapter, logs logger.Log) ChatUseCase {
+func NewChatUseCase(realtimeChatAdapter adapter.RealtimeChatAdapter,
+	authClientAdapter adapter.AuthClientAdapter, cloudMessagingAdapter adapter.CloudMessagingAdapter, perspectiveAdapter adapter.PerspectiveAdapter, logs logger.Log) ChatUseCase {
 	return &chatUseCase{
-		firestoreClientAdapter: firestoreClientAdapter,
-		authClientAdapter:      authClientAdapter,
-		cloudMessagingAdapter:  cloudMessagingAdapter,
-		perspectiveAdapter:     perspectiveAdapter,
-		logs:                   logs,
+		realtimeChatAdapter:   realtimeChatAdapter,
+		authClientAdapter:     authClientAdapter,
+		cloudMessagingAdapter: cloudMessagingAdapter,
+		perspectiveAdapter:    perspectiveAdapter,
+		logs:                  logs,
 	}
 }
 
@@ -45,12 +42,7 @@ func (u *chatUseCase) GetOrCreateRoom(ctx context.Context, req *model.RequestGet
 	created := false
 	var roomId string
 
-	query := u.firestoreClientAdapter.
-		Collection("rooms").
-		Where("roomUserId", "==", roomUserId).
-		Limit(1)
-
-	docs, err := query.Documents(ctx).GetAll()
+	docs, err := u.realtimeChatAdapter.GetRoom(ctx, roomUserId)
 	if err != nil {
 		return nil, helper.WrapInternalServerError(u.logs, "failed to query firestore : ", err)
 	}
@@ -64,19 +56,9 @@ func (u *chatUseCase) GetOrCreateRoom(ctx context.Context, req *model.RequestGet
 			return nil, helper.WrapInternalServerError(u.logs, "failed to get roomId : roomId missing in documment : ", err)
 		}
 	} else {
-		roomId = ulid.Make().String()
 		participants := []string{req.SenderId, req.ReceiverId}
 
-		_, err := u.firestoreClientAdapter.
-			Collection("rooms").
-			Doc(roomId).
-			Set(ctx, map[string]interface{}{
-				"roomId":       roomId,
-				"roomUserId":   roomUserId,
-				"participants": participants,
-				"createdAt":    firestore.ServerTimestamp,
-			})
-		if err != nil {
+		if err := u.realtimeChatAdapter.CreateRoom(ctx, roomUserId, participants); err != nil {
 			return nil, helper.WrapInternalServerError(u.logs, "failed to create a firestore room : ", err)
 		}
 
@@ -129,17 +111,7 @@ func (u *chatUseCase) SendMessage(ctx context.Context, req *model.RequestSendMes
 	}
 
 	safeMessage := html.EscapeString(trimmed)
-	_, _, err = u.firestoreClientAdapter.
-		Collection("rooms").
-		Doc(req.RoomId).
-		Collection("messages").
-		Add(ctx, map[string]interface{}{
-			"senderId":  req.SenderId,
-			"message":   safeMessage,
-			"timestamp": firestore.ServerTimestamp,
-		})
-
-	if err != nil {
+	if err := u.realtimeChatAdapter.SendMessage(ctx, req.RoomId, req.SenderId, safeMessage); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to send message to firestore : ", err)
 	}
 

@@ -30,6 +30,7 @@ require (
 	github.com/pressly/goose/v3 v3.24.3
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/stretchr/testify v1.10.0
+	go.uber.org/mock v0.5.2
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.38.0
 	google.golang.org/api v0.228.0

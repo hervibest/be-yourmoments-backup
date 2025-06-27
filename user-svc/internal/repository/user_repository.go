@@ -94,8 +94,6 @@ func newUserPreparedStmt(db *sqlx.DB) (*userPreparedStmt, error) {
 }
 
 type UserRepository interface {
-	Close() error
-
 	CreateByPhoneNumber(ctx context.Context, tx Querier, user *entity.User) (*entity.User, error)
 	CreateByGoogleSignIn(ctx context.Context, tx Querier, user *entity.User) (*entity.User, error)
 	CreateByEmail(ctx context.Context, tx Querier, user *entity.User) (*entity.User, error)

@@ -1,18 +1,16 @@
-package main
+package integration
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/cmd/migration"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
 	grpcHandler "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/grpc"
-	http "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/controller"
+	httphandler "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/controller"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/gateway/producer"
+	"github.com/jmoiron/sqlx"
 
 	"log"
 	"net"
-	"os/signal"
-	"syscall"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/route"
@@ -33,16 +31,17 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var logs = logger.New("USER-SVC")
+var logs = logger.New("INTEGRATION-TEST-USER-SVC")
 var (
 	grpcServer *grpc.Server
 	app        *fiber.App
+	dbConfig   *sqlx.DB
 )
 
 func webServer(ctx context.Context) error {
 	app = config.NewApp()
 	serverConfig := config.NewServerConfig()
-	dbConfig := config.NewDB()
+	dbConfig = config.NewDB()
 	minioConfig := config.NewMinio()
 	redisConfig := config.NewRedisClient()
 	firebaseConfig := config.NewFirebaseConfig()
@@ -140,10 +139,10 @@ func webServer(ctx context.Context) error {
 	userUseCase := usecase.NewUserUseCase(databaseAdapter, userRepository, userProfileRepository, userImageRepository, uploadAdapter, cacheAdapter, logs)
 	chatUseCase := usecase.NewChatUseCase(realtimeChatAdapter, authClientAdapter, cloudMessagingAdapter, perspectiveAdapter, logs)
 	notificationUseCase := usecase.NewNotificationUseCase(databaseAdapter, redisConfig, userDeviceRepository, cloudMessagingAdapter, logs)
-	authController := http.NewAuthController(authUseCase, customValidator, logs)
-	userController := http.NewUserController(userUseCase, customValidator, logs)
-	chatController := http.NewChatController(chatUseCase, customValidator, logs)
-	healthController := http.NewHealthController()
+	authController := httphandler.NewAuthController(authUseCase, customValidator, logs)
+	userController := httphandler.NewUserController(userUseCase, customValidator, logs)
+	chatController := httphandler.NewChatController(chatUseCase, customValidator, logs)
+	healthController := httphandler.NewHealthController()
 
 	authMiddleware := middleware.NewUserAuth(authUseCase, customValidator, logs)
 
@@ -210,18 +209,5 @@ func startHealthCheckLoop(ctx context.Context, registry *consul.Registry, servic
 			}
 			time.Sleep(2 * time.Second)
 		}
-	}
-}
-
-func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	if !config.IsLocal() {
-		migration.Run()
-	}
-
-	if err := webServer(ctx); err != nil {
-		logs.Error(err)
 	}
 }

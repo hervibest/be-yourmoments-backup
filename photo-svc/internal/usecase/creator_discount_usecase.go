@@ -40,6 +40,7 @@ func NewCreatorDiscountUseCase(db *sqlx.DB, creatorDiscountRepository repository
 	}
 }
 
+// TODO validate price when there is a photo price
 func (u *creatorDiscountUseCase) CreateDiscount(ctx context.Context, request *model.CreateCreatorDiscountRequest) (*model.CreatorDiscountResponse, error) {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {

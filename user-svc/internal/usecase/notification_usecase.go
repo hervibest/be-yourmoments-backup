@@ -18,7 +18,6 @@ import (
 
 	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 	userpb "github.com/hervibest/be-yourmoments-backup/pb/user"
-	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -31,7 +30,7 @@ type NotificationUseCase interface {
 }
 
 type notificationUseCase struct {
-	db                    *sqlx.DB
+	db                    repository.BeginTx
 	redisClient           *redis.Client
 	userDeviceRepository  repository.UserDeviceRepository
 	cloudMessagingAdapter adapter.CloudMessagingAdapter
@@ -39,7 +38,7 @@ type notificationUseCase struct {
 	logs logger.Log
 }
 
-func NewNotificationUseCase(db *sqlx.DB, redisClient *redis.Client, userDeviceRepository repository.UserDeviceRepository,
+func NewNotificationUseCase(db repository.BeginTx, redisClient *redis.Client, userDeviceRepository repository.UserDeviceRepository,
 	cloudMessagingAdapter adapter.CloudMessagingAdapter, logs logger.Log) NotificationUseCase {
 	return &notificationUseCase{
 		db:                    db,
@@ -290,30 +289,22 @@ func (u *notificationUseCase) ProcessAndSendBulkNotifications(ctx context.Contex
 	return nil
 }
 
-func (u *notificationUseCase) removeUserToken(ctx context.Context, userID, token string) (err error) {
+func (u *notificationUseCase) removeUserToken(ctx context.Context, userID, token string) error {
 	u.logs.Log(fmt.Sprintf("remove user token called with token : %s and user %s", token, userID))
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return err
-	}
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		if err := u.userDeviceRepository.DeleteByUserIdAndToken(ctx, tx, userID, token); err != nil {
+			return err
+		}
+		u.logs.Log(fmt.Sprintf("Removed FCM token from DB: user=%s, token=%s", userID, token))
 
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	if err := u.userDeviceRepository.DeleteByUserIdAndToken(ctx, tx, userID, token); err != nil {
-		return err
-	}
-	u.logs.Log(fmt.Sprintf("Removed FCM token from DB: user=%s, token=%s", userID, token))
-
-	setKey := fmt.Sprintf("fcm_tokens:%s", userID)
-	if err := u.redisClient.SRem(ctx, setKey, token).Err(); err != nil {
-		u.logs.Log(fmt.Sprintf("Redis SREM error: user=%s, token=%s: %v", userID, token, err))
-	} else {
-		u.logs.Log(fmt.Sprintf("Removed FCM token from Redis Set: user=%s, token=%s", userID, token))
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
+		setKey := fmt.Sprintf("fcm_tokens:%s", userID)
+		if err := u.redisClient.SRem(ctx, setKey, token).Err(); err != nil {
+			u.logs.Log(fmt.Sprintf("Redis SREM error: user=%s, token=%s: %v", userID, token, err))
+		} else {
+			u.logs.Log(fmt.Sprintf("Removed FCM token from Redis Set: user=%s, token=%s", userID, token))
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 

@@ -55,11 +55,11 @@ func GetEnv(key string, values ...string) string {
 	// }
 
 	logFailure(key, failedSources)
-	if values[0] != "" {
+
+	if len(values) > 0 && values[0] != "" {
 		return values[0]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 func getOSEnv(key string, failedSources *[]string) string {

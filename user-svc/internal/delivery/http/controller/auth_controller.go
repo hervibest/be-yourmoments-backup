@@ -50,6 +50,13 @@ func (c *authController) RegisterByPhoneNumber(ctx *fiber.Ctx) error {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
 
+	parsedDate, err := time.Parse("2006-01-02", request.BirthDateStr)
+	if err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, errors.New("Invalid birth date format, please use YYYY-MM-DD"))
+	}
+
+	request.BirthDate = &parsedDate
+
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}

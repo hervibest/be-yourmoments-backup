@@ -12,17 +12,15 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
-	producer "github.com/hervibest/be-yourmoments-backup/user-svc/internal/gateway/messaging"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/gateway/producer"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/nullable"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/converter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/event"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
 	"github.com/redis/go-redis/v9"
 
-	"cloud.google.com/go/firestore"
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
@@ -58,7 +56,7 @@ type authUseCase struct {
 	securityAdapter       adapter.SecurityAdapter
 	jwtAdapter            adapter.JWTAdapter
 	cacheAdapter          adapter.CacheAdapter
-	firestoreAdapter      adapter.FirestoreClientAdapter
+	realtimeChatAdapter   adapter.RealtimeChatAdapter
 	// photoAdapter          adapter.PhotoAdapter
 	// transactionAdapter    adapter.TransactionAdapter
 	userProducer producer.UserProducer
@@ -70,7 +68,7 @@ func NewAuthUseCase(db repository.BeginTx, userRepository repository.UserReposit
 	emailVerificationRepo repository.EmailVerificationRepository, resetPasswordRepo repository.ResetPasswordRepository,
 	userDeviceRepository repository.UserDeviceRepository, googleTokenAdapter adapter.GoogleTokenAdapter,
 	emailAdapter adapter.EmailAdapter, jwtAdapter adapter.JWTAdapter, securityAdapter adapter.SecurityAdapter,
-	cacheAdapter adapter.CacheAdapter, firestoreAdapter adapter.FirestoreClientAdapter,
+	cacheAdapter adapter.CacheAdapter, realtimeChatAdapter adapter.RealtimeChatAdapter,
 	// photoAdapter adapter.PhotoAdapter, transactionAdapter adapter.TransactionAdapter,
 	userProducer producer.UserProducer, logs logger.Log) AuthUseCase {
 	return &authUseCase{
@@ -85,7 +83,7 @@ func NewAuthUseCase(db repository.BeginTx, userRepository repository.UserReposit
 		securityAdapter:       securityAdapter,
 		jwtAdapter:            jwtAdapter,
 		cacheAdapter:          cacheAdapter,
-		firestoreAdapter:      firestoreAdapter,
+		realtimeChatAdapter:   realtimeChatAdapter,
 		// photoAdapter:          photoAdapter,
 		// transactionAdapter:    transactionAdapter,
 		userProducer: userProducer,
@@ -93,6 +91,7 @@ func NewAuthUseCase(db repository.BeginTx, userRepository repository.UserReposit
 	}
 }
 
+// WHAT TO DO WHATS APP BUSINESS VERIF OTP
 func (u *authUseCase) RegisterByPhoneNumber(ctx context.Context, request *model.RegisterByPhoneRequest) (*model.UserResponse, error) {
 	countByNumberTotal, err := u.userRepository.CountByPhoneNumber(ctx, request.PhoneNumber)
 	if err != nil {
@@ -113,53 +112,45 @@ func (u *authUseCase) RegisterByPhoneNumber(ctx context.Context, request *model.
 		return nil, helper.NewUseCaseError(errorcode.ErrAlreadyExists, "Username has already been taken")
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return nil, err
-	}
+	var user *entity.User
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+		now := time.Now()
+		user = &entity.User{
+			Id:       ulid.Make().String(),
+			Username: request.Username,
+			Password: sql.NullString{
+				Valid:  true,
+				String: string(hashedPassword),
+			},
+			PhoneNumber: sql.NullString{
+				Valid:  true,
+				String: request.PhoneNumber,
+			},
+			CreatedAt: &now,
+			UpdatedAt: &now,
+		}
 
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
+		user, err = u.userRepository.CreateByPhoneNumber(ctx, tx, user)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to create user by phone number", err)
+		}
 
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-	now := time.Now()
-	user := &entity.User{
-		Id:       ulid.Make().String(),
-		Username: request.Username,
-		Password: sql.NullString{
-			Valid:  true,
-			String: string(hashedPassword),
-		},
-		PhoneNumber: sql.NullString{
-			Valid:  true,
-			String: request.PhoneNumber,
-		},
-		CreatedAt: &now,
-		UpdatedAt: &now,
-	}
+		userProfile := &entity.UserProfile{
+			Id:        ulid.Make().String(),
+			UserId:    user.Id,
+			BirthDate: request.BirthDate,
+			Nickname:  helper.GenerateNickname(),
+			CreatedAt: &now,
+			UpdatedAt: &now,
+		}
 
-	user, err = u.userRepository.CreateByPhoneNumber(ctx, tx, user)
-	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to create user by phone number", err)
-	}
-
-	userProfile := &entity.UserProfile{
-		Id:        ulid.Make().String(),
-		UserId:    user.Id,
-		BirthDate: request.BirthDate,
-		Nickname:  helper.GenerateNickname(),
-		CreatedAt: &now,
-		UpdatedAt: &now,
-	}
-
-	_, err = u.userProfileRepository.Create(ctx, tx, userProfile)
-	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to create user profile", err)
-	}
-
-	//WHAT TO DO WHATS APP BUSINESS VERIF OTP
-	if err := repository.Commit(tx, u.logs); err != nil {
+		_, err = u.userProfileRepository.Create(ctx, tx, userProfile)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to create user profile", err)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
@@ -185,7 +176,7 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 	}
 
 	if countByNotGoogleTotal > 0 {
-		return nil, nil, helper.NewUseCaseError(errorcode.ErrAlreadyExists, "Email has already been takens")
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrAlreadyExists, "Email has already been taken")
 	}
 
 	countByGoogleTotal, err := u.userRepository.CountByEmailGoogleId(ctx, claims.Email, claims.GoogleId)
@@ -213,61 +204,53 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 
 		userProfile = userProfRes
 	} else {
-		tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-		if err != nil {
-			return nil, nil, err
-		}
+		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+			now := time.Now()
+			user = &entity.User{
+				Id: ulid.Make().String(),
+				Email: sql.NullString{
+					Valid:  true,
+					String: claims.Email,
+				},
+				Username: claims.Username,
+				GoogleId: sql.NullString{
+					Valid:  true,
+					String: claims.GoogleId,
+				},
+				CreatedAt: &now,
+				UpdatedAt: &now,
+			}
 
-		defer func() {
-			repository.Rollback(err, tx, ctx, u.logs)
-		}()
+			user, err = u.userRepository.CreateByGoogleSignIn(ctx, tx, user)
+			if err != nil {
+				return helper.WrapInternalServerError(u.logs, "failed to create user by google sign in", err)
+			}
 
-		now := time.Now()
-		user = &entity.User{
-			Id: ulid.Make().String(),
-			Email: sql.NullString{
-				Valid:  true,
-				String: claims.Email,
-			},
-			Username: claims.Username,
-			GoogleId: sql.NullString{
-				Valid:  true,
-				String: claims.GoogleId,
-			},
-			CreatedAt: &now,
-			UpdatedAt: &now,
-		}
+			userProfile = &entity.UserProfile{
+				Id:     ulid.Make().String(),
+				UserId: user.Id,
+				// BirthDate: request.BirthDate,
+				Nickname: helper.GenerateNickname(),
+				ProfileUrl: sql.NullString{
+					Valid:  true,
+					String: claims.ProfilePictureUrl,
+				},
+				Similarity: uint(enum.DefaultSimilarityLevel),
+				CreatedAt:  &now,
+				UpdatedAt:  &now,
+			}
 
-		user, err = u.userRepository.CreateByGoogleSignIn(ctx, tx, user)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user by google sign in", err)
-		}
-
-		userProfile = &entity.UserProfile{
-			Id:     ulid.Make().String(),
-			UserId: user.Id,
-			// BirthDate: request.BirthDate,
-			Nickname: helper.GenerateNickname(),
-			ProfileUrl: sql.NullString{
-				Valid:  true,
-				String: claims.ProfilePictureUrl,
-			},
-			Similarity: uint(enum.DefaultSimilarityLevel),
-			CreatedAt:  &now,
-			UpdatedAt:  &now,
-		}
-
-		_, err = u.userProfileRepository.CreateWithProfileUrl(ctx, tx, userProfile)
-		if err != nil {
-			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create with profile url", err)
-		}
-
-		if err := repository.Commit(tx, u.logs); err != nil {
+			_, err = u.userProfileRepository.CreateWithProfileUrl(ctx, tx, userProfile)
+			if err != nil {
+				return helper.WrapInternalServerError(u.logs, "failed to create with profile url", err)
+			}
+			return nil
+		}); err != nil {
 			return nil, nil, err
 		}
 
 		go func() {
-			u.createChatRoom(context.Background(), user, userProfile)
+			u.realtimeChatAdapter.CreateChatRoom(context.Background(), user, userProfile)
 		}()
 
 		//URGENT Create Event Driven
@@ -332,25 +315,6 @@ func (u *authUseCase) getUserProfile(ctx context.Context, userId string) (*entit
 	return profile, nil
 }
 
-func (u *authUseCase) createChatRoom(ctx context.Context, user *entity.User, userProfile *entity.UserProfile) {
-	//TODO apakah bisa dirapikan atau diwrap ke dalam adapter ?
-	userRef := u.firestoreAdapter.Collection("users").Doc(user.Id)
-	_, err := userRef.Get(ctx)
-	if err != nil {
-		_, err := userRef.Set(ctx, map[string]interface{}{
-			"userId":     user.Id,
-			"profileId":  userProfile.Id,
-			"nickname":   userProfile.Nickname,
-			"profileUrl": nullable.SQLStringToPtr(userProfile.ProfileUrl),
-			"createdAt":  firestore.ServerTimestamp,
-			"updatedAt":  firestore.ServerTimestamp,
-		})
-		if err != nil {
-			u.logs.Error(fmt.Sprintf("Failed to create or get rooms from firebase when create user by google with err : %v and user id : %s", err, user.Id))
-		}
-	}
-}
-
 func (u *authUseCase) RegisterByEmail(ctx context.Context, request *model.RegisterByEmailRequest) (*model.UserResponse, error) {
 	countByNumberTotal, err := u.userRepository.CountByEmail(ctx, request.Email)
 	if err != nil {
@@ -367,70 +331,63 @@ func (u *authUseCase) RegisterByEmail(ctx context.Context, request *model.Regist
 	}
 
 	if countByUsernameTotal > 0 {
-		return nil, helper.NewUseCaseError(errorcode.ErrAlreadyExists, "Username has already been takens")
+		return nil, helper.NewUseCaseError(errorcode.ErrAlreadyExists, "Username has already been taken")
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
+	user := new(entity.User)
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to generate hashed bcrypt", err)
+		}
+
+		now := time.Now()
+		user = &entity.User{
+			Id:       ulid.Make().String(),
+			Username: request.Username,
+			Email: sql.NullString{
+				Valid:  true,
+				String: request.Email,
+			},
+			Password: sql.NullString{
+				Valid:  true,
+				String: string(hashedPassword),
+			},
+			CreatedAt: &now,
+			UpdatedAt: &now,
+		}
+
+		user, err = u.userRepository.CreateByEmail(ctx, tx, user)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to create user by email verification :", err)
+		}
+
+		userProfile := &entity.UserProfile{
+			Id:        ulid.Make().String(),
+			UserId:    user.Id,
+			BirthDate: request.BirthDate,
+			Nickname:  helper.GenerateNickname(),
+			CreatedAt: &now,
+			UpdatedAt: &now,
+		}
+
+		_, err = u.userProfileRepository.Create(ctx, tx, userProfile)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to send email verification :", err)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to generate hashed bcrypt", err)
-	}
-
-	now := time.Now()
-	user := &entity.User{
-		Id:       ulid.Make().String(),
-		Username: request.Username,
-		Email: sql.NullString{
-			Valid:  true,
-			String: request.Email,
-		},
-		Password: sql.NullString{
-			Valid:  true,
-			String: string(hashedPassword),
-		},
-		CreatedAt: &now,
-		UpdatedAt: &now,
-	}
-
-	user, err = u.userRepository.CreateByEmail(ctx, tx, user)
-	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to create user by email verification :", err)
-	}
-
-	userProfile := &entity.UserProfile{
-		Id:        ulid.Make().String(),
-		UserId:    user.Id,
-		BirthDate: request.BirthDate,
-		Nickname:  helper.GenerateNickname(),
-		CreatedAt: &now,
-		UpdatedAt: &now,
-	}
-
-	_, err = u.userProfileRepository.Create(ctx, tx, userProfile)
-	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to send email verification :", err)
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
-		return nil, err
-	}
-
-	if err := u.requestEmailVerification(ctx, request.Email, true); err != nil {
+	if err := u.RequestEmailVerification(ctx, request.Email, true); err != nil {
 		return nil, helper.WrapInternalServerError(u.logs, "failed to send email verification :", err)
 	}
 
 	return converter.UserToResponse(user), nil
 }
 
-func (u *authUseCase) requestEmailVerification(ctx context.Context, email string, newUser bool) error {
+func (u *authUseCase) RequestEmailVerification(ctx context.Context, email string, newUser bool) error {
 	token := uuid.NewString()
 	now := time.Now()
 
@@ -441,34 +398,26 @@ func (u *authUseCase) requestEmailVerification(ctx context.Context, email string
 		UpdatedAt: &now,
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		if newUser {
+			_, err := u.emailVerificationRepo.Insert(ctx, tx, emailVerification)
+			if err != nil {
+				return fmt.Errorf("insert email verification token : %+v", err)
+			}
+		} else {
+			_, err := u.emailVerificationRepo.Update(ctx, tx, emailVerification)
+			if err != nil {
+				return fmt.Errorf("update email verification token : %+v", err)
+			}
+		}
 		return nil
-	}
-
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	if newUser {
-		_, err = u.emailVerificationRepo.Insert(ctx, tx, emailVerification)
-		if err != nil {
-			return fmt.Errorf("insert email verification token : %+v", err)
-		}
-	} else {
-		_, err = u.emailVerificationRepo.Update(ctx, tx, emailVerification)
-		if err != nil {
-			return fmt.Errorf("update email verification token : %+v", err)
-		}
+	}); err != nil {
+		return err
 	}
 
 	encryptedToken, err := u.securityAdapter.Encrypt(token)
 	if err != nil {
 		return fmt.Errorf("encrypt email verification token : %+v", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction : %+v", err)
 	}
 
 	if err := u.emailAdapter.SendEmail(email, encryptedToken, "new email verification"); err != nil {
@@ -499,7 +448,7 @@ func (u *authUseCase) ResendEmailVerification(ctx context.Context, email string)
 		return helper.WrapInternalServerError(u.logs, "failed to find email verification by email", err)
 	}
 
-	if err := u.requestEmailVerification(ctx, email, false); err != nil {
+	if err := u.RequestEmailVerification(ctx, email, false); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to send email verification", err)
 	}
 
@@ -535,25 +484,18 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, request *model.VerifyEmai
 		UpdatedAt:       &now,
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return err
-	}
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		user, err = u.userRepository.UpdateEmailVerifiedAt(ctx, tx, user)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to update user email verified_at", err)
+		}
 
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
+		if err := u.emailVerificationRepo.Delete(ctx, tx, emailVerification); err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to delete email verification", err)
+		}
+		return nil
 
-	user, err = u.userRepository.UpdateEmailVerifiedAt(ctx, tx, user)
-	if err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to update user email verified_at", err)
-	}
-
-	if err := u.emailVerificationRepo.Delete(ctx, tx, emailVerification); err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to delete email verification", err)
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -564,7 +506,7 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, request *model.VerifyEmai
 
 	//URGENT EVENT DRIVEN
 	go func() {
-		u.createChatRoom(context.Background(), user, userProfile)
+		u.realtimeChatAdapter.CreateChatRoom(context.Background(), user, userProfile)
 	}()
 
 	event := &event.UserEvent{
@@ -595,15 +537,6 @@ func (u *authUseCase) RequestResetPassword(ctx context.Context, email string) er
 		return helper.WrapInternalServerError(u.logs, "failed count reset password by email", err)
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
 	token := uuid.NewString()
 	now := time.Now()
 	resetPassword := &entity.ResetPassword{
@@ -613,19 +546,20 @@ func (u *authUseCase) RequestResetPassword(ctx context.Context, email string) er
 		UpdatedAt: &now,
 	}
 
-	if countByEmailTotal > 0 {
-		_, err := u.resetPasswordRepo.Update(ctx, tx, resetPassword)
-		if err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to update reset password", err)
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		if countByEmailTotal > 0 {
+			_, err := u.resetPasswordRepo.Update(ctx, tx, resetPassword)
+			if err != nil {
+				return helper.WrapInternalServerError(u.logs, "failed to update reset password", err)
+			}
+		} else {
+			_, err := u.resetPasswordRepo.Insert(ctx, tx, resetPassword)
+			if err != nil {
+				return helper.WrapInternalServerError(u.logs, "failed to insert reset password", err)
+			}
 		}
-	} else {
-		_, err := u.resetPasswordRepo.Insert(ctx, tx, resetPassword)
-		if err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to insert reset password", err)
-		}
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
+		return nil
+	}); err != nil {
 		return err
 	}
 
@@ -690,25 +624,17 @@ func (u *authUseCase) ResetPassword(ctx context.Context, request *model.ResetPas
 		UpdatedAt: &now,
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return err
-	}
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		_, err = u.userRepository.UpdatePassword(ctx, tx, user)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to update reset password", err)
+		}
 
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	_, err = u.userRepository.UpdatePassword(ctx, tx, user)
-	if err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to update reset password", err)
-	}
-
-	if err := u.resetPasswordRepo.Delete(ctx, tx, resetPassword); err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to delete reset password", err)
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
+		if err := u.resetPasswordRepo.Delete(ctx, tx, resetPassword); err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to delete reset password", err)
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 
@@ -805,23 +731,16 @@ func (u *authUseCase) CreateDeviceToken(ctx context.Context, request *model.Devi
 		CreatedAt: &now,
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		_, err := u.userDeviceRepository.Create(ctx, tx, userDevice)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to create user device", err)
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	_, err = u.userDeviceRepository.Create(ctx, tx, userDevice)
-	if err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to create user device", err)
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
-		return err
-	}
 	return nil
 }
 

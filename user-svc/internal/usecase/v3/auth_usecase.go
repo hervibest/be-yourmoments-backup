@@ -6,18 +6,19 @@ package usecase
 // 	"errors"
 // 	"fmt"
 // 	"strings"
-// 	"sync"
 // 	"time"
 
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
 // 	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
+// 	producer "github.com/hervibest/be-yourmoments-backup/user-svc/internal/gateway/messaging"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/nullable"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/converter"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/event"
 // 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
 // 	"github.com/redis/go-redis/v9"
 
@@ -58,8 +59,9 @@ package usecase
 // 	jwtAdapter            adapter.JWTAdapter
 // 	cacheAdapter          adapter.CacheAdapter
 // 	firestoreAdapter      adapter.FirestoreClientAdapter
-// 	photoAdapter          adapter.PhotoAdapter
-// 	transactionAdapter    adapter.TransactionAdapter
+// 	// photoAdapter          adapter.PhotoAdapter
+// 	// transactionAdapter    adapter.TransactionAdapter
+// 	userProducer producer.UserProducer
 
 // 	logs logger.Log
 // }
@@ -69,7 +71,8 @@ package usecase
 // 	userDeviceRepository repository.UserDeviceRepository, googleTokenAdapter adapter.GoogleTokenAdapter,
 // 	emailAdapter adapter.EmailAdapter, jwtAdapter adapter.JWTAdapter, securityAdapter adapter.SecurityAdapter,
 // 	cacheAdapter adapter.CacheAdapter, firestoreAdapter adapter.FirestoreClientAdapter,
-// 	photoAdapter adapter.PhotoAdapter, transactionAdapter adapter.TransactionAdapter, logs logger.Log) AuthUseCase {
+// 	// photoAdapter adapter.PhotoAdapter, transactionAdapter adapter.TransactionAdapter,
+// 	userProducer producer.UserProducer, logs logger.Log) AuthUseCase {
 // 	return &authUseCase{
 // 		db:                    db,
 // 		userRepository:        userRepository,
@@ -83,9 +86,10 @@ package usecase
 // 		jwtAdapter:            jwtAdapter,
 // 		cacheAdapter:          cacheAdapter,
 // 		firestoreAdapter:      firestoreAdapter,
-// 		photoAdapter:          photoAdapter,
-// 		transactionAdapter:    transactionAdapter,
-// 		logs:                  logs,
+// 		// photoAdapter:          photoAdapter,
+// 		// transactionAdapter:    transactionAdapter,
+// 		userProducer: userProducer,
+// 		logs:         logs,
 // 	}
 // }
 
@@ -190,10 +194,7 @@ package usecase
 // 	}
 
 // 	var user *entity.User
-// 	var wallet *entity.Wallet
-// 	var creator *entity.Creator
 // 	var userProfile *entity.UserProfile
-// 	var wg sync.WaitGroup
 
 // 	// If user already registered
 // 	if countByGoogleTotal > 0 {
@@ -205,15 +206,12 @@ package usecase
 // 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed find user by email not google", err)
 // 		}
 
-// 		userProfRes, creatorRes, walletRes, err := u.getUserProfileWalletAndRepo(ctx, &wg, user.Id)
+// 		userProfRes, err := u.getUserProfile(ctx, user.Id)
 // 		if err != nil {
 // 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
 // 		}
 
 // 		userProfile = userProfRes
-// 		wallet = walletRes
-// 		creator = creatorRes
-
 // 	} else {
 // 		tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 // 		if err != nil {
@@ -272,12 +270,18 @@ package usecase
 // 			u.createChatRoom(context.Background(), user, userProfile)
 // 		}()
 
-// 		creator, wallet, err = u.createCreatorAndWallet(ctx, user.Id)
-// 		if err != nil {
-// 			return nil, nil, err
+// 		//URGENT Create Event Driven
+// 		event := &event.UserEvent{
+// 			Id:        user.Id,
+// 			Username:  user.Username,
+// 			CreatedAt: user.CreatedAt,
+// 			UpdatedAt: user.CreatedAt,
 // 		}
 
-// 		wg.Wait()
+// 		if err := u.userProducer.ProduceUserCreated(ctx, event); err != nil {
+// 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to produce user create event", err)
+// 		}
+
 // 	}
 
 // 	now := time.Now()
@@ -305,8 +309,6 @@ package usecase
 // 		Email:       user.Email.String,
 // 		PhoneNumber: user.PhoneNumber.String,
 // 		Similarity:  userProfile.Similarity,
-// 		CreatorId:   creator.Id,
-// 		WalletId:    wallet.Id,
 // 	}
 
 // 	token, err := u.generateToken(ctx, auth)
@@ -317,49 +319,17 @@ package usecase
 // 	return converter.UserToResponse(user), token, nil
 // }
 
-// func (u *authUseCase) getUserProfileWalletAndRepo(ctx context.Context, wg *sync.WaitGroup, userId string) (*entity.UserProfile, *entity.Creator, *entity.Wallet, error) {
-// 	var (
-// 		userProfile *entity.UserProfile
-// 		creator     *entity.Creator
-// 		wallet      *entity.Wallet
-// 		err         error
-// 	)
-
-// 	wg.Add(1)
-// 	go func() {
-// 		defer wg.Done()
-// 		profile, err1 := u.userProfileRepository.FindByUserId(ctx, userId)
-// 		if err1 != nil {
-// 			if errors.Is(err1, sql.ErrNoRows) {
-// 				u.logs.Error(fmt.Sprint("invalid user id for finding user profile : ", err1))
-// 			}
-// 			u.logs.Error(fmt.Sprint("failed find user by email not google : ", err1))
-// 			return
+// func (u *authUseCase) getUserProfile(ctx context.Context, userId string) (*entity.UserProfile, error) {
+// 	profile, err := u.userProfileRepository.FindByUserId(ctx, userId)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			u.logs.Error(fmt.Sprint("invalid user id for finding user profile : ", err))
 // 		}
-// 		userProfile = profile
-// 	}()
+// 		u.logs.Error(fmt.Sprint("failed find user by email not google : ", err))
+// 		return nil, err
+// 	}
 
-// 	wg.Add(1)
-// 	go func() {
-// 		defer wg.Done()
-// 		creatorRes, err1 := u.photoAdapter.GetCreator(ctx, userId)
-// 		if err1 != nil {
-// 			u.logs.Error(fmt.Sprint("failed to get creator from photo service with error : ", err1))
-// 			return
-// 		}
-
-// 		creator = creatorRes
-// 		walletRes, err1 := u.transactionAdapter.GetWallet(ctx, creator.Id)
-// 		if err1 != nil {
-// 			u.logs.Error(fmt.Sprint("failed to get wallet by creator id from wallet service with error : ", err1))
-// 			return
-// 		}
-
-// 		wallet = walletRes
-// 	}()
-
-// 	wg.Wait()
-// 	return userProfile, creator, wallet, err
+// 	return profile, nil
 // }
 
 // func (u *authUseCase) createChatRoom(ctx context.Context, user *entity.User, userProfile *entity.UserProfile) {
@@ -379,20 +349,6 @@ package usecase
 // 			u.logs.Error(fmt.Sprintf("Failed to create or get rooms from firebase when create user by google with err : %v and user id : %s", err, user.Id))
 // 		}
 // 	}
-// }
-
-// func (u *authUseCase) createCreatorAndWallet(ctx context.Context, userId string) (*entity.Creator, *entity.Wallet, error) {
-// 	creator, err := u.photoAdapter.CreateCreator(ctx, userId)
-// 	if err != nil {
-// 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create creator", err)
-// 	}
-
-// 	wallet, err := u.transactionAdapter.CreateWallet(ctx, creator.Id)
-// 	if err != nil {
-// 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create wallet by creator id", err)
-// 	}
-
-// 	return creator, wallet, nil
 // }
 
 // func (u *authUseCase) RegisterByEmail(ctx context.Context, request *model.RegisterByEmailRequest) (*model.UserResponse, error) {
@@ -606,13 +562,21 @@ package usecase
 // 		return helper.WrapInternalServerError(u.logs, "failed to get user profile", err)
 // 	}
 
+// 	//URGENT EVENT DRIVEN
 // 	go func() {
 // 		u.createChatRoom(context.Background(), user, userProfile)
-// 		_, _, err := u.createCreatorAndWallet(ctx, user.Id)
-// 		if err != nil {
-// 			u.logs.Error(fmt.Sprintf("Failed to create creator or wallet with error : %v", err))
-// 		}
 // 	}()
+
+// 	event := &event.UserEvent{
+// 		Id:        user.Id,
+// 		Username:  user.Username,
+// 		CreatedAt: user.CreatedAt,
+// 		UpdatedAt: user.CreatedAt,
+// 	}
+
+// 	if err := u.userProducer.ProduceUserCreated(ctx, event); err != nil {
+// 		return helper.WrapInternalServerError(u.logs, "failed to produce user create event", err)
+// 	}
 
 // 	return nil
 // }
@@ -776,8 +740,7 @@ package usecase
 // 		return nil, nil, helper.NewUseCaseError(errorcode.ErrValidationFailed, "Invalid password")
 // 	}
 
-// 	var wg sync.WaitGroup
-// 	userProfile, creator, wallet, err := u.getUserProfileWalletAndRepo(ctx, &wg, user.Id)
+// 	userProfile, err := u.getUserProfile(ctx, user.Id)
 // 	if err != nil {
 // 		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email")
 // 	}
@@ -788,8 +751,6 @@ package usecase
 // 		Email:       user.Email.String,
 // 		PhoneNumber: user.PhoneNumber.String,
 // 		Similarity:  userProfile.Similarity,
-// 		CreatorId:   creator.Id,
-// 		WalletId:    wallet.Id,
 // 	}
 
 // 	token, err := u.generateToken(ctx, auth)
@@ -919,8 +880,6 @@ package usecase
 // 		Email:       auth.Email,
 // 		PhoneNumber: auth.PhoneNumber,
 // 		Similarity:  auth.Similarity,
-// 		CreatorId:   auth.CreatorId,
-// 		WalletId:    auth.WalletId,
 // 		Token:       request.Token,
 // 		ExpiresAt:   accessTokenDetail.ExpiresAt,
 // 	}
@@ -933,22 +892,18 @@ package usecase
 // 		auth = new(entity.Auth)
 // 	}
 
-// 	var wg sync.WaitGroup
-// 	userProfile, creator, wallet, err := u.getUserProfileWalletAndRepo(ctx, &wg, user.Id)
+// 	userProfile, err := u.getUserProfile(ctx, user.Id)
 // 	if err != nil {
-// 		u.logs.Debug("Err no get user profile and wallet repo")
+// 		u.logs.Debug("Err no get user profile")
 // 		return helper.NewUseCaseError(errorcode.ErrUnauthorized, "invalid refresh token")
 // 	}
 
-// 	fmt.Println("Ini adalah creator :", creator)
 // 	auth = &entity.Auth{
 // 		Id:          user.Id,
 // 		Username:    user.Username,
 // 		Email:       user.Email.String,
 // 		PhoneNumber: user.PhoneNumber.String,
 // 		Similarity:  userProfile.Similarity,
-// 		CreatorId:   creator.Id,
-// 		WalletId:    wallet.Id,
 // 	}
 
 // 	jsonValue, err := sonic.ConfigFastest.Marshal(auth)

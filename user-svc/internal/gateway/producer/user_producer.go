@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
@@ -16,7 +15,6 @@ type UserProducer interface {
 }
 
 type userProducer struct {
-	transactionTTL   time.Duration
 	messagingAdapter adapter.MessagingAdapter
 	logs             logger.Log
 }

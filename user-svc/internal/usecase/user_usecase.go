@@ -119,21 +119,13 @@ func (u *userUseCase) UpdateUserProfile(ctx context.Context, request *model.Requ
 		UpdatedAt: &now,
 	}
 
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	userProfile, err = u.userProfileRepository.Update(ctx, tx, userProfile)
-	if err != nil {
-		return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user profile id")
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		_, err := u.userProfileRepository.Update(ctx, tx, userProfile)
+		if err != nil {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user profile id")
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
@@ -202,22 +194,13 @@ func (u *userUseCase) updateUserImage(ctx context.Context, file *multipart.FileH
 			CreatedAt:     &now,
 			UpdatedAt:     &now,
 		}
-
-		tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-		if err != nil {
-			return false, err
-		}
-
-		defer func() {
-			repository.Rollback(err, tx, ctx, u.logs)
-		}()
-
-		_, err = u.userImageRepository.Create(ctx, tx, newUserProfileImage)
-		if err != nil {
-			return false, helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
-		}
-
-		if err := repository.Commit(tx, u.logs); err != nil {
+		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+			_, err = u.userImageRepository.Create(ctx, tx, newUserProfileImage)
+			if err != nil {
+				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
+			}
+			return nil
+		}); err != nil {
 			return false, err
 		}
 
@@ -232,30 +215,22 @@ func (u *userUseCase) updateUserImage(ctx context.Context, file *multipart.FileH
 			UpdatedAt:     &now,
 		}
 
-		tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-		if err != nil {
-			return false, err
-		}
+		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+			_, err = u.userImageRepository.Update(ctx, tx, updatedUserProfileImage)
+			if err != nil {
+				return helper.WrapInternalServerError(u.logs, "failed to update user profile image", err)
+			}
 
-		defer func() {
-			repository.Rollback(err, tx, ctx, u.logs)
-		}()
+			_, err = u.uploadAdapter.DeleteFile(ctx, prevUserProfileImage.FileName)
+			if err != nil {
+				return helper.WrapInternalServerError(u.logs, "failed to delete user profile image from minio", err)
+			}
 
-		_, err = u.userImageRepository.Update(ctx, tx, updatedUserProfileImage)
-		if err != nil {
-			return false, helper.WrapInternalServerError(u.logs, "failed to update user profile image", err)
-		}
-
-		_, err = u.uploadAdapter.DeleteFile(ctx, prevUserProfileImage.FileName)
-		if err != nil {
-			return false, helper.WrapInternalServerError(u.logs, "failed to delete user profile image from minio", err)
-		}
-
-		if err := repository.Commit(tx, u.logs); err != nil {
+			return nil
+		}); err != nil {
 			return false, err
 		}
 	}
-
 	return true, nil
 }
 
@@ -289,50 +264,42 @@ func (u *userUseCase) GetPublicUserChat(ctx context.Context, request *model.Requ
 }
 
 func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error {
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		if err := u.userProfileRepository.UpdateSimilarity(ctx, tx, request.Similarity, request.UserID); err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to update similarity", err)
+		}
+
+		json, err := u.cacheAdapter.Get(ctx, request.UserID)
+		if err != nil {
+			return fmt.Errorf("failed to get auth cache in redis : %+v", err)
+		}
+
+		ttl, err := u.cacheAdapter.TTL(ctx, request.UserID)
+		if err != nil {
+			return fmt.Errorf("failed to get auth cache TTL in redis : %+v", err)
+		}
+
+		cachedAuth := new(entity.Auth)
+		if sonic.ConfigFastest.Unmarshal([]byte(json), cachedAuth); err != nil {
+			return fmt.Errorf("failed to unmarshal struct : %+v", err)
+		}
+
+		cachedAuth.Similarity = uint(request.Similarity)
+
+		updatedJSON, err := sonic.ConfigFastest.Marshal(cachedAuth)
+		if err != nil {
+			return fmt.Errorf("marshal updated auth: %+v", err)
+		}
+
+		if err := u.cacheAdapter.Set(ctx, request.UserID, updatedJSON, ttl); err != nil {
+			return fmt.Errorf("save user body into cache : %+v", err)
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 
-	defer func() {
-		repository.Rollback(err, tx, ctx, u.logs)
-	}()
-
-	if err := u.userProfileRepository.UpdateSimilarity(ctx, tx, request.Similarity, request.UserID); err != nil {
-		return helper.WrapInternalServerError(u.logs, "failed to update similarity", err)
-	}
-
-	json, err := u.cacheAdapter.Get(ctx, request.UserID)
-	if err != nil {
-		return fmt.Errorf("failed to get auth cache in redis : %+v", err)
-	}
-
-	ttl, err := u.cacheAdapter.TTL(ctx, request.UserID)
-	if err != nil {
-		return fmt.Errorf("failed to get auth cache TTL in redis : %+v", err)
-	}
-
-	cachedAuth := new(entity.Auth)
-	if sonic.ConfigFastest.Unmarshal([]byte(json), cachedAuth); err != nil {
-		return fmt.Errorf("failed to unmarshal struct : %+v", err)
-	}
-
-	cachedAuth.Similarity = uint(request.Similarity)
-
-	updatedJSON, err := sonic.ConfigFastest.Marshal(cachedAuth)
-	if err != nil {
-		return fmt.Errorf("marshal updated auth: %+v", err)
-	}
-
-	if err := u.cacheAdapter.Set(ctx, request.UserID, updatedJSON, ttl); err != nil {
-		return fmt.Errorf("save user body into cache : %+v", err)
-	}
-
-	if err := repository.Commit(tx, u.logs); err != nil {
-		return err
-	}
-
-	return err
+	return nil
 }
 
 // func (u *userUseCase) UpdateUserProfileCover(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
