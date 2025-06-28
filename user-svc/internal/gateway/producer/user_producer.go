@@ -12,6 +12,7 @@ import (
 
 type UserProducer interface {
 	ProduceUserCreated(ctx context.Context, userEvent *event.UserEvent) error
+	ProduceUserDeviceCreated(ctx context.Context, userDeviceEvent *event.UserDeviceEvent) error
 }
 
 type userProducer struct {
@@ -35,5 +36,17 @@ func (s *userProducer) ProduceUserCreated(ctx context.Context, userEvent *event.
 	}
 
 	log.Printf("Published create user event for user id %s", userEvent.Id)
+	return nil
+}
+
+func (s *userProducer) ProduceUserDeviceCreated(ctx context.Context, userDeviceEvent *event.UserDeviceEvent) error {
+	subject := "user.device.created"
+
+	err := s.messagingAdapter.Publish(ctx, subject, userDeviceEvent)
+	if err != nil {
+		return fmt.Errorf("failed to publish create user device event: %w", err)
+	}
+
+	log.Printf("Published create user device event for user id %s", userDeviceEvent.UserID)
 	return nil
 }

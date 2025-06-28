@@ -9,11 +9,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
+	producer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model/event"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
 
 	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
@@ -36,13 +39,14 @@ type userSimilarUsecase struct {
 	userSimilarRepo repository.UserSimilarRepository
 	bulkPhotoRepo   repository.BulkPhotoRepository
 	userAdapter     adapter.UserAdapter
+	photoProducer   producer.PhotoProducer
 	logs            *logger.Log
 }
 
 func NewUserSimilarUsecase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 	photoDetailRepo repository.PhotoDetailRepository, facecamRepo repository.FacecamRepository,
 	userSimilarRepo repository.UserSimilarRepository, bulkPhotoRepo repository.BulkPhotoRepository,
-	userAdapter adapter.UserAdapter, logs *logger.Log) UserSimilarUsecase {
+	userAdapter adapter.UserAdapter, photoProducer producer.PhotoProducer, logs *logger.Log) UserSimilarUsecase {
 	return &userSimilarUsecase{
 		db:              db,
 		photoRepo:       photoRepo,
@@ -51,6 +55,7 @@ func NewUserSimilarUsecase(db *sqlx.DB, photoRepo repository.PhotoRepository,
 		userSimilarRepo: userSimilarRepo,
 		bulkPhotoRepo:   bulkPhotoRepo,
 		userAdapter:     userAdapter,
+		photoProducer:   photoProducer,
 		logs:            logs,
 	}
 }
@@ -102,6 +107,7 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		return err
 	}
 
+	userIds := make([]string, 0, len(request.GetUserSimilarPhoto()))
 	userSimilarPhotos := make([]*entity.UserSimilarPhoto, 0, len(request.GetUserSimilarPhoto()))
 	for _, userSimilarPhotoRequest := range request.GetUserSimilarPhoto() {
 		userSimilarPhoto := &entity.UserSimilarPhoto{
@@ -116,6 +122,8 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		log.Println("photo id : " + userSimilarPhoto.PhotoId)
 		log.Println("user id : " + userSimilarPhoto.UserId)
 		log.Println("similarity : ", userSimilarPhoto.Similarity)
+
+		userIds = append(userIds, userSimilarPhotoRequest.GetUserId())
 	}
 
 	err = u.userSimilarRepo.InsertOrUpdateByPhotoId(tx, request.GetPhotoDetail().PhotoId, &userSimilarPhotos)
@@ -132,12 +140,18 @@ func (u *userSimilarUsecase) CreateUserSimilar(ctx context.Context, request *pho
 		return err
 	}
 
-	go func() {
-		if _, err := u.userAdapter.SendSinglePhotoNotification(ctx, request.GetUserSimilarPhoto()); err != nil {
-			u.logs.Error(err)
-		}
-	}()
+	if len(userIds) != 0 {
+		go func() {
+			singlePhotoEvent := &event.SinglePhotoEvent{
+				EventID: uuid.NewString(),
+				UserIDs: userIds,
+			}
+			if err := u.photoProducer.ProduceSinglePhoto(ctx, singlePhotoEvent); err != nil {
+				u.logs.Error(err)
+			}
+		}()
 
+	}
 	return nil
 
 }
@@ -192,12 +206,18 @@ func (u *userSimilarUsecase) CreateUserFacecam(ctx context.Context, request *pho
 		return err
 	}
 
-	go func() {
-		u.logs.Log("[SEND SINGLE FACECAM] Initiate in go routine")
-		if _, err := u.userAdapter.SendSingleFacecamNotificaton(ctx, request.GetUserSimilarPhoto()); err != nil {
-			u.logs.Error(err)
-		}
-	}()
+	if len(request.GetUserSimilarPhoto()) != 0 {
+		go func() {
+			singleFacecamEvent := &event.SingleFacecamEvent{
+				EventID:     uuid.NewString(),
+				UserID:      request.GetFacecam().GetUserId(),
+				CountPhotos: len(request.GetUserSimilarPhoto()),
+			}
+			if err := u.photoProducer.ProduceSingleFacecam(ctx, singleFacecamEvent); err != nil {
+				u.logs.Error(err)
+			}
+		}()
+	}
 
 	return nil
 }
@@ -296,11 +316,18 @@ func (u *userSimilarUsecase) CreateBulkUserSimilarPhotos(ctx context.Context, re
 
 	countMap := u.countUsersParallel(request.GetBulkUserSimilarPhoto())
 
-	go func() {
-		if _, err := u.userAdapter.SendBulkNotification(ctx, countMap); err != nil {
-			u.logs.Error(err)
-		}
-	}()
+	if countMap != nil {
+		go func() {
+			bulkPhotoEvent := &event.BulkPhotoEvent{
+				EventID:      uuid.NewString(),
+				UserCountMap: countMap,
+			}
+			if err := u.photoProducer.ProduceBulkPhoto(ctx, bulkPhotoEvent); err != nil {
+				u.logs.Error(err)
+			}
+		}()
+	}
+
 	return nil
 }
 

@@ -12,6 +12,9 @@ start-upload-svc:
 start-transaction-svc:
 	cd transaction-svc/cmd/web && go run main.go
 
+start-notification-worker:
+	cd notification-svc/cmd/worker && go run main.go
+
 
 include .env
 # expor
@@ -70,6 +73,19 @@ transaction-svc-migrate-reset:
 	cd transaction-svc && \
 	goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" down-to 0 && \
 	goose -dir $(MIGRATIONS_DIR) postgres "$(TRANSACTION_DB_URL)" up
+
+### === Notification Service Migration ===
+notification-svc-migrate-up:
+	cd notification-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(NOTIFICATION_DB_URL)" up
+
+notification-svc-migrate-down:
+	cd notification-svc && goose -dir $(MIGRATIONS_DIR) postgres "$(NOTIFICATION_DB_URL)" down
+
+notification-svc-migrate-reset:
+	cd notification-svc && \
+	goose -dir $(MIGRATIONS_DIR) postgres "$(NOTIFICATION_DB_URL)" down-to 0 && \
+	goose -dir $(MIGRATIONS_DIR) postgres "$(NOTIFICATION_DB_URL)" up
+
 
 ### === Protobuf Compile ===
 proto:

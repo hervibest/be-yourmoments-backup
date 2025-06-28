@@ -110,6 +110,7 @@ func webServer(ctx context.Context) error {
 	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
 	messaginAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
 	creatorProducer := producer.NewCreatorProducer(messaginAdapter, logs)
+	photoProducer := producer.NewPhotoProducer(messaginAdapter, logs)
 
 	customValidator := helper.NewCustomValidator()
 
@@ -122,9 +123,11 @@ func webServer(ctx context.Context) error {
 	creatorDiscountRepository, _ := repository.NewCreatorDiscountRepository(dbConfig)
 	bulkPhotoRepository := repository.NewBulkPhotoRepository()
 
-	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository, bulkPhotoRepository, storageAdapter, CDNAdapter, logs)
+	photoUseCase := usecase.NewPhotoUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository,
+		bulkPhotoRepository, storageAdapter, CDNAdapter, logs)
 	faceCamUseCase := usecase.NewFacecamUseCase(dbConfig, facecamRepo, userSimilarRepo, storageAdapter, logs)
-	userSimilarPhotoUsecase := usecase.NewUserSimilarUsecase(dbConfig, photoRepo, photoDetailRepo, facecamRepo, userSimilarRepo, bulkPhotoRepository, userAdapter, logs)
+	userSimilarPhotoUsecase := usecase.NewUserSimilarUsecase(dbConfig, photoRepo, photoDetailRepo, facecamRepo,
+		userSimilarRepo, bulkPhotoRepository, userAdapter, photoProducer, logs)
 	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, cacheAdapter, creatorProducer, logs)
 	exploreUseCase := usecase.NewExploreUseCase(dbConfig, exploreRepo, photoRepo, CDNAdapter, tracer, logs)
 	creatorDiscountUseCase := usecase.NewCreatorDiscountUseCase(dbConfig, creatorDiscountRepository, logs)

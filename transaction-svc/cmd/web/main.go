@@ -184,7 +184,12 @@ func webServer(ctx context.Context) error {
 		transactionSubscriber.SubscribeTransactionExpire(ctx)
 	}()
 
-a
+	//TODO NEW - implement ctx for cancl orchestration
+	schedulerRunner := scheduler.NewSchedulerRunner(goCronConfig, schedulerUseCase, logs)
+	go func() {
+		schedulerRunner.Start()
+	}()
+
 	creatorSubscriber := messaging.NewCreatorSubscriber(jetStreamConfig, walletUseCase, logs)
 	go func() {
 		if err := creatorSubscriber.Start(ctx); err != nil {

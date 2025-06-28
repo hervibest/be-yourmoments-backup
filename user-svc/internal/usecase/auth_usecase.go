@@ -253,7 +253,6 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 			u.realtimeChatAdapter.CreateChatRoom(context.Background(), user, userProfile)
 		}()
 
-		//URGENT Create Event Driven
 		event := &event.UserEvent{
 			Id:        user.Id,
 			Username:  user.Username,
@@ -264,26 +263,16 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 		if err := u.userProducer.ProduceUserCreated(ctx, event); err != nil {
 			return nil, nil, helper.WrapInternalServerError(u.logs, "failed to produce user create event", err)
 		}
-
 	}
 
-	now := time.Now()
-	userDevice := &entity.UserDevice{
-		Id:        ulid.Make().String(),
-		UserId:    user.Id,
-		Token:     request.DeviceToken,
-		Platform:  request.Platform,
-		CreatedAt: &now,
+	userDeviceEvent := &event.UserDeviceEvent{
+		UserID:      user.Id,
+		DeviceToken: request.DeviceToken,
+		Platform:    request.Platform,
 	}
 
-	_, err = u.userDeviceRepository.Create(ctx, u.db, userDevice)
-	if err != nil {
-		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to create user device", err)
-	}
-
-	setKey := fmt.Sprintf("fcm_tokens:%s", user.Id)
-	if err := u.cacheAdapter.SAdd(ctx, setKey, request.DeviceToken); err != nil {
-		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to SAdd redis set", err)
+	if err := u.userProducer.ProduceUserDeviceCreated(ctx, userDeviceEvent); err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to produce user device event", err)
 	}
 
 	auth := &entity.Auth{
@@ -722,23 +711,14 @@ func (u *authUseCase) generateToken(ctx context.Context, auth *entity.Auth) (*mo
 }
 
 func (u *authUseCase) CreateDeviceToken(ctx context.Context, request *model.DeviceRequest) error {
-	now := time.Now()
-	userDevice := &entity.UserDevice{
-		Id:        ulid.Make().String(),
-		UserId:    request.UserId,
-		Token:     request.DeviceToken,
-		Platform:  request.Platform,
-		CreatedAt: &now,
+	userDeviceEvent := &event.UserDeviceEvent{
+		UserID:      request.UserId,
+		DeviceToken: request.DeviceToken,
+		Platform:    request.Platform,
 	}
 
-	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-		_, err := u.userDeviceRepository.Create(ctx, tx, userDevice)
-		if err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to create user device", err)
-		}
-		return nil
-	}); err != nil {
-		return err
+	if err := u.userProducer.ProduceUserDeviceCreated(ctx, userDeviceEvent); err != nil {
+		return helper.WrapInternalServerError(u.logs, "failed to produce user device event", err)
 	}
 
 	return nil
