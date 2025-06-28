@@ -313,6 +313,10 @@ func (u *userSimilarWorkerUseCase) CreateBulkUserSimilarPhotos(ctx context.Conte
 	}
 
 	countMap := u.countUsersParallel(request.BulkUserSimilarPhoto)
+	u.logs.Log(fmt.Sprintf("[USER][BULK USER SIMILAR PHOTO] Count user in photo service: %v", countMap))
+	for id, count := range countMap {
+		u.logs.Log(fmt.Sprintf("[USER][BULK USER SIMILAR PHOTO] User ID %s has count %d", id, count))
+	}
 
 	if countMap != nil {
 		go func() {
@@ -352,6 +356,7 @@ func (u *userSimilarWorkerUseCase) countUsersParallel(datas []event.BulkUserSimi
 
 			for _, photo := range part {
 				for _, user := range photo.UserSimilarPhoto {
+					u.logs.Log(fmt.Sprintf("[CountUsersParallel] User ID %s in photo %s", user.UserID, photo.PhotoDetail.PhotoID))
 					localCount[user.UserID]++
 				}
 			}

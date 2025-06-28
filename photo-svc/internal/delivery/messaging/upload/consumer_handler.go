@@ -1,4 +1,4 @@
-package aiconsumer
+package uploadconsumer
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func (s *AIConsumer) setupConsumer(subject string) error {
+func (s *UploadConsumer) setupConsumer(subject string) error {
 	consumerConfig := &nats.ConsumerConfig{
 		Durable:       s.durableNames[subject],
 		AckPolicy:     nats.AckExplicitPolicy,
@@ -23,17 +23,17 @@ func (s *AIConsumer) setupConsumer(subject string) error {
 		FilterSubject: subject,
 	}
 
-	_, err := s.js.AddConsumer("AI_SIMILAR_STREAM", consumerConfig)
+	_, err := s.js.AddConsumer("UPLOAD_PHOTO_STREAM", consumerConfig)
 	return err
 }
 
-func (s *AIConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
+func (s *UploadConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
 
 	var err error
 	switch msg.Subject {
-	case "ai.bulk.photo":
+	case "upload.bulk.photo":
 		s.logs.Log(fmt.Sprintf("received message on subject: %s", msg.Subject))
-		event := new(event.BulkUserSimilarPhotoEvent)
+		event := new(event.CreateBulkPhotoEvent)
 		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
 			_ = msg.Nak()
 			s.logs.Error(fmt.Sprintf("failed to unmarshal message : %s", err))
@@ -41,35 +41,49 @@ func (s *AIConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
 		}
 
 		s.logs.Log(fmt.Sprintf("unmarshalled event: %+v", event))
-		err = s.userSimilarWorkerUC.CreateBulkUserSimilarPhotos(ctx, event)
+		err = s.photoWorkerUC.CreateBulkPhoto(ctx, event)
 		if err != nil {
 			s.handleError(msg, err)
 			return
 		}
 
-	case "ai.single.facecam":
-		event := new(event.UserSimiliarFacecamEvent)
+	case "upload.single.facecam":
+		event := new(event.CreateFacecamEvent)
 		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
 			_ = msg.Nak()
 			s.logs.Error(fmt.Sprintf("failed to unmarshal message : %s", err))
 			return
 		}
 
-		err = s.userSimilarWorkerUC.CreateUserFacecam(ctx, event)
+		err = s.facecameWorkerUC.CreateFacecam(ctx, event)
 		if err != nil {
 			s.handleError(msg, err)
 			return
 		}
 
-	case "ai.single.photo":
-		event := new(event.UserSimilarEvent)
+	case "upload.single.photo":
+		event := new(event.CreatePhotoEvent)
 		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
 			_ = msg.Nak()
 			s.logs.Error(fmt.Sprintf("f%%ailed to unmarshal message : %s", err))
 			return
 		}
 
-		err = s.userSimilarWorkerUC.CreateUserSimilar(ctx, event)
+		err = s.photoWorkerUC.CreatePhoto(ctx, event)
+		if err != nil {
+			s.handleError(msg, err)
+			return
+		}
+
+	case "upload.update.photo":
+		event := new(event.UpdatePhotoDetailEvent)
+		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
+			_ = msg.Nak()
+			s.logs.Error(fmt.Sprintf("f%%ailed to unmarshal message : %s", err))
+			return
+		}
+
+		err = s.photoWorkerUC.UpdatePhotoDetail(ctx, event)
 		if err != nil {
 			s.handleError(msg, err)
 			return
@@ -81,7 +95,7 @@ func (s *AIConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
 	}
 }
 
-func (s *AIConsumer) handleError(msg *nats.Msg, err error) {
+func (s *UploadConsumer) handleError(msg *nats.Msg, err error) {
 	s.logs.Error(fmt.Sprintf("failed to process user similar with error : %v ", err))
 
 	appErr, ok := err.(*helper.AppError)

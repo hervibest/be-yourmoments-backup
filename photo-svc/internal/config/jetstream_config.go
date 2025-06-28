@@ -69,3 +69,14 @@ func InitAISimilarStream(js nats.JetStreamContext) {
 		log.Fatalf("failed to create stream: %v", err)
 	}
 }
+
+func InitUploadPhotoStream(js nats.JetStreamContext) {
+	_, err := js.AddStream(&nats.StreamConfig{
+		Name:     "UPLOAD_PHOTO_STREAM",
+		Subjects: []string{"upload.bulk.photo", "upload.single.facecam", "upload.single.photo", "upload.update.photo"},
+		Storage:  nats.FileStorage,
+	})
+	if err != nil && err != nats.ErrStreamNameAlreadyInUse {
+		log.Fatalf("failed to create stream: %v", err)
+	}
+}

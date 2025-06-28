@@ -33,11 +33,13 @@ func (s *PhotoConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
 	switch msg.Subject {
 	case "photo.bulk":
 		event := new(event.BulkPhotoEvent)
-		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(msg.Data, event); err != nil {
 			_ = msg.Nak()
 			s.logs.Error(fmt.Sprintf("failed to unmarshal message : %s", err))
 			return
 		}
+
+		s.logs.Log(fmt.Sprintf("unmarshalled event: %+v", event))
 
 		err = s.notificationUseCase.ProcessAndSendBulkNotificationsV2(ctx, event.UserCountMap)
 		if err != nil {

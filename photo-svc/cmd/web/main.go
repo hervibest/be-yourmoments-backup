@@ -18,7 +18,8 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/route"
 	subscriber "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging"
-	consumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/ai"
+	aiconsumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/ai"
+	uploadconsumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/upload"
 	producer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/consul"
@@ -62,6 +63,7 @@ func webServer(ctx context.Context) error {
 	config.InitUserStream(jetStreamConfig)
 	// config.DeleteAISimilarStream(jetStreamConfig, logs)
 	config.InitAISimilarStream(jetStreamConfig)
+	config.InitUploadPhotoStream(jetStreamConfig)
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -139,6 +141,11 @@ func webServer(ctx context.Context) error {
 	userSimilarWorkerUC := usecase.NewUserSimilarWorkerUseCase(dbConfig, photoRepo, photoDetailRepo, facecamRepo,
 		userSimilarRepo, bulkPhotoRepository, userAdapter, photoProducer, logs)
 
+	photoUseCaseWorker := usecase.NewPhotoWorkerUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository,
+		bulkPhotoRepository, storageAdapter, CDNAdapter, logs)
+
+	facecamUseCaseWorker := usecase.NewFacecamUseCaseWorker(dbConfig, facecamRepo, userSimilarRepo, storageAdapter, logs)
+
 	exploreController := http.NewExploreController(tracer, customValidator, exploreUseCase, logs)
 	creatorDiscountController := http.NewCreatorDiscountController(creatorDiscountUseCase, customValidator, logs)
 	healthCheckController := http.NewHealthCheckController()
@@ -147,11 +154,19 @@ func webServer(ctx context.Context) error {
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 	creatorMiddleware := middleware.NewCreatorMiddleware(creatorUseCase, tracer, logs)
 
-	aiSimilarConsumer := consumer.NewAIConsumer(userSimilarWorkerUC, jetStreamConfig, logs)
+	aiSimilarConsumer := aiconsumer.NewAIConsumer(userSimilarWorkerUC, jetStreamConfig, logs)
 	go func() {
 		logs.Log("consume all ai simialr event beginning")
 		if err := aiSimilarConsumer.ConsumeAllEvents(ctx); err != nil {
 			logs.CustomError("failed to consume all event", err)
+		}
+	}()
+
+	uploadConsumer := uploadconsumer.NewUploadConsumer(photoUseCaseWorker, facecamUseCaseWorker, jetStreamConfig, logs)
+	go func() {
+		logs.Log("consume all upload event beginning")
+		if err := uploadConsumer.ConsumeAllEvents(ctx); err != nil {
+			logs.CustomError("failed to consume all upload event", err)
 		}
 	}()
 

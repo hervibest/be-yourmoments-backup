@@ -111,10 +111,10 @@ func webServer(ctx context.Context) error {
 
 	customValidator := helper.NewCustomValidator()
 
-	photoUsecase := usecase.NewPhotoUsecase(photoAdapter, storageAdapter, compressAdapter, uploadProducer, logs)
+	photoUsecase := usecase.NewPhotoUsecase(storageAdapter, compressAdapter, uploadProducer, logs)
 	photoController := http.NewPhotoController(photoUsecase, logs, customValidator)
 
-	facecamUsecase := usecase.NewFacecamUseCase(photoAdapter, storageAdapter, compressAdapter, uploadProducer, logs)
+	facecamUsecase := usecase.NewFacecamUseCase(storageAdapter, compressAdapter, uploadProducer, logs)
 	facecamController := http.NewFacecamController(facecamUsecase, logs)
 
 	go func() {

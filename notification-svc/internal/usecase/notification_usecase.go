@@ -174,9 +174,11 @@ func (u *notificationUseCase) fetchFCMTokens(ctx context.Context, userIDs []stri
 */
 
 func (u *notificationUseCase) ProcessAndSendBulkNotificationsV2(ctx context.Context, userCountMap map[string]int32) error {
+	u.logs.Log(fmt.Sprintf("[USER][NOTIFICATION USECASE] Process and send bulk notification with userCountMap: %v", userCountMap))
 	lenCountMap := len(userCountMap)
 	userIDs := make([]string, 0, lenCountMap)
 	for idx := range userCountMap {
+		u.logs.Log(fmt.Sprintf("[USER][NOTIFICATION USECASE] Processing userID: %s with count: %d", idx, userCountMap[idx]))
 		userIDs = append(userIDs, idx)
 	}
 

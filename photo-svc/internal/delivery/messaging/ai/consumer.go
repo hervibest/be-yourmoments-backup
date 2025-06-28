@@ -1,4 +1,4 @@
-package consumer
+package aiconsumer
 
 import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
