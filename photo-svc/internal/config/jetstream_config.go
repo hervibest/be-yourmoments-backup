@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/utils"
 	"github.com/nats-io/nats.go"
 )
@@ -42,6 +43,26 @@ func InitUserStream(js nats.JetStreamContext) {
 	_, err := js.AddStream(&nats.StreamConfig{
 		Name:     "USER_STREAM",
 		Subjects: []string{"user.created"},
+		Storage:  nats.FileStorage,
+	})
+	if err != nil && err != nats.ErrStreamNameAlreadyInUse {
+		log.Fatalf("failed to create stream: %v", err)
+	}
+}
+
+func DeleteAISimilarStream(js nats.JetStreamContext, log *logger.Log) {
+	err := js.DeleteStream("AI_SIMILAR_STREAM")
+	if err != nil {
+		log.CustomError("failed to delete stream", err)
+		return
+	}
+	log.Log("successfully deleted AI_SIMILAR_STREAM")
+}
+
+func InitAISimilarStream(js nats.JetStreamContext) {
+	_, err := js.AddStream(&nats.StreamConfig{
+		Name:     "AI_SIMILAR_STREAM",
+		Subjects: []string{"ai.bulk.photo", "ai.single.facecam", "ai.single.photo"},
 		Storage:  nats.FileStorage,
 	})
 	if err != nil && err != nats.ErrStreamNameAlreadyInUse {

@@ -9,7 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func (s *PhotoConsumer) ConsumeAllEvents(ctx context.Context) error {
+func (s *AIConsumer) ConsumeAllEvents(ctx context.Context) error {
 	for _, subject := range s.subjects {
 		if err := s.setupConsumer(subject); err != nil && !strings.Contains(err.Error(), "consumer name already") {
 			fmt.Println("error " + err.Error())
@@ -19,7 +19,7 @@ func (s *PhotoConsumer) ConsumeAllEvents(ctx context.Context) error {
 		sub, err := s.js.PullSubscribe(
 			subject,
 			s.durableNames[subject],
-			nats.BindStream("PHOTO_STREAM"),
+			nats.BindStream("AI_SIMILAR_STREAM"),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to subscribe to %s: %w", subject, err)
@@ -31,7 +31,7 @@ func (s *PhotoConsumer) ConsumeAllEvents(ctx context.Context) error {
 	return nil
 }
 
-func (s *PhotoConsumer) startConsumer(ctx context.Context, sub *nats.Subscription, subject string) {
+func (s *AIConsumer) startConsumer(ctx context.Context, sub *nats.Subscription, subject string) {
 	s.logs.Log(fmt.Sprintf("started consumer for subject : %s", subject))
 
 	for {
@@ -45,7 +45,6 @@ func (s *PhotoConsumer) startConsumer(ctx context.Context, sub *nats.Subscriptio
 			if err != nil && err != nats.ErrTimeout {
 				continue
 			}
-
 			for _, msg := range msgs {
 				s.handleMessage(ctx, msg)
 			}

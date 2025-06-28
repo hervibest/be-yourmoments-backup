@@ -18,6 +18,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/middleware"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/route"
 	subscriber "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging"
+	consumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/ai"
 	producer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/consul"
@@ -59,6 +60,8 @@ func webServer(ctx context.Context) error {
 
 	config.InitCreatorReviewStream(jetStreamConfig)
 	config.InitUserStream(jetStreamConfig)
+	// config.DeleteAISimilarStream(jetStreamConfig, logs)
+	config.InitAISimilarStream(jetStreamConfig)
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -133,6 +136,9 @@ func webServer(ctx context.Context) error {
 	creatorDiscountUseCase := usecase.NewCreatorDiscountUseCase(dbConfig, creatorDiscountRepository, logs)
 	checkoutUseCase := usecase.NewCheckoutUseCase(dbConfig, photoRepo, creatorRepository, creatorDiscountRepository, logs)
 
+	userSimilarWorkerUC := usecase.NewUserSimilarWorkerUseCase(dbConfig, photoRepo, photoDetailRepo, facecamRepo,
+		userSimilarRepo, bulkPhotoRepository, userAdapter, photoProducer, logs)
+
 	exploreController := http.NewExploreController(tracer, customValidator, exploreUseCase, logs)
 	creatorDiscountController := http.NewCreatorDiscountController(creatorDiscountUseCase, customValidator, logs)
 	healthCheckController := http.NewHealthCheckController()
@@ -140,6 +146,14 @@ func webServer(ctx context.Context) error {
 	photoController := http.NewPhotoController(photoUseCase, customValidator, logs)
 	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 	creatorMiddleware := middleware.NewCreatorMiddleware(creatorUseCase, tracer, logs)
+
+	aiSimilarConsumer := consumer.NewAIConsumer(userSimilarWorkerUC, jetStreamConfig, logs)
+	go func() {
+		logs.Log("consume all ai simialr event beginning")
+		if err := aiSimilarConsumer.ConsumeAllEvents(ctx); err != nil {
+			logs.CustomError("failed to consume all event", err)
+		}
+	}()
 
 	creatorReviewSubscriber := subscriber.NewCreatorReviewSubscriber(jetStreamConfig, creatorUseCase, logs)
 	go func() {

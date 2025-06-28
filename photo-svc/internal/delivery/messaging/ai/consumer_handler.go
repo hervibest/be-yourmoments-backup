@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/hervibest/be-yourmoments-backup/notification-svc/internal/helper"
-	errorcode "github.com/hervibest/be-yourmoments-backup/notification-svc/internal/helper/enum/error"
-	"github.com/hervibest/be-yourmoments-backup/notification-svc/internal/model/event"
+	errorcode "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model/event"
 	"github.com/nats-io/nats.go"
 )
 
-func (s *PhotoConsumer) setupConsumer(subject string) error {
+func (s *AIConsumer) setupConsumer(subject string) error {
 	consumerConfig := &nats.ConsumerConfig{
 		Durable:       s.durableNames[subject],
 		AckPolicy:     nats.AckExplicitPolicy,
@@ -23,58 +23,57 @@ func (s *PhotoConsumer) setupConsumer(subject string) error {
 		FilterSubject: subject,
 	}
 
-	_, err := s.js.AddConsumer("USER_STREAM", consumerConfig)
+	_, err := s.js.AddConsumer("AI_SIMILAR_STREAM", consumerConfig)
 	return err
 }
 
-func (s *PhotoConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
+func (s *AIConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
 
 	var err error
 	switch msg.Subject {
-	case "photo.bulk":
-		event := new(event.BulkPhotoEvent)
+	case "ai.bulk.photo":
+		s.logs.Log(fmt.Sprintf("received message on subject: %s", msg.Subject))
+		event := new(event.BulkUserSimilarPhotoEvent)
 		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
 			_ = msg.Nak()
 			s.logs.Error(fmt.Sprintf("failed to unmarshal message : %s", err))
 			return
 		}
 
-		err = s.notificationUseCase.ProcessAndSendBulkNotificationsV2(ctx, event.UserCountMap)
+		s.logs.Log(fmt.Sprintf("unmarshalled event: %+v", event))
+		err = s.userSimilarWorkerUC.CreateBulkUserSimilarPhotos(ctx, event)
 		if err != nil {
-			s.handleError(msg, err, event.EventID)
+			s.handleError(msg, err)
 			return
 		}
 
-	case "photo.single.facecam":
-		event := new(event.SingleFacecamEvent)
+	case "ai.single.facecam":
+		event := new(event.UserSimiliarFacecamEvent)
 		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
 			_ = msg.Nak()
 			s.logs.Error(fmt.Sprintf("failed to unmarshal message : %s", err))
 			return
 		}
 
-		err = s.notificationUseCase.ProcessAndSendSingleFacecamNotifications(ctx, event.UserID, event.CountPhotos)
+		err = s.userSimilarWorkerUC.CreateUserFacecam(ctx, event)
 		if err != nil {
-			s.handleError(msg, err, event.EventID)
+			s.handleError(msg, err)
 			return
 		}
 
-	case "photo.single.photo":
-		event := new(event.SinglePhotoEvent)
+	case "ai.single.photo":
+		event := new(event.UserSimilarEvent)
 		if err := sonic.ConfigFastest.Unmarshal(msg.Data, event); err != nil {
 			_ = msg.Nak()
-			s.logs.Error(fmt.Sprintf("failed to unmarshal message : %s", err))
+			s.logs.Error(fmt.Sprintf("f%%ailed to unmarshal message : %s", err))
 			return
 		}
 
-		err = s.notificationUseCase.ProcessAndSendSingleNotifications(ctx, event.UserIDs)
+		err = s.userSimilarWorkerUC.CreateUserSimilar(ctx, event)
 		if err != nil {
-			s.handleError(msg, err, event.EventID)
+			s.handleError(msg, err)
 			return
 		}
-
-	default:
-		err = fmt.Errorf("unknown subject: %s", msg.Subject)
 	}
 
 	if err := msg.Ack(); err != nil {
@@ -82,8 +81,8 @@ func (s *PhotoConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
 	}
 }
 
-func (s *PhotoConsumer) handleError(msg *nats.Msg, err error, eventID string) {
-	s.logs.Error(fmt.Sprintf("failed to process notification with event id : %s with error : %v ", eventID, err))
+func (s *AIConsumer) handleError(msg *nats.Msg, err error) {
+	s.logs.Error(fmt.Sprintf("failed to process user similar with error : %v ", err))
 
 	appErr, ok := err.(*helper.AppError)
 	if !ok {
