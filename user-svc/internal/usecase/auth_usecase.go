@@ -432,7 +432,7 @@ func (u *authUseCase) ResendEmailVerification(ctx context.Context, email string)
 	_, err = u.emailVerificationRepo.FindByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email or password")
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "The selected email is invalid.")
 		}
 		return helper.WrapInternalServerError(u.logs, "failed to find email verification by email", err)
 	}
