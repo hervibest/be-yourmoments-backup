@@ -23,6 +23,7 @@ type CheckoutUseCase interface {
 	PreviewCheckout(ctx context.Context, request *model.PreviewCheckoutRequest) (*model.PreviewCheckoutResponse, error)
 	OwnerOwnPhotos(ctx context.Context, request *model.OwnerOwnPhotosRequest) error
 	LockPhotosAndCalculatePrice(ctx context.Context, request *model.CalculateRequest) (*[]*model.CheckoutItem, *model.Total, error)
+	LockPhotosAndCalculatePriceV2(ctx context.Context, request *model.CalculateV2Request) (*[]*model.CheckoutItem, *model.Total, error)
 	CancelPhotos(ctx context.Context, request *model.CancelPhotosRequest) error
 }
 
@@ -76,6 +77,85 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePrice(ctx context.Context, reque
 	}
 
 	if err := u.photoRepository.UpdatePhotoStatusesByIDs(ctx, tx, enum.PhotoStatusInTransactionEnum, request.PhotoIds); err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to update photo statuses by photo ids with status IN_TRANSACTION ", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return nil, nil, err
+	}
+
+	return result, total, err
+}
+
+func (u *checkoutUseCase) LockPhotosAndCalculatePriceV2(ctx context.Context, request *model.CalculateV2Request) (*[]*model.CheckoutItem, *model.Total, error) {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	itemMap := make(map[string]model.CheckoutItemWeb)
+	photoIDs := make([]string, 0, len(request.Items))
+	for _, item := range request.Items {
+		photoIDs = append(photoIDs, item.PhotoId)
+		itemMap[item.PhotoId] = item
+	}
+
+	calculatePriceReq := &model.CalculateRequest{
+		UserId:    request.UserId,
+		CreatorId: request.CreatorId,
+		PhotoIds:  photoIDs,
+	}
+
+	result, total, err := u.calculatePrice(ctx, tx, calculatePriceReq, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, item := range *result {
+		if toCompare, ok := itemMap[item.PhotoId]; ok {
+			if toCompare.PhotoId != item.PhotoId {
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+			}
+			if toCompare.CreatorId != item.CreatorId {
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator id")
+			}
+			if toCompare.Title != item.Title {
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Title has changed")
+			}
+			if toCompare.Price != item.Price {
+				u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare price :%d item price %d", toCompare.Price, item.Price))
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Price has changed")
+			}
+			if toCompare.Discount != nil {
+				if item.DiscountId == "" {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has removed")
+				}
+				if item.DiscountId != toCompare.Discount.DiscountId {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+				if string(item.DiscountType) != string(toCompare.Discount.DiscountType) {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+				if item.DiscountMinQuantity != toCompare.Discount.DiscountMinQuantity {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+				if item.DiscountValue != toCompare.Discount.DiscountValue {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+			}
+			if toCompare.FinalPrice != item.FinalPrice {
+				u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare final price :%d item finasl  price %d", toCompare.FinalPrice, item.FinalPrice))
+
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Price has changed")
+			}
+		}
+	}
+
+	if err := u.photoRepository.UpdatePhotoStatusesByIDs(ctx, tx, enum.PhotoStatusInTransactionEnum, photoIDs); err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to update photo statuses by photo ids with status IN_TRANSACTION ", err)
 	}
 

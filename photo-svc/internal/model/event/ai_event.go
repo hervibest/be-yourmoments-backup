@@ -9,7 +9,7 @@ type UserSimilarEvent struct {
 
 type UserSimilarPhoto struct {
 	Id         string     `json:"id"`
-	PhotoID    string     `json:"photo_d"`
+	PhotoID    string     `json:"photo_id"`
 	UserID     string     `json:"user_id"`
 	Similarity uint32     `json:"similarity"`
 	IsWishlist bool       `json:"is_wishlist"`
@@ -32,5 +32,5 @@ type BulkUserSimilarPhotoEvent struct {
 
 type UserSimiliarFacecamEvent struct {
 	Facecam          Facecam            `json:"facecam"`
-	UserSimilarPhoto []UserSimilarPhoto `json:"user_similar_photos"`
+	UserSimilarPhoto []UserSimilarPhoto `json:"user_similar_photo"`
 }

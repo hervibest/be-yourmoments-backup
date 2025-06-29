@@ -114,7 +114,7 @@ func (u *creatorUseCase) GetCreator(ctx context.Context, request *model.GetCreat
 		}
 
 		if err := u.cacheAdapter.Set(ctx, "creator:"+request.UserId, creatorByte, 240*time.Minute); err != nil {
-			return nil, helper.WrapInternalServerError(u.logs, "failed to save wallet id to cache", err)
+			return nil, helper.WrapInternalServerError(u.logs, "failed to save creator to cache", err)
 		}
 	} else {
 		if err := sonic.ConfigFastest.Unmarshal([]byte(creatorJson), creator); err != nil {
@@ -141,7 +141,7 @@ func (u *creatorUseCase) GetCreatorId(ctx context.Context, request *model.GetCre
 		}
 
 		if err := u.cacheAdapter.Set(ctx, request.UserId, creatorId, 240*time.Minute); err != nil {
-			return "", helper.WrapInternalServerError(u.logs, "failed to save wallet id to cache", err)
+			return "", helper.WrapInternalServerError(u.logs, "failed to save creator to cache", err)
 		}
 	}
 
@@ -174,6 +174,15 @@ func (u *creatorUseCase) UpdateCreatorTotalReview(ctx context.Context, req *mode
 
 	if err := repository.Commit(tx, u.logs); err != nil {
 		return nil, err
+	}
+
+	creatorByte, err := sonic.ConfigFastest.Marshal(creator)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to marshal creator", err)
+	}
+
+	if err := u.cacheAdapter.Set(ctx, "creator:"+creator.UserId, creatorByte, 240*time.Minute); err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to save creator to cache", err)
 	}
 
 	return converter.CreatorToResponse(creator), nil

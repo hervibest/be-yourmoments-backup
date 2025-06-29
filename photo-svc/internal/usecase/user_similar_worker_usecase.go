@@ -188,6 +188,10 @@ func (u *userSimilarWorkerUseCase) CreateUserFacecam(ctx context.Context, reques
 		}
 		userSimilarPhotos = append(userSimilarPhotos, userSimilarPhoto)
 		photoIDs = append(photoIDs, userSimilarPhotoRequest.PhotoID)
+
+		u.logs.CustomLog("Ini adalalah photo ID", userSimilarPhoto.PhotoId)
+		u.logs.CustomLog("Ini adalalah user ID", userSimilarPhoto.UserId)
+		u.logs.CustomLog("Ini adalalah similarity", userSimilarPhoto.Similarity)
 	}
 
 	err = u.userSimilarRepo.InserOrUpdateByUserId(tx, request.Facecam.UserId, &userSimilarPhotos)

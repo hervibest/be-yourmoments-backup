@@ -70,3 +70,11 @@ type Total struct {
 	Price    int32
 	Discount int32
 }
+
+type CalculateV2Request struct {
+	UserId        string            `validate:"required"`
+	CreatorId     string            `validate:"required"`
+	Items         []CheckoutItemWeb `json:"items" validate:"required"`
+	TotalPrice    int32             `json:"total_price" validate:"required,gt=0"`
+	TotalDiscount int32             `json:"total_discount" validate:"required,gt=0"`
+}

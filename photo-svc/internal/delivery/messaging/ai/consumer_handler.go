@@ -28,7 +28,6 @@ func (s *AIConsumer) setupConsumer(subject string) error {
 }
 
 func (s *AIConsumer) handleMessage(ctx context.Context, msg *nats.Msg) {
-
 	var err error
 	switch msg.Subject {
 	case "ai.bulk.photo":

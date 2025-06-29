@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v3.21.12
-// source: pb/photo/photo.proto
+// source: photo/photo.proto
 
 package photopb
 
@@ -29,6 +29,7 @@ const (
 	PhotoService_CreateCreator_FullMethodName               = "/photo.PhotoService/CreateCreator"
 	PhotoService_GetCreator_FullMethodName                  = "/photo.PhotoService/GetCreator"
 	PhotoService_CalculatePhotoPrice_FullMethodName         = "/photo.PhotoService/CalculatePhotoPrice"
+	PhotoService_CalculatePhotoPriceV2_FullMethodName       = "/photo.PhotoService/CalculatePhotoPriceV2"
 	PhotoService_OwnerOwnPhotos_FullMethodName              = "/photo.PhotoService/OwnerOwnPhotos"
 	PhotoService_CreateBulkPhoto_FullMethodName             = "/photo.PhotoService/CreateBulkPhoto"
 	PhotoService_CreateBulkUserSimilarPhotos_FullMethodName = "/photo.PhotoService/CreateBulkUserSimilarPhotos"
@@ -50,6 +51,7 @@ type PhotoServiceClient interface {
 	CreateCreator(ctx context.Context, in *CreateCreatorRequest, opts ...grpc.CallOption) (*CreateCreatorResponse, error)
 	GetCreator(ctx context.Context, in *GetCreatorRequest, opts ...grpc.CallOption) (*GetCreatorResponse, error)
 	CalculatePhotoPrice(ctx context.Context, in *CalculatePhotoPriceRequest, opts ...grpc.CallOption) (*CalculatePhotoPriceResponse, error)
+	CalculatePhotoPriceV2(ctx context.Context, in *CalculatePhotoPriceV2Request, opts ...grpc.CallOption) (*CalculatePhotoPriceV2Response, error)
 	OwnerOwnPhotos(ctx context.Context, in *OwnerOwnPhotosRequest, opts ...grpc.CallOption) (*OwnerOwnPhotosResponse, error)
 	CreateBulkPhoto(ctx context.Context, in *CreateBulkPhotoRequest, opts ...grpc.CallOption) (*CreateBulkPhotoResponse, error)
 	CreateBulkUserSimilarPhotos(ctx context.Context, in *CreateBulkUserSimilarPhotoRequest, opts ...grpc.CallOption) (*CreateBulkUserSimilarPhotoResponse, error)
@@ -165,6 +167,16 @@ func (c *photoServiceClient) CalculatePhotoPrice(ctx context.Context, in *Calcul
 	return out, nil
 }
 
+func (c *photoServiceClient) CalculatePhotoPriceV2(ctx context.Context, in *CalculatePhotoPriceV2Request, opts ...grpc.CallOption) (*CalculatePhotoPriceV2Response, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CalculatePhotoPriceV2Response)
+	err := c.cc.Invoke(ctx, PhotoService_CalculatePhotoPriceV2_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *photoServiceClient) OwnerOwnPhotos(ctx context.Context, in *OwnerOwnPhotosRequest, opts ...grpc.CallOption) (*OwnerOwnPhotosResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(OwnerOwnPhotosResponse)
@@ -229,6 +241,7 @@ type PhotoServiceServer interface {
 	CreateCreator(context.Context, *CreateCreatorRequest) (*CreateCreatorResponse, error)
 	GetCreator(context.Context, *GetCreatorRequest) (*GetCreatorResponse, error)
 	CalculatePhotoPrice(context.Context, *CalculatePhotoPriceRequest) (*CalculatePhotoPriceResponse, error)
+	CalculatePhotoPriceV2(context.Context, *CalculatePhotoPriceV2Request) (*CalculatePhotoPriceV2Response, error)
 	OwnerOwnPhotos(context.Context, *OwnerOwnPhotosRequest) (*OwnerOwnPhotosResponse, error)
 	CreateBulkPhoto(context.Context, *CreateBulkPhotoRequest) (*CreateBulkPhotoResponse, error)
 	CreateBulkUserSimilarPhotos(context.Context, *CreateBulkUserSimilarPhotoRequest) (*CreateBulkUserSimilarPhotoResponse, error)
@@ -273,6 +286,9 @@ func (UnimplementedPhotoServiceServer) GetCreator(context.Context, *GetCreatorRe
 }
 func (UnimplementedPhotoServiceServer) CalculatePhotoPrice(context.Context, *CalculatePhotoPriceRequest) (*CalculatePhotoPriceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CalculatePhotoPrice not implemented")
+}
+func (UnimplementedPhotoServiceServer) CalculatePhotoPriceV2(context.Context, *CalculatePhotoPriceV2Request) (*CalculatePhotoPriceV2Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CalculatePhotoPriceV2 not implemented")
 }
 func (UnimplementedPhotoServiceServer) OwnerOwnPhotos(context.Context, *OwnerOwnPhotosRequest) (*OwnerOwnPhotosResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OwnerOwnPhotos not implemented")
@@ -490,6 +506,24 @@ func _PhotoService_CalculatePhotoPrice_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PhotoService_CalculatePhotoPriceV2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CalculatePhotoPriceV2Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PhotoServiceServer).CalculatePhotoPriceV2(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PhotoService_CalculatePhotoPriceV2_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PhotoServiceServer).CalculatePhotoPriceV2(ctx, req.(*CalculatePhotoPriceV2Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PhotoService_OwnerOwnPhotos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(OwnerOwnPhotosRequest)
 	if err := dec(in); err != nil {
@@ -628,6 +662,10 @@ var PhotoService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PhotoService_CalculatePhotoPrice_Handler,
 		},
 		{
+			MethodName: "CalculatePhotoPriceV2",
+			Handler:    _PhotoService_CalculatePhotoPriceV2_Handler,
+		},
+		{
 			MethodName: "OwnerOwnPhotos",
 			Handler:    _PhotoService_OwnerOwnPhotos_Handler,
 		},
@@ -649,5 +687,5 @@ var PhotoService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pb/photo/photo.proto",
+	Metadata: "photo/photo.proto",
 }

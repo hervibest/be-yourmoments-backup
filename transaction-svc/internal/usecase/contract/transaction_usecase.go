@@ -12,4 +12,5 @@ type TransactionUseCase interface {
 	UserGetWithDetail(ctx context.Context, request *model.GetTransactionWithDetail) (*model.TransactionWithDetail, error)
 	GetAllUserTransaction(ctx context.Context, request *model.GetAllUsertTransaction) (*[]*model.UserTransaction, *model.PageMetadata, error)
 	CheckPaymentSignature(signatureKey, transcationId, statusCode, grossAmount string) (bool, string)
+	CreateTransactionV2(ctx context.Context, request *model.CreateTransactionV2Request) (*model.CreateTransactionResponse, error)
 }

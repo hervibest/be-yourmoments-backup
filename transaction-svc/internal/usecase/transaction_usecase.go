@@ -592,3 +592,134 @@ func (u *transactionUseCase) GetAllUserTransaction(ctx context.Context, request 
 
 	return converter.UserTransactionToResponse(userTransactions), pageMetadata, nil
 }
+
+func (u *transactionUseCase) CreateTransactionV2(ctx context.Context, request *model.CreateTransactionV2Request) (*model.CreateTransactionResponse, error) {
+	items, total, err := u.photoAdapter.CalculatePhotoPriceV2(ctx, request.UserId, request.CreatorId, request)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(*items) == 0 {
+		return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Items is empty")
+	}
+
+	if total.Price == 0 {
+		return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Total price is zero")
+	}
+
+	// Step 1: Grouping per creator (photographer)
+	grouped := map[string][]*model.CheckoutItem{}
+	for _, i := range *items {
+		grouped[i.CreatorId] = append(grouped[i.CreatorId], i)
+	}
+
+	// Step 2: Hitung subtotal per creator dan total amount
+	var totalAmount int32 = 0
+
+	details := make([]*entity.TransactionDetail, 0)
+
+	allItems := make([]*entity.TransactionItem, 0)
+	now := time.Now()
+
+	photoIDs := make([]string, 0, len(*items))
+
+	for _, item := range *items {
+		photoIDs = append(photoIDs, item.PhotoId)
+	}
+
+	photoIDsByte, err := sonic.ConfigFastest.Marshal(photoIDs)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to marshal photo ids", err)
+	}
+
+	transaction := &entity.Transaction{
+		Id:             uuid.NewString(),
+		UserId:         request.UserId,
+		InternalStatus: enum.TrxInternalStatusPending,
+		Status:         enum.TransactionStatusPending,
+		PhotoIds:       photoIDsByte,
+		Amount:         total.Price,
+		CheckoutAt:     &now,
+		CreatedAt:      &now,
+		UpdatedAt:      &now,
+	}
+
+	for creatorID, list := range grouped {
+		var subtotal int32 = 0
+		for _, it := range list {
+			subtotal += it.FinalPrice
+		}
+
+		detail := entity.TransactionDetail{
+			Id:                ulid.Make().String(),
+			TransactionId:     transaction.Id,
+			CreatorId:         creatorID,
+			SubTotalPrice:     subtotal,
+			CreatorDiscountId: list[0].DiscountId,
+			CreatedAt:         &now,
+			UpdatedAt:         &now,
+		}
+
+		details = append(details, &detail)
+		totalAmount += subtotal
+
+		for _, it := range list {
+			item := entity.TransactionItem{
+				Id:                  ulid.Make().String(),
+				TransactionDetailId: detail.Id,
+				PhotoId:             it.PhotoId,
+				Price:               it.Price,
+				Discount:            sql.NullInt32{Int32: it.Discount, Valid: it.Discount != 0},
+				FinalPrice:          it.FinalPrice,
+				CreatedAt:           &now,
+				UpdatedAt:           &now,
+			}
+			allItems = append(allItems, &item)
+		}
+	}
+
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	transaction, err = u.transactionRepository.Create(ctx, tx, transaction)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction in database", err)
+	}
+
+	_, err = u.transactionDetailRepository.Create(ctx, tx, transaction.Id, details)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction details in database", err)
+	}
+
+	_, err = u.transactionItemRepository.Create(ctx, tx, allItems)
+	if err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction items in database", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return nil, err
+	}
+
+	token, redirectUrl, err := u.getPaymentToken(ctx, transaction)
+	if err != nil {
+		return converter.TransactionToResponse(transaction, ""), nil
+	}
+
+	if err := u.updateTransactionToken(ctx, token, transaction.Id); err != nil {
+		return nil, err
+	}
+
+	if err = u.transactionProducer.ScheduleTransactionTaskExpiration(ctx, transaction.Id); err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to set transaction task expiration", err)
+	}
+
+	transaction.SnapToken.String = token
+
+	return converter.TransactionToResponse(transaction, redirectUrl), nil
+}

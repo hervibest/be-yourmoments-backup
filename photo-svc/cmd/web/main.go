@@ -61,7 +61,7 @@ func webServer(ctx context.Context) error {
 
 	config.InitCreatorReviewStream(jetStreamConfig)
 	config.InitUserStream(jetStreamConfig)
-	// config.DeleteAISimilarStream(jetStreamConfig, logs)
+	config.DeleteAISimilarStream(jetStreamConfig, logs)
 	config.InitAISimilarStream(jetStreamConfig)
 	config.InitUploadPhotoStream(jetStreamConfig)
 

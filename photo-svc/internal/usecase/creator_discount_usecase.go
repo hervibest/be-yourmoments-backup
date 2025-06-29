@@ -57,7 +57,7 @@ func (u *creatorDiscountUseCase) CreateDiscount(ctx context.Context, request *mo
 
 	now := time.Now()
 
-	creator := &entity.CreatorDiscount{
+	creatorDiscount := &entity.CreatorDiscount{
 		Id:           ulid.Make().String(),
 		CreatorId:    request.CreatorId,
 		Name:         request.Name,
@@ -69,7 +69,8 @@ func (u *creatorDiscountUseCase) CreateDiscount(ctx context.Context, request *mo
 		UpdatedAt:    &now,
 	}
 
-	creator, err = u.creatorDiscountRepository.Create(ctx, tx, creator)
+	u.logs.CustomLog("create discount creator ", creatorDiscount)
+	creatorDiscount, err = u.creatorDiscountRepository.Create(ctx, tx, creatorDiscount)
 	if err != nil {
 		return nil, helper.WrapInternalServerError(u.logs, "failed to create creator discount to database", err)
 	}
@@ -78,7 +79,7 @@ func (u *creatorDiscountUseCase) CreateDiscount(ctx context.Context, request *mo
 		return nil, err
 	}
 
-	return converter.CreatorDiscountToResponse(creator), nil
+	return converter.CreatorDiscountToResponse(creatorDiscount), nil
 }
 
 func (u *creatorDiscountUseCase) ActivateDiscount(ctx context.Context, request *model.ActivateCreatorDiscountRequest) error {

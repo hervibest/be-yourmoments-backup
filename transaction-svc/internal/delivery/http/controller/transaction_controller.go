@@ -17,6 +17,7 @@ import (
 
 type TransactionController interface {
 	CreateTransaction(ctx *fiber.Ctx) error
+	CreateTransactionV2(ctx *fiber.Ctx) error
 	Notify(ctx *fiber.Ctx) error
 	GetUserTransactionWithDetail(ctx *fiber.Ctx) error
 	GetAllUserTransaction(ctx *fiber.Ctx) error
@@ -150,4 +151,60 @@ func (c *transactionController) GetAllUserTransaction(ctx *fiber.Ctx) error {
 		Data:         response,
 		PageMetadata: pageMetadata,
 	})
+}
+
+func (c *transactionController) CreateTransactionV2(ctx *fiber.Ctx) error {
+	request := new(model.CreateTransactionV2Request)
+	auth := middleware.GetUser(ctx)
+
+	request.UserId = auth.UserId
+	request.CreatorId = auth.CreatorId
+	if err := helper.StrictBodyParser(ctx, request); err != nil {
+		return helper.ErrBodyParserResponseJSON(ctx, err)
+	}
+
+	photoIDs := make([]string, 0, len(request.Items))
+	creatorIDs := make([]string, 0, len(request.Items))
+	discountIDs := make([]string, 0)
+	for _, items := range request.Items {
+		photoIDs = append(photoIDs, items.PhotoId)
+		creatorIDs = append(photoIDs, items.CreatorId)
+		if items.Discount != nil {
+			discountIDs = append(discountIDs, items.Discount.DiscountId)
+		}
+	}
+
+	if err := helper.MultipleULIDSliceParser(photoIDs); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Invalid photo Ids : ", err, c.logs)
+	}
+
+	if err := helper.MultipleULIDSliceParser(creatorIDs); err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Invalid creator Ids : ", err, c.logs)
+	}
+
+	if len(discountIDs) != 0 {
+		if err := helper.MultipleULIDSliceParser(discountIDs); err != nil {
+			return helper.ErrUseCaseResponseJSON(ctx, "Invalid discount Ids : ", err, c.logs)
+		}
+	}
+
+	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	}
+
+	response, err := c.transactionUseCase.CreateTransactionV2(ctx.Context(), request)
+	if err != nil {
+		return helper.ErrUseCaseResponseJSON(ctx, "Create transaction error : ", err, c.logs)
+	}
+
+	var httpStatus = http.StatusCreated
+	if (response.RedirectURL == "") || (response.SnapToken == "") {
+		httpStatus = http.StatusAccepted
+	}
+
+	return ctx.Status(httpStatus).JSON(model.WebResponse[*model.CreateTransactionResponse]{
+		Success: true,
+		Data:    response,
+	})
+
 }

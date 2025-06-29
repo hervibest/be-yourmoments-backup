@@ -93,7 +93,7 @@ proto:
 	protoc -I=. -I=pb \
 	  --go_out=paths=source_relative:. \
 	  --go-grpc_out=paths=source_relative:. \
-	  pb/$(PROTO_FILE)
+	  $(PROTO_FILE)
 
 ### === Mock Generation ===
 mockgen-upload-svc:

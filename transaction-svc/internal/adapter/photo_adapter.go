@@ -15,6 +15,7 @@ import (
 
 type PhotoAdapter interface {
 	CalculatePhotoPrice(ctx context.Context, userId, creatorId string, photoIds []string) (*[]*model.CheckoutItem, *model.Total, error)
+	CalculatePhotoPriceV2(ctx context.Context, userId, creatorId string, request *model.CreateTransactionV2Request) (*[]*model.CheckoutItem, *model.Total, error)
 	OwnerOwnPhotos(ctx context.Context, ownerId string, photoIds []string) error
 	GetPhotoWithDetails(ctx context.Context, photoIds []string, userId string) (*[]*photopb.Photo, error)
 	CancelPhotos(ctx context.Context, userId string, photoIds []string) error
@@ -134,4 +135,68 @@ func (a *photoAdapter) GetCreator(ctx context.Context, userId string) (*entity.C
 	}
 
 	return creator, nil
+}
+
+func (a *photoAdapter) CalculatePhotoPriceV2(ctx context.Context, userId, creatorId string, request *model.CreateTransactionV2Request) (*[]*model.CheckoutItem, *model.Total, error) {
+	checkoutItemPb := make([]*photopb.CheckoutItemWeb, 0, len(request.Items))
+	for _, item := range request.Items {
+		var discount *photopb.Discount
+		if item.Discount != nil {
+			discount = &photopb.Discount{
+				Discount:            item.Discount.Discount,
+				DiscountId:          item.Discount.DiscountId,
+				DiscountType:        item.Discount.DiscountType,
+				DiscountMinQuantity: int32(item.Discount.DiscountMinQuantity),
+				DiscountValue:       item.Discount.DiscountValue,
+			}
+		}
+
+		checkoutItemPb = append(checkoutItemPb,
+			&photopb.CheckoutItemWeb{
+				PhotoId:    item.PhotoId,
+				CreatorId:  item.CreatorId,
+				Title:      item.Title,
+				Price:      item.Price,
+				Discount:   discount,
+				FinalPrice: item.FinalPrice,
+			})
+	}
+
+	processPhotoRequest := &photopb.CalculatePhotoPriceV2Request{
+		UserId:         userId,
+		CreatorId:      creatorId,
+		ChekoutItemWeb: checkoutItemPb,
+		TotalPrice:     request.TotalPrice,
+		TotalDiscount:  request.TotalDiscount,
+	}
+
+	response, err := a.client.CalculatePhotoPriceV2(ctx, processPhotoRequest)
+	if err != nil {
+		return nil, nil, helper.FromGRPCError(err)
+	}
+
+	items := make([]*model.CheckoutItem, 0)
+	for _, item := range response.Items {
+		transactionItem := &model.CheckoutItem{
+			PhotoId:             item.GetPhotoId(),
+			CreatorId:           item.GetCreatorId(),
+			Title:               item.GetTitle(),
+			YourMomentsUrl:      item.GetYourMomentsUrl(),
+			Price:               item.GetPrice(),
+			Discount:            item.GetDiscount(),
+			DiscountMinQuantity: int(item.GetDiscountMinQuantity()),
+			DiscountValue:       item.GetDiscountValue(),
+			DiscountId:          item.GetDiscountId(),
+			DiscountType:        item.GetDiscountType(),
+			FinalPrice:          item.GetFinalPrice(),
+		}
+		items = append(items, transactionItem)
+	}
+
+	total := &model.Total{
+		Price:    response.Total.GetPrice(),
+		Discount: response.Total.GetDiscount(),
+	}
+
+	return &items, total, nil
 }
