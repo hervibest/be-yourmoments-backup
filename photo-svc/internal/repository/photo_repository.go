@@ -35,7 +35,7 @@ type PhotoRepository interface {
 	UpdateProcessedUrl(tx Querier, photo *entity.Photo) error
 	UpdateCompressedUrl(tx Querier, photo *entity.Photo) error
 	GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
-	GetSimilarPhotosByIDsWithoutCreatorFilter(ctx context.Context, tx Querier, userId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
+	GetManyInTransactionByIDsAndUserID(ctx context.Context, tx Querier, userId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
 	UpdatePhotoOwnerAndStatusByIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
 	BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) // UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
 	UpdateProcessedUrlBulk(tx Querier, photos []*entity.Photo) error
@@ -126,7 +126,7 @@ func (r *photoRepository) FindBuyableByPhotoId(ctx context.Context, tx Querier, 
 	return photo, nil
 }
 
-func (r *photoRepository) GetSimilarPhotosByIDsWithoutCreatorFilter(ctx context.Context, tx Querier, userId string, ids []string, forUpdate bool) (*[]*entity.Photo, error) {
+func (r *photoRepository) GetManyInTransactionByIDsAndUserID(ctx context.Context, tx Querier, userId string, ids []string, forUpdate bool) (*[]*entity.Photo, error) {
 	photos := make([]*entity.Photo, 0)
 	query := `
 		SELECT 

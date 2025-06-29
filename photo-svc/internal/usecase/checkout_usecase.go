@@ -155,6 +155,16 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePriceV2(ctx context.Context, req
 		}
 	}
 
+	if request.TotalPrice != total.Price {
+		u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare total price :%d item total price %d", request.TotalPrice, total.Price))
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Total price has changed")
+	}
+
+	if request.TotalDiscount != total.Discount {
+		u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare total discount :%d item total discount %d", request.TotalDiscount, total.Discount))
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Total discount has changed")
+	}
+
 	if err := u.photoRepository.UpdatePhotoStatusesByIDs(ctx, tx, enum.PhotoStatusInTransactionEnum, photoIDs); err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to update photo statuses by photo ids with status IN_TRANSACTION ", err)
 	}
@@ -308,7 +318,7 @@ func (u *checkoutUseCase) OwnerOwnPhotos(ctx context.Context, request *model.Own
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	photos, err := u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.OwnerId, request.PhotoIds, true)
+	photos, err := u.photoRepository.GetManyInTransactionByIDsAndUserID(ctx, tx, request.OwnerId, request.PhotoIds, true)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
 	}
@@ -342,7 +352,7 @@ func (u *checkoutUseCase) CancelPhotos(ctx context.Context, request *model.Cance
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	photos, err := u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.UserId, request.PhotoIds, true)
+	photos, err := u.photoRepository.GetManyInTransactionByIDsAndUserID(ctx, tx, request.UserId, request.PhotoIds, true)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
 	}

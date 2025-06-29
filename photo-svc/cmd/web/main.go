@@ -19,6 +19,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/http/route"
 	subscriber "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging"
 	aiconsumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/ai"
+	transactionconsumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/transaction"
 	uploadconsumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/upload"
 	producer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
@@ -64,6 +65,7 @@ func webServer(ctx context.Context) error {
 	config.DeleteAISimilarStream(jetStreamConfig, logs)
 	config.InitAISimilarStream(jetStreamConfig)
 	config.InitUploadPhotoStream(jetStreamConfig)
+	config.InitTransactionStream(jetStreamConfig)
 
 	registry, err := consul.NewRegistry(serverConfig.ConsulAddr, serverConfig.Name)
 	if err != nil {
@@ -167,6 +169,14 @@ func webServer(ctx context.Context) error {
 		logs.Log("consume all upload event beginning")
 		if err := uploadConsumer.ConsumeAllEvents(ctx); err != nil {
 			logs.CustomError("failed to consume all upload event", err)
+		}
+	}()
+
+	transactionConsumer := transactionconsumer.NewTransactionConsumer(checkoutUseCase, jetStreamConfig, logs)
+	go func() {
+		logs.Log("consume all transaction event beginning")
+		if err := transactionConsumer.ConsumeAllEvents(ctx); err != nil {
+			logs.CustomError("failed to consume all transaction event", err)
 		}
 	}()
 

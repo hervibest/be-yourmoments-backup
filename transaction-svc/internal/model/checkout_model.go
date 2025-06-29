@@ -45,7 +45,7 @@ type PreviewCheckoutResponse struct {
 type CreateTransactionV2Request struct {
 	UserId        string            `validate:"required"`
 	CreatorId     string            `validate:"required"`
-	Items         []CheckoutItemWeb `json:"items" validate:"required"`
+	Items         []CheckoutItemWeb `json:"items" validate:"required,dive"`
 	TotalPrice    int32             `json:"total_price" validate:"required,gte=0"`
 	TotalDiscount int32             `json:"total_discount" `
 }

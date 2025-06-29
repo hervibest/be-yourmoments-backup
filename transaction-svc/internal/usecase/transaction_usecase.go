@@ -20,6 +20,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/event"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase/contract"
 	"github.com/redis/go-redis/v9"
@@ -353,7 +354,7 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 		transaction.InternalStatus != enum.TrxInternalStatusTokenReady &&
 		transaction.InternalStatus != enum.TrxInternalStatusExpired {
 		u.logs.CustomLog("transaction internal status already final. Ignoring duplicate settlement :.", transaction.Id)
-		return helper.NewUseCaseError(errorcode.ErrForbidden, "Transaction internal status already final")
+		return nil
 	}
 
 	now := time.Now()
@@ -456,9 +457,20 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 
 	if transactionStatus == enum.TransactionStatusCancelled || transactionStatus == enum.TransactionStatusExpired ||
 		transactionStatus == enum.TransactionStatusFailed {
-		if err := u.photoAdapter.CancelPhotos(ctx, transaction.UserId, photoIds); err != nil {
-			return err
+		// if err := u.photoAdapter.CancelPhotos(ctx, transaction.UserId, photoIds); err != nil {
+		// 	return err
+		// }
+
+		event := &event.CancelPhotosEvent{
+			UserId:   transaction.UserId,
+			PhotoIds: photoIds,
 		}
+
+		if err := u.transactionProducer.ProduceTransactionCanceledEvent(ctx, event); err != nil {
+			u.logs.Error(fmt.Sprintf("failed to publish cancel photos event: %v", err))
+			return nil
+		}
+
 		u.logs.Log(fmt.Sprintf("successfully cancel photos from photo service with transaction id %s and buyer %s :.", transaction.Id, transaction.UserId))
 		return nil
 	}
@@ -468,9 +480,18 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 		return nil
 	}
 
-	//Call photo service to update photo owner
-	if err := u.photoAdapter.OwnerOwnPhotos(ctx, transaction.UserId, photoIds); err != nil {
-		return err
+	// //Call photo service to update photo owner
+	// if err := u.photoAdapter.OwnerOwnPhotos(ctx, transaction.UserId, photoIds); err != nil {
+	// 	return err
+	// }
+
+	event := &event.OwnerOwnPhotosEvent{
+		UserId:   transaction.UserId,
+		PhotoIds: photoIds,
+	}
+
+	if err := u.transactionProducer.ProduceTransactionSettledEvent(ctx, event); err != nil {
+		u.logs.Error(fmt.Sprintf("failed to publish owner own settled photos event: %v", err))
 	}
 
 	if err := u.distributeTransactionToWallets(ctx, transaction.Id); err != nil {
@@ -594,9 +615,11 @@ func (u *transactionUseCase) GetAllUserTransaction(ctx context.Context, request 
 }
 
 func (u *transactionUseCase) CreateTransactionV2(ctx context.Context, request *model.CreateTransactionV2Request) (*model.CreateTransactionResponse, error) {
-	items, total, err := u.photoAdapter.CalculatePhotoPriceV2(ctx, request.UserId, request.CreatorId, request)
-	if err != nil {
-		return nil, err
+	var outerErr error
+
+	items, total, errAdapter := u.photoAdapter.CalculatePhotoPriceV2(ctx, request.UserId, request.CreatorId, request)
+	if errAdapter != nil {
+		return nil, errAdapter
 	}
 
 	if len(*items) == 0 {
@@ -629,6 +652,7 @@ func (u *transactionUseCase) CreateTransactionV2(ctx context.Context, request *m
 
 	photoIDsByte, err := sonic.ConfigFastest.Marshal(photoIDs)
 	if err != nil {
+		outerErr = err
 		return nil, helper.WrapInternalServerError(u.logs, "failed to marshal photo ids", err)
 	}
 
@@ -680,6 +704,7 @@ func (u *transactionUseCase) CreateTransactionV2(ctx context.Context, request *m
 
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
+		outerErr = err
 		return nil, err
 	}
 
@@ -689,22 +714,38 @@ func (u *transactionUseCase) CreateTransactionV2(ctx context.Context, request *m
 
 	transaction, err = u.transactionRepository.Create(ctx, tx, transaction)
 	if err != nil {
+		outerErr = err
 		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction in database", err)
 	}
 
 	_, err = u.transactionDetailRepository.Create(ctx, tx, transaction.Id, details)
 	if err != nil {
+		outerErr = err
 		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction details in database", err)
 	}
 
 	_, err = u.transactionItemRepository.Create(ctx, tx, allItems)
 	if err != nil {
+		outerErr = err
 		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction items in database", err)
 	}
 
 	if err := repository.Commit(tx, u.logs); err != nil {
+		outerErr = err
 		return nil, err
 	}
+
+	defer func() {
+		if outerErr != nil {
+			event := &event.CancelPhotosEvent{
+				UserId:   request.UserId,
+				PhotoIds: photoIDs,
+			}
+			if err := u.transactionProducer.ProduceTransactionCanceledEvent(ctx, event); err != nil {
+				u.logs.Error(fmt.Sprintf("failed to publish cancel photos event: %v", err))
+			}
+		}
+	}()
 
 	token, redirectUrl, err := u.getPaymentToken(ctx, transaction)
 	if err != nil {

@@ -80,3 +80,14 @@ func InitUploadPhotoStream(js nats.JetStreamContext) {
 		log.Fatalf("failed to create stream: %v", err)
 	}
 }
+
+func InitTransactionStream(js nats.JetStreamContext) {
+	_, err := js.AddStream(&nats.StreamConfig{
+		Name:     "TRANSACTION_STREAM",
+		Subjects: []string{"transaction.settled", "transaction.canceled"},
+		Storage:  nats.FileStorage,
+	})
+	if err != nil && err != nats.ErrStreamNameAlreadyInUse {
+		log.Fatalf("failed to create stream: %v", err)
+	}
+}

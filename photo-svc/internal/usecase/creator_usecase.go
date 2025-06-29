@@ -28,7 +28,6 @@ type CreatorUseCase interface {
 	CreateCreator(ctx context.Context, req *model.CreateCreatorRequest) (*model.CreatorResponse, error)
 	GetCreator(ctx context.Context, req *model.GetCreatorRequest) (*model.CreatorResponse, error)
 	UpdateCreatorTotalReview(ctx context.Context, req *model.UpdateCreatorTotalRatingRequest) (*model.CreatorResponse, error)
-	GetCreatorId(ctx context.Context, request *model.GetCreatorIdRequest) (string, error)
 }
 
 type creatorUseCase struct {
@@ -123,29 +122,6 @@ func (u *creatorUseCase) GetCreator(ctx context.Context, request *model.GetCreat
 	}
 
 	return converter.CreatorToResponse(creator), nil
-}
-
-func (u *creatorUseCase) GetCreatorId(ctx context.Context, request *model.GetCreatorIdRequest) (string, error) {
-	creatorId, err := u.cacheAdapter.Get(ctx, request.UserId)
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return "", helper.WrapInternalServerError(u.logs, "failed to get cached user", err)
-	}
-
-	if errors.Is(err, redis.Nil) {
-		creatorId, err = u.creatorRepository.FindIdByUserId(ctx, u.db, request.UserId)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return "", helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Creator not found make sure to give a valid creator id")
-			}
-			return "", helper.WrapInternalServerError(u.logs, "failed to find wallet by creator id", err)
-		}
-
-		if err := u.cacheAdapter.Set(ctx, request.UserId, creatorId, 240*time.Minute); err != nil {
-			return "", helper.WrapInternalServerError(u.logs, "failed to save creator to cache", err)
-		}
-	}
-
-	return creatorId, nil
 }
 
 func (u *creatorUseCase) UpdateCreatorTotalReview(ctx context.Context, req *model.UpdateCreatorTotalRatingRequest) (*model.CreatorResponse, error) {
