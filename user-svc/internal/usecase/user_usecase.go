@@ -90,12 +90,13 @@ func (u *userUseCase) getUserImageUrl(ctx context.Context, userImages *[]*entity
 	)
 
 	for _, userImage := range *userImages {
-		if userImage.ImageType == enum.ImageTypeProfile {
+		switch userImage.ImageType {
+		case enum.ImageTypeProfile:
 			profileUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
 			if err != nil {
 				return "", "", fmt.Errorf("get presigned url image type profile : %+v", err)
 			}
-		} else if userImage.ImageType == enum.ImageTypeCover {
+		case enum.ImageTypeCover:
 			coverUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
 			if err != nil {
 				return "", "", fmt.Errorf("get presigned url image type cover : %+v", err)
@@ -271,28 +272,28 @@ func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.R
 
 		json, err := u.cacheAdapter.Get(ctx, request.UserID)
 		if err != nil {
-			return fmt.Errorf("failed to get auth cache in redis : %+v", err)
+			return helper.WrapInternalServerError(u.logs, "failed to get auth cache in redis :", err)
 		}
 
 		ttl, err := u.cacheAdapter.TTL(ctx, request.UserID)
 		if err != nil {
-			return fmt.Errorf("failed to get auth cache TTL in redis : %+v", err)
+			return helper.WrapInternalServerError(u.logs, "failed to get auth cache TTL in redis", err)
 		}
 
 		cachedAuth := new(entity.Auth)
 		if sonic.ConfigFastest.Unmarshal([]byte(json), cachedAuth); err != nil {
-			return fmt.Errorf("failed to unmarshal struct : %+v", err)
+			return helper.WrapInternalServerError(u.logs, "failed to unmarshal struct", err)
 		}
 
 		cachedAuth.Similarity = uint(request.Similarity)
-
 		updatedJSON, err := sonic.ConfigFastest.Marshal(cachedAuth)
 		if err != nil {
-			return fmt.Errorf("marshal updated auth: %+v", err)
+			return helper.WrapInternalServerError(u.logs, "marshal updated auth", err)
 		}
 
 		if err := u.cacheAdapter.Set(ctx, request.UserID, updatedJSON, ttl); err != nil {
-			return fmt.Errorf("save user body into cache : %+v", err)
+			return helper.WrapInternalServerError(u.logs, "save user body into cache", err)
+
 		}
 		return nil
 	}); err != nil {
