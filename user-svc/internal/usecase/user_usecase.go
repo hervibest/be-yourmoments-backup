@@ -26,11 +26,11 @@ import (
 
 type UserUseCase interface {
 	GetPublicUserChat(ctx context.Context, request *model.RequestGetAllPublicUser) (*[]*model.GetAllPublicUserResponse, *model.PageMetadata, error)
-	GetUserProfileV2(ctx context.Context, userId string) (*model.UserProfileResponse, error)
-	UpdateUserCoverImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
+	GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error)
+	UploadUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (string, error)
 	UpdateUserProfile(ctx context.Context, request *model.RequestUpdateUserProfile) (*model.UserProfileResponse, error)
-	UpdateUserProfileImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
-	UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error
+	UploadUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (string, error)
+	UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) (*model.UpdateSeimilarityResponse, error)
 }
 
 type userUseCase struct {
@@ -77,7 +77,7 @@ func (u *userUseCase) UpdateUserProfile(ctx context.Context, request *model.Requ
 		return nil, err
 	}
 
-	return converter.UserProfileToResponseV2(userProfile), nil
+	return converter.UserProfileToResponse(userProfile), nil
 }
 
 func (u *userUseCase) GetPublicUserChat(ctx context.Context, request *model.RequestGetAllPublicUser) (*[]*model.GetAllPublicUserResponse, *model.PageMetadata, error) {
@@ -108,7 +108,7 @@ func (u *userUseCase) GetPublicUserChat(ctx context.Context, request *model.Requ
 	return &responses, pageMetadata, nil
 }
 
-func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error {
+func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) (*model.UpdateSeimilarityResponse, error) {
 	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
 		if err := u.userProfileRepository.UpdateSimilarity(ctx, tx, request.Similarity, request.UserID); err != nil {
 			return helper.WrapInternalServerError(u.logs, "failed to update similarity", err)
@@ -141,49 +141,48 @@ func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.R
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &model.UpdateSeimilarityResponse{
+		Similarity: enum.SimilarityLevelEnum(request.Similarity),
+	}, nil
 }
 
-func (u *userUseCase) UpdateUserProfileImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
-	u.logs.Log("user profile image accessed")
-	ok, err := u.updateUserImageV2(ctx, file, userProfId, enum.ImageTypeProfile)
+func (u *userUseCase) UploadUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (string, error) {
+	profileURL, err := u.updateUserImage(ctx, file, userProfId, enum.ImageTypeProfile)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	return ok, err
+	return profileURL, err
 }
 
-func (u *userUseCase) UpdateUserCoverImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
-	ok, err := u.updateUserImageV2(ctx, file, userProfId, enum.ImageTypeCover)
+func (u *userUseCase) UploadUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (string, error) {
+	profileCoverURL, err := u.updateUserImage(ctx, file, userProfId, enum.ImageTypeCover)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	return ok, err
+	return profileCoverURL, err
 }
 
-func (u *userUseCase) updateUserImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string, imageType enum.ImageTypeEnum) (bool, error) {
+func (u *userUseCase) updateUserImage(ctx context.Context, file *multipart.FileHeader, userProfId string, imageType enum.ImageTypeEnum) (string, error) {
 	prevUserProfileImage, errRepo := u.userImageRepository.FindByUserProfIdAndType(ctx, userProfId, string(imageType))
 	if errRepo != nil && !errors.Is(errRepo, sql.ErrNoRows) {
-		return false, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", errRepo)
+		return "", helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", errRepo)
 	}
 
 	uploadFile, err := file.Open()
 	if err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to open file user", errRepo)
+		return "", helper.WrapInternalServerError(u.logs, "failed to open file user", errRepo)
 	}
 	defer uploadFile.Close()
 
 	upload, err := u.uploadAdapter.UploadPublicFile(ctx, file, uploadFile, fmt.Sprintf("user/profile/%s", userProfId))
 	if err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to upload file", errRepo)
+		return "", helper.WrapInternalServerError(u.logs, "failed to upload file", errRepo)
 	}
-
-	u.logs.CustomLog("Upload metadata detail", upload)
 	now := time.Now()
 
 	if errors.Is(errRepo, sql.ErrNoRows) {
@@ -207,7 +206,7 @@ func (u *userUseCase) updateUserImageV2(ctx context.Context, file *multipart.Fil
 			}
 			return nil
 		}); err != nil {
-			return false, err
+			return "", err
 		}
 
 	} else {
@@ -239,13 +238,13 @@ func (u *userUseCase) updateUserImageV2(ctx context.Context, file *multipart.Fil
 
 			return nil
 		}); err != nil {
-			return false, err
+			return "", err
 		}
 	}
-	return true, nil
+	return upload.URL, nil
 }
 
-func (u *userUseCase) GetUserProfileV2(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
+func (u *userUseCase) GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
 	userProfile, err := u.userProfileRepository.FindByUserId(ctx, userId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -254,5 +253,5 @@ func (u *userUseCase) GetUserProfileV2(ctx context.Context, userId string) (*mod
 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user profile by user id", err)
 	}
 
-	return converter.UserProfileToResponseV2(userProfile), nil
+	return converter.UserProfileToResponse(userProfile), nil
 }

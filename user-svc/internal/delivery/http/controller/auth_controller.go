@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/middleware"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/message"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
@@ -52,7 +53,7 @@ func (c *authController) RegisterByPhoneNumber(ctx *fiber.Ctx) error {
 
 	parsedDate, err := time.Parse("2006-01-02", request.BirthDateStr)
 	if err != nil {
-		return helper.ErrBodyParserResponseJSON(ctx, errors.New("Invalid birth date format, please use YYYY-MM-DD"))
+		return helper.ErrBodyParserResponseJSON(ctx, errors.New(message.InvalidBirthDate))
 	}
 
 	request.BirthDate = &parsedDate
@@ -106,11 +107,10 @@ func (c *authController) RegisterByEmail(ctx *fiber.Ctx) error {
 
 	parsedDate, err := time.Parse("2006-01-02", request.BirthDateStr)
 	if err != nil {
-		return helper.ErrBodyParserResponseJSON(ctx, errors.New("Invalid birth date format, please use YYYY-MM-DD"))
+		return helper.ErrBodyResponseJSON(ctx, message.InvalidBirthDate)
 	}
 
 	request.BirthDate = &parsedDate
-
 	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}

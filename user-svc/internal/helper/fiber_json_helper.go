@@ -25,6 +25,13 @@ func ErrBodyParserResponseJSON(ctx *fiber.Ctx, err error) error {
 	})
 }
 
+func ErrBodyResponseJSON(ctx *fiber.Ctx, msg string) error {
+	return ctx.Status(http.StatusBadRequest).JSON(model.BodyParseErrorResponse{
+		Success: false,
+		Message: msg,
+	})
+}
+
 func ErrValidationResponseJSON(ctx *fiber.Ctx, validatonErrs *UseCaseValError) error {
 	return ctx.Status(http.StatusUnprocessableEntity).JSON(model.ValidationErrorResponse{
 		Success: false,

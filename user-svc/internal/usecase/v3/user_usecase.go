@@ -1,414 +1,414 @@
 package usecase
 
-import (
-	"context"
-	"database/sql"
-	"errors"
-	"fmt"
-	"log"
-	"mime/multipart"
-	"time"
+// import (
+// 	"context"
+// 	"database/sql"
+// 	"errors"
+// 	"fmt"
+// 	"log"
+// 	"mime/multipart"
+// 	"time"
 
-	"github.com/bytedance/sonic"
-	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
+// 	"github.com/bytedance/sonic"
+// 	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
 
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/nullable"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/converter"
-	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/nullable"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model/converter"
+// 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/repository"
 
-	"github.com/oklog/ulid/v2"
-)
+// 	"github.com/oklog/ulid/v2"
+// )
 
-type UserUseCase interface {
-	GetPublicUserChat(ctx context.Context, request *model.RequestGetAllPublicUser) (*[]*model.GetAllPublicUserResponse, *model.PageMetadata, error)
-	GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error)
-	GetUserProfileV2(ctx context.Context, userId string) (*model.UserProfileResponse, error)
-	UpdateUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
-	UpdateUserCoverImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
-	UpdateUserProfile(ctx context.Context, request *model.RequestUpdateUserProfile) (*model.UserProfileResponse, error)
-	UpdateUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
-	UpdateUserProfileImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
-	UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error
-}
+// type UserUseCase interface {
+// 	GetPublicUserChat(ctx context.Context, request *model.RequestGetAllPublicUser) (*[]*model.GetAllPublicUserResponse, *model.PageMetadata, error)
+// 	GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error)
+// 	GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error)
+// 	UploadUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
+// 	UploadUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
+// 	UpdateUserProfile(ctx context.Context, request *model.RequestUpdateUserProfile) (*model.UserProfileResponse, error)
+// 	UploadUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
+// 	UploadUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error)
+// 	UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error
+// }
 
-type userUseCase struct {
-	db                    repository.BeginTx
-	userRepository        repository.UserRepository
-	userProfileRepository repository.UserProfileRepository
-	userImageRepository   repository.UserImageRepository
-	uploadAdapter         adapter.UploadAdapter
-	cacheAdapter          adapter.CacheAdapter
-	logs                  logger.Log
-}
+// type userUseCase struct {
+// 	db                    repository.BeginTx
+// 	userRepository        repository.UserRepository
+// 	userProfileRepository repository.UserProfileRepository
+// 	userImageRepository   repository.UserImageRepository
+// 	uploadAdapter         adapter.UploadAdapter
+// 	cacheAdapter          adapter.CacheAdapter
+// 	logs                  logger.Log
+// }
 
-func NewUserUseCase(db repository.BeginTx, userRepository repository.UserRepository, userProfileRepository repository.UserProfileRepository,
-	userImageRepository repository.UserImageRepository, uploadAdapter adapter.UploadAdapter, cacheAdapter adapter.CacheAdapter,
-	logs logger.Log) UserUseCase {
-	return &userUseCase{
-		db:                    db,
-		userRepository:        userRepository,
-		userProfileRepository: userProfileRepository,
-		userImageRepository:   userImageRepository,
-		uploadAdapter:         uploadAdapter,
-		cacheAdapter:          cacheAdapter,
-		logs:                  logs,
-	}
-}
+// func NewUserUseCase(db repository.BeginTx, userRepository repository.UserRepository, userProfileRepository repository.UserProfileRepository,
+// 	userImageRepository repository.UserImageRepository, uploadAdapter adapter.UploadAdapter, cacheAdapter adapter.CacheAdapter,
+// 	logs logger.Log) UserUseCase {
+// 	return &userUseCase{
+// 		db:                    db,
+// 		userRepository:        userRepository,
+// 		userProfileRepository: userProfileRepository,
+// 		userImageRepository:   userImageRepository,
+// 		uploadAdapter:         uploadAdapter,
+// 		cacheAdapter:          cacheAdapter,
+// 		logs:                  logs,
+// 	}
+// }
 
-func (u *userUseCase) GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
-	userProfile, err := u.userProfileRepository.FindByUserId(ctx, userId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user id")
-		}
-		return nil, helper.WrapInternalServerError(u.logs, "failed to find user profile by user id", err)
-	}
+// func (u *userUseCase) GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
+// 	userProfile, err := u.userProfileRepository.FindByUserId(ctx, userId)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user id")
+// 		}
+// 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user profile by user id", err)
+// 	}
 
-	userImages, err := u.userImageRepository.FindByUserProfId(ctx, userProfile.Id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user profile id")
-		}
-		return nil, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", err)
-	}
+// 	userImages, err := u.userImageRepository.FindByUserProfId(ctx, userProfile.Id)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user profile id")
+// 		}
+// 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", err)
+// 	}
 
-	profileUrl, coverUrl, err := u.getUserImageUrl(ctx, userImages)
-	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to get user image url", err)
-	}
+// 	profileUrl, coverUrl, err := u.getUserImageUrl(ctx, userImages)
+// 	if err != nil {
+// 		return nil, helper.WrapInternalServerError(u.logs, "failed to get user image url", err)
+// 	}
 
-	return converter.UserProfileToResponse(userProfile, profileUrl, coverUrl), nil
-}
+// 	return converter.UserProfileToResponse(userProfile, profileUrl, coverUrl), nil
+// }
 
-func (u *userUseCase) getUserImageUrl(ctx context.Context, userImages *[]*entity.UserImage) (string, string, error) {
-	var (
-		profileUrl string
-		coverUrl   string
-		err        error
-	)
+// func (u *userUseCase) getUserImageUrl(ctx context.Context, userImages *[]*entity.UserImage) (string, string, error) {
+// 	var (
+// 		profileUrl string
+// 		coverUrl   string
+// 		err        error
+// 	)
 
-	for _, userImage := range *userImages {
-		switch userImage.ImageType {
-		case enum.ImageTypeProfile:
-			profileUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
-			if err != nil {
-				return "", "", fmt.Errorf("get presigned url image type profile : %+v", err)
-			}
-		case enum.ImageTypeCover:
-			coverUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
-			if err != nil {
-				return "", "", fmt.Errorf("get presigned url image type cover : %+v", err)
-			}
-		}
-	}
+// 	for _, userImage := range *userImages {
+// 		switch userImage.ImageType {
+// 		case enum.ImageTypeProfile:
+// 			profileUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
+// 			if err != nil {
+// 				return "", "", fmt.Errorf("get presigned url image type profile : %+v", err)
+// 			}
+// 		case enum.ImageTypeCover:
+// 			coverUrl, err = u.uploadAdapter.GetPresignedUrl(ctx, userImage.FileKey)
+// 			if err != nil {
+// 				return "", "", fmt.Errorf("get presigned url image type cover : %+v", err)
+// 			}
+// 		}
+// 	}
 
-	return profileUrl, coverUrl, nil
-}
+// 	return profileUrl, coverUrl, nil
+// }
 
-func (u *userUseCase) UpdateUserProfile(ctx context.Context, request *model.RequestUpdateUserProfile) (*model.UserProfileResponse, error) {
-	now := time.Now()
-	userProfile := &entity.UserProfile{
-		UserId:    request.UserId,
-		BirthDate: request.BirthDate,
-		Nickname:  request.Nickname,
-		Biography: nullable.ToSQLString(&request.Biography),
-		UpdatedAt: &now,
-	}
+// func (u *userUseCase) UpdateUserProfile(ctx context.Context, request *model.RequestUpdateUserProfile) (*model.UserProfileResponse, error) {
+// 	now := time.Now()
+// 	userProfile := &entity.UserProfile{
+// 		UserId:    request.UserId,
+// 		BirthDate: request.BirthDate,
+// 		Nickname:  request.Nickname,
+// 		Biography: nullable.ToSQLString(&request.Biography),
+// 		UpdatedAt: &now,
+// 	}
 
-	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-		_, err := u.userProfileRepository.Update(ctx, tx, userProfile)
-		if err != nil {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user profile id")
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
+// 	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+// 		_, err := u.userProfileRepository.Update(ctx, tx, userProfile)
+// 		if err != nil {
+// 			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user profile id")
+// 		}
+// 		return nil
+// 	}); err != nil {
+// 		return nil, err
+// 	}
 
-	userImages, err := u.userImageRepository.FindByUserProfId(ctx, userProfile.Id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			log.Println(err)
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user profile id")
-		}
-		return nil, helper.WrapInternalServerError(u.logs, "failed to find user image repository by user profile  id", err)
-	}
+// 	userImages, err := u.userImageRepository.FindByUserProfId(ctx, userProfile.Id)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			log.Println(err)
+// 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid user profile id")
+// 		}
+// 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user image repository by user profile  id", err)
+// 	}
 
-	profileUrl, coverUrl, err := u.getUserImageUrl(ctx, userImages)
-	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to get user image url", err)
-	}
+// 	profileUrl, coverUrl, err := u.getUserImageUrl(ctx, userImages)
+// 	if err != nil {
+// 		return nil, helper.WrapInternalServerError(u.logs, "failed to get user image url", err)
+// 	}
 
-	return converter.UserProfileToResponse(userProfile, profileUrl, coverUrl), nil
-}
+// 	return converter.UserProfileToResponse(userProfile, profileUrl, coverUrl), nil
+// }
 
-func (u *userUseCase) UpdateUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
-	ok, err := u.updateUserImage(ctx, file, userProfId, enum.ImageTypeProfile)
-	if err != nil {
-		return false, err
-	}
+// func (u *userUseCase) UploadUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
+// 	ok, err := u.updateUserImage(ctx, file, userProfId, enum.ImageTypeProfile)
+// 	if err != nil {
+// 		return false, err
+// 	}
 
-	return ok, err
-}
+// 	return ok, err
+// }
 
-func (u *userUseCase) UpdateUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
-	ok, err := u.updateUserImage(ctx, file, userProfId, enum.ImageTypeCover)
-	if err != nil {
-		return false, err
-	}
+// func (u *userUseCase) UploadUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
+// 	ok, err := u.updateUserImage(ctx, file, userProfId, enum.ImageTypeCover)
+// 	if err != nil {
+// 		return false, err
+// 	}
 
-	return ok, err
-}
+// 	return ok, err
+// }
 
-func (u *userUseCase) updateUserImage(ctx context.Context, file *multipart.FileHeader, userProfId string, imageType enum.ImageTypeEnum) (bool, error) {
-	prevUserProfileImage, errRepo := u.userImageRepository.FindByUserProfIdAndType(ctx, userProfId, string(imageType))
-	if errRepo != nil && !errors.Is(errRepo, sql.ErrNoRows) {
-		return false, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", errRepo)
-	}
+// func (u *userUseCase) updateUserImage(ctx context.Context, file *multipart.FileHeader, userProfId string, imageType enum.ImageTypeEnum) (bool, error) {
+// 	prevUserProfileImage, errRepo := u.userImageRepository.FindByUserProfIdAndType(ctx, userProfId, string(imageType))
+// 	if errRepo != nil && !errors.Is(errRepo, sql.ErrNoRows) {
+// 		return false, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", errRepo)
+// 	}
 
-	uploadFile, err := file.Open()
-	if err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to open file user", errRepo)
-	}
-	defer uploadFile.Close()
+// 	uploadFile, err := file.Open()
+// 	if err != nil {
+// 		return false, helper.WrapInternalServerError(u.logs, "failed to open file user", errRepo)
+// 	}
+// 	defer uploadFile.Close()
 
-	upload, err := u.uploadAdapter.UploadFile(ctx, file, uploadFile, fmt.Sprintf("user/profile/%s", userProfId))
-	if err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to upload file", errRepo)
-	}
+// 	upload, err := u.uploadAdapter.UploadFile(ctx, file, uploadFile, fmt.Sprintf("user/profile/%s", userProfId))
+// 	if err != nil {
+// 		return false, helper.WrapInternalServerError(u.logs, "failed to upload file", errRepo)
+// 	}
 
-	now := time.Now()
+// 	now := time.Now()
 
-	if errors.Is(errRepo, sql.ErrNoRows) {
-		newUserProfileImage := &entity.UserImage{
-			Id:            ulid.Make().String(),
-			UserProfileId: userProfId,
-			FileName:      upload.Filename,
-			FileKey:       upload.FileKey,
-			ImageType:     imageType,
-			Size:          upload.Size,
-			CreatedAt:     &now,
-			UpdatedAt:     &now,
-		}
-		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-			_, err = u.userImageRepository.Create(ctx, tx, newUserProfileImage)
-			if err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
-			}
-			return nil
-		}); err != nil {
-			return false, err
-		}
+// 	if errors.Is(errRepo, sql.ErrNoRows) {
+// 		newUserProfileImage := &entity.UserImage{
+// 			Id:            ulid.Make().String(),
+// 			UserProfileId: userProfId,
+// 			FileName:      upload.Filename,
+// 			FileKey:       upload.FileKey,
+// 			ImageType:     imageType,
+// 			Size:          upload.Size,
+// 			CreatedAt:     &now,
+// 			UpdatedAt:     &now,
+// 		}
+// 		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+// 			_, err = u.userImageRepository.Create(ctx, tx, newUserProfileImage)
+// 			if err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
+// 			}
+// 			return nil
+// 		}); err != nil {
+// 			return false, err
+// 		}
 
-	} else {
-		updatedUserProfileImage := &entity.UserImage{
-			UserProfileId: userProfId,
-			FileName:      upload.Filename,
-			FileKey:       upload.FileKey,
-			ImageType:     imageType,
-			Size:          upload.Size,
-			CreatedAt:     &now,
-			UpdatedAt:     &now,
-		}
+// 	} else {
+// 		updatedUserProfileImage := &entity.UserImage{
+// 			UserProfileId: userProfId,
+// 			FileName:      upload.Filename,
+// 			FileKey:       upload.FileKey,
+// 			ImageType:     imageType,
+// 			Size:          upload.Size,
+// 			CreatedAt:     &now,
+// 			UpdatedAt:     &now,
+// 		}
 
-		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-			_, err = u.userImageRepository.Update(ctx, tx, updatedUserProfileImage)
-			if err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to update user profile image", err)
-			}
+// 		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+// 			_, err = u.userImageRepository.Update(ctx, tx, updatedUserProfileImage)
+// 			if err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to update user profile image", err)
+// 			}
 
-			_, err = u.uploadAdapter.DeleteFile(ctx, prevUserProfileImage.FileKey)
-			if err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to delete user profile image from minio", err)
-			}
+// 			_, err = u.uploadAdapter.DeleteFile(ctx, prevUserProfileImage.FileKey)
+// 			if err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to delete user profile image from minio", err)
+// 			}
 
-			return nil
-		}); err != nil {
-			return false, err
-		}
-	}
-	return true, nil
-}
+// 			return nil
+// 		}); err != nil {
+// 			return false, err
+// 		}
+// 	}
+// 	return true, nil
+// }
 
-func (u *userUseCase) GetPublicUserChat(ctx context.Context, request *model.RequestGetAllPublicUser) (*[]*model.GetAllPublicUserResponse, *model.PageMetadata, error) {
-	userPublicChat, pageMetadata, err := u.userRepository.FindAllPublicChat(ctx, u.db, request.Page, request.Size, request.Username)
-	if err != nil {
-		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all public chat (user list)", err)
-	}
+// func (u *userUseCase) GetPublicUserChat(ctx context.Context, request *model.RequestGetAllPublicUser) (*[]*model.GetAllPublicUserResponse, *model.PageMetadata, error) {
+// 	userPublicChat, pageMetadata, err := u.userRepository.FindAllPublicChat(ctx, u.db, request.Page, request.Size, request.Username)
+// 	if err != nil {
+// 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all public chat (user list)", err)
+// 	}
 
-	responses := make([]*model.GetAllPublicUserResponse, 0)
+// 	responses := make([]*model.GetAllPublicUserResponse, 0)
 
-	for _, entity := range userPublicChat {
-		response := &model.GetAllPublicUserResponse{
-			UserId:   entity.UserId,
-			Username: entity.Username,
-		}
+// 	for _, entity := range userPublicChat {
+// 		response := &model.GetAllPublicUserResponse{
+// 			UserId:   entity.UserId,
+// 			Username: entity.Username,
+// 		}
 
-		if entity.FileKey.Valid {
-			profileUrl, err := u.uploadAdapter.GetPresignedUrl(ctx, entity.FileKey.String)
-			if err != nil {
-				return nil, nil, helper.WrapInternalServerError(u.logs, "failed to get presigned url", err)
-			}
-			response.ProfileUrl = profileUrl
-		}
+// 		if entity.FileKey.Valid {
+// 			profileUrl, err := u.uploadAdapter.GetPresignedUrl(ctx, entity.FileKey.String)
+// 			if err != nil {
+// 				return nil, nil, helper.WrapInternalServerError(u.logs, "failed to get presigned url", err)
+// 			}
+// 			response.ProfileUrl = profileUrl
+// 		}
 
-		responses = append(responses, response)
-	}
+// 		responses = append(responses, response)
+// 	}
 
-	return &responses, pageMetadata, nil
-}
+// 	return &responses, pageMetadata, nil
+// }
 
-func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error {
-	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-		if err := u.userProfileRepository.UpdateSimilarity(ctx, tx, request.Similarity, request.UserID); err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to update similarity", err)
-		}
+// func (u *userUseCase) UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) error {
+// 	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+// 		if err := u.userProfileRepository.UpdateSimilarity(ctx, tx, request.Similarity, request.UserID); err != nil {
+// 			return helper.WrapInternalServerError(u.logs, "failed to update similarity", err)
+// 		}
 
-		json, err := u.cacheAdapter.Get(ctx, request.UserID)
-		if err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to get auth cache in redis :", err)
-		}
+// 		json, err := u.cacheAdapter.Get(ctx, request.UserID)
+// 		if err != nil {
+// 			return helper.WrapInternalServerError(u.logs, "failed to get auth cache in redis :", err)
+// 		}
 
-		ttl, err := u.cacheAdapter.TTL(ctx, request.UserID)
-		if err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to get auth cache TTL in redis", err)
-		}
+// 		ttl, err := u.cacheAdapter.TTL(ctx, request.UserID)
+// 		if err != nil {
+// 			return helper.WrapInternalServerError(u.logs, "failed to get auth cache TTL in redis", err)
+// 		}
 
-		cachedAuth := new(entity.Auth)
-		if err = sonic.ConfigFastest.Unmarshal([]byte(json), cachedAuth); err != nil {
-			return helper.WrapInternalServerError(u.logs, "failed to unmarshal struct", err)
-		}
+// 		cachedAuth := new(entity.Auth)
+// 		if err = sonic.ConfigFastest.Unmarshal([]byte(json), cachedAuth); err != nil {
+// 			return helper.WrapInternalServerError(u.logs, "failed to unmarshal struct", err)
+// 		}
 
-		cachedAuth.Similarity = uint(request.Similarity)
-		updatedJSON, err := sonic.ConfigFastest.Marshal(cachedAuth)
-		if err != nil {
-			return helper.WrapInternalServerError(u.logs, "marshal updated auth", err)
-		}
+// 		cachedAuth.Similarity = uint(request.Similarity)
+// 		updatedJSON, err := sonic.ConfigFastest.Marshal(cachedAuth)
+// 		if err != nil {
+// 			return helper.WrapInternalServerError(u.logs, "marshal updated auth", err)
+// 		}
 
-		if err := u.cacheAdapter.Set(ctx, request.UserID, updatedJSON, ttl); err != nil {
-			return helper.WrapInternalServerError(u.logs, "save user body into cache", err)
+// 		if err := u.cacheAdapter.Set(ctx, request.UserID, updatedJSON, ttl); err != nil {
+// 			return helper.WrapInternalServerError(u.logs, "save user body into cache", err)
 
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
+// 		}
+// 		return nil
+// 	}); err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (u *userUseCase) UpdateUserProfileImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
-	u.logs.Log("user profile image accessed")
-	ok, err := u.updateUserImageV2(ctx, file, userProfId, enum.ImageTypeProfile)
-	if err != nil {
-		return false, err
-	}
+// func (u *userUseCase) UploadUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
+// 	u.logs.Log("user profile image accessed")
+// 	ok, err := u.updateUserImageV2(ctx, file, userProfId, enum.ImageTypeProfile)
+// 	if err != nil {
+// 		return false, err
+// 	}
 
-	return ok, err
-}
+// 	return ok, err
+// }
 
-func (u *userUseCase) UpdateUserCoverImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
-	ok, err := u.updateUserImageV2(ctx, file, userProfId, enum.ImageTypeCover)
-	if err != nil {
-		return false, err
-	}
+// func (u *userUseCase) UploadUserCoverImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (bool, error) {
+// 	ok, err := u.updateUserImageV2(ctx, file, userProfId, enum.ImageTypeCover)
+// 	if err != nil {
+// 		return false, err
+// 	}
 
-	return ok, err
-}
+// 	return ok, err
+// }
 
-func (u *userUseCase) updateUserImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string, imageType enum.ImageTypeEnum) (bool, error) {
-	prevUserProfileImage, errRepo := u.userImageRepository.FindByUserProfIdAndType(ctx, userProfId, string(imageType))
-	if errRepo != nil && !errors.Is(errRepo, sql.ErrNoRows) {
-		return false, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", errRepo)
-	}
+// func (u *userUseCase) updateUserImageV2(ctx context.Context, file *multipart.FileHeader, userProfId string, imageType enum.ImageTypeEnum) (bool, error) {
+// 	prevUserProfileImage, errRepo := u.userImageRepository.FindByUserProfIdAndType(ctx, userProfId, string(imageType))
+// 	if errRepo != nil && !errors.Is(errRepo, sql.ErrNoRows) {
+// 		return false, helper.WrapInternalServerError(u.logs, "failed to find user image by user profile id", errRepo)
+// 	}
 
-	uploadFile, err := file.Open()
-	if err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to open file user", errRepo)
-	}
-	defer uploadFile.Close()
+// 	uploadFile, err := file.Open()
+// 	if err != nil {
+// 		return false, helper.WrapInternalServerError(u.logs, "failed to open file user", errRepo)
+// 	}
+// 	defer uploadFile.Close()
 
-	upload, err := u.uploadAdapter.UploadPublicFile(ctx, file, uploadFile, fmt.Sprintf("user/profile/%s", userProfId))
-	if err != nil {
-		return false, helper.WrapInternalServerError(u.logs, "failed to upload file", errRepo)
-	}
+// 	upload, err := u.uploadAdapter.UploadPublicFile(ctx, file, uploadFile, fmt.Sprintf("user/profile/%s", userProfId))
+// 	if err != nil {
+// 		return false, helper.WrapInternalServerError(u.logs, "failed to upload file", errRepo)
+// 	}
 
-	u.logs.CustomLog("Upload metadata detail", upload)
-	now := time.Now()
+// 	u.logs.CustomLog("Upload metadata detail", upload)
+// 	now := time.Now()
 
-	if errors.Is(errRepo, sql.ErrNoRows) {
-		newUserProfileImage := &entity.UserImage{
-			Id:            ulid.Make().String(),
-			UserProfileId: userProfId,
-			FileName:      upload.Filename,
-			FileKey:       upload.FileKey,
-			ImageType:     imageType,
-			Size:          upload.Size,
-			CreatedAt:     &now,
-			UpdatedAt:     &now,
-		}
-		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-			_, err = u.userImageRepository.Create(ctx, tx, newUserProfileImage)
-			if err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
-			}
-			if err := u.userProfileRepository.UpdateImageURL(ctx, tx, upload.URL, userProfId, imageType); err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
-			}
-			return nil
-		}); err != nil {
-			return false, err
-		}
+// 	if errors.Is(errRepo, sql.ErrNoRows) {
+// 		newUserProfileImage := &entity.UserImage{
+// 			Id:            ulid.Make().String(),
+// 			UserProfileId: userProfId,
+// 			FileName:      upload.Filename,
+// 			FileKey:       upload.FileKey,
+// 			ImageType:     imageType,
+// 			Size:          upload.Size,
+// 			CreatedAt:     &now,
+// 			UpdatedAt:     &now,
+// 		}
+// 		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+// 			_, err = u.userImageRepository.Create(ctx, tx, newUserProfileImage)
+// 			if err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
+// 			}
+// 			if err := u.userProfileRepository.UpdateImageURL(ctx, tx, upload.URL, userProfId, imageType); err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
+// 			}
+// 			return nil
+// 		}); err != nil {
+// 			return false, err
+// 		}
 
-	} else {
-		updatedUserProfileImage := &entity.UserImage{
-			UserProfileId: userProfId,
-			FileName:      upload.Filename,
-			FileKey:       upload.FileKey,
-			ImageType:     imageType,
-			Size:          upload.Size,
-			CreatedAt:     &now,
-			UpdatedAt:     &now,
-		}
+// 	} else {
+// 		updatedUserProfileImage := &entity.UserImage{
+// 			UserProfileId: userProfId,
+// 			FileName:      upload.Filename,
+// 			FileKey:       upload.FileKey,
+// 			ImageType:     imageType,
+// 			Size:          upload.Size,
+// 			CreatedAt:     &now,
+// 			UpdatedAt:     &now,
+// 		}
 
-		u.logs.CustomLog("Delete and update image accesed with filekey", prevUserProfileImage.FileKey)
-		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-			_, err = u.userImageRepository.Update(ctx, tx, updatedUserProfileImage)
-			if err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to update user profile image", err)
-			}
+// 		u.logs.CustomLog("Delete and update image accesed with filekey", prevUserProfileImage.FileKey)
+// 		if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+// 			_, err = u.userImageRepository.Update(ctx, tx, updatedUserProfileImage)
+// 			if err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to update user profile image", err)
+// 			}
 
-			_, err = u.uploadAdapter.DeletePublicFile(ctx, prevUserProfileImage.FileKey)
-			if err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to delete user profile image from minio", err)
-			}
+// 			_, err = u.uploadAdapter.DeletePublicFile(ctx, prevUserProfileImage.FileKey)
+// 			if err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to delete user profile image from minio", err)
+// 			}
 
-			if err := u.userProfileRepository.UpdateImageURL(ctx, tx, upload.URL, userProfId, imageType); err != nil {
-				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
-			}
+// 			if err := u.userProfileRepository.UpdateImageURL(ctx, tx, upload.URL, userProfId, imageType); err != nil {
+// 				return helper.WrapInternalServerError(u.logs, "failed to create user profile image", err)
+// 			}
 
-			return nil
-		}); err != nil {
-			return false, err
-		}
-	}
-	return true, nil
-}
+// 			return nil
+// 		}); err != nil {
+// 			return false, err
+// 		}
+// 	}
+// 	return true, nil
+// }
 
-func (u *userUseCase) GetUserProfileV2(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
-	userProfile, err := u.userProfileRepository.FindByUserId(ctx, userId)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user id")
-		}
-		return nil, helper.WrapInternalServerError(u.logs, "failed to find user profile by user id", err)
-	}
+// func (u *userUseCase) GetUserProfile(ctx context.Context, userId string) (*model.UserProfileResponse, error) {
+// 	userProfile, err := u.userProfileRepository.FindByUserId(ctx, userId)
+// 	if err != nil {
+// 		if errors.Is(err, sql.ErrNoRows) {
+// 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "invalid user id")
+// 		}
+// 		return nil, helper.WrapInternalServerError(u.logs, "failed to find user profile by user id", err)
+// 	}
 
-	return converter.UserProfileToResponseV2(userProfile), nil
-}
+// 	return converter.UserProfileToResponse(userProfile), nil
+// }

@@ -32,16 +32,12 @@ func newUserProfilePreraredStmt(db *sqlx.DB) (*userProfilePreparedStmt, error) {
 }
 
 type UserProfileRepository interface {
-	Close() error
 	CreateWithProfileUrl(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	Create(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	Update(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	FindByUserId(ctx context.Context, userId string) (*entity.UserProfile, error)
 	UpdateSimilarity(ctx context.Context, tx Querier, similarity enum.SimilarityLevelEnum, userID string) error
 	UpdateImageURL(ctx context.Context, tx Querier, url, userProfId string, imageType enum.ImageTypeEnum) error
-
-	// UpdateUserProfileImage(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
-	// UpdateUserProfileCover(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 }
 
 type userProfileRepository struct {
@@ -72,7 +68,8 @@ func (r *userProfileRepository) Close() error {
 }
 
 func (r *userProfileRepository) CreateWithProfileUrl(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-	query := `INSERT INTO user_profiles 
+	query := `
+	INSERT INTO user_profiles 
 	(id, user_id, nickname, profile_url, created_at, updated_at) 
 	VALUES ($1, $2, $3, $4, $5, $6)`
 
@@ -100,11 +97,19 @@ func (r *userProfileRepository) Create(ctx context.Context, tx Querier, userProf
 }
 
 func (r *userProfileRepository) Update(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-	query := `UPDATE user_profiles set birth_date = $1, nickname = $2, 
-	biography = $3, updated_at = $4 WHERE user_id = $5 RETURNING *`
+	query := `
+	UPDATE 
+		user_profiles
+	SET
+		birth_date = $1, 
+		nickname = $2, 
+		biography = $3, 
+		updated_at = $4 
+	WHERE 
+		user_id = $5 
+	RETURNING *`
 
-	row := tx.QueryRowxContext(ctx, query, userProfile.BirthDate, userProfile.Nickname, userProfile.Biography, userProfile.UpdatedAt, userProfile.UserId)
-	if err := row.StructScan(userProfile); err != nil {
+	if err := tx.GetContext(ctx, userProfile, query, userProfile.BirthDate, userProfile.Nickname, userProfile.Biography, userProfile.UpdatedAt, userProfile.UserId); err != nil {
 		return nil, err
 	}
 

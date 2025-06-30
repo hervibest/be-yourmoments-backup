@@ -1,10 +1,11 @@
 package http
 
 import (
-	"log"
 	"net/http"
+	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/middleware"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/message"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
@@ -15,9 +16,10 @@ import (
 
 type UserController interface {
 	GetAllPublicUserChat(ctx *fiber.Ctx) error
-	GetUserProfileV2(ctx *fiber.Ctx) error
-	UpdateUserCoverImageV2(ctx *fiber.Ctx) error
-	UpdateUserProfileImageV2(ctx *fiber.Ctx) error
+	GetUserProfile(ctx *fiber.Ctx) error
+	UpdateUserProfile(ctx *fiber.Ctx) error
+	UploadUserCoverImage(ctx *fiber.Ctx) error
+	UploadUserProfileImage(ctx *fiber.Ctx) error
 	UpdateUserSimilarity(ctx *fiber.Ctx) error
 }
 
@@ -31,9 +33,9 @@ func NewUserController(userUseCase usecase.UserUseCase, customValidator helper.C
 	return &userController{userUseCase: userUseCase, customValidator: customValidator, logs: logs}
 }
 
-func (c *userController) GetUserProfileV2(ctx *fiber.Ctx) error {
+func (c *userController) GetUserProfile(ctx *fiber.Ctx) error {
 	auth := middleware.GetUser(ctx)
-	userProfileResponse, err := c.userUseCase.GetUserProfileV2(ctx.Context(), auth.UserId)
+	userProfileResponse, err := c.userUseCase.GetUserProfile(ctx.Context(), auth.UserId)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Get user profile : ", err, c.logs)
 	}
@@ -45,10 +47,18 @@ func (c *userController) GetUserProfileV2(ctx *fiber.Ctx) error {
 }
 
 func (c *userController) UpdateUserProfile(ctx *fiber.Ctx) error {
+	c.logs.Log("accessed update user profile")
 	request := new(model.RequestUpdateUserProfile)
-	if err := helper.StrictBodyParser(ctx, request); err != nil {
+	if err := ctx.BodyParser(request); err != nil {
 		return helper.ErrBodyParserResponseJSON(ctx, err)
 	}
+
+	parsedDate, err := time.Parse("2006-01-02", request.BirthDateStr)
+	if err != nil {
+		return helper.ErrBodyResponseJSON(ctx, message.InvalidBirthDate)
+	}
+
+	request.BirthDate = &parsedDate
 
 	auth := middleware.GetUser(ctx)
 	request.UserId = auth.UserId
@@ -68,20 +78,19 @@ func (c *userController) UpdateUserProfile(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *userController) UpdateUserProfileImageV2(ctx *fiber.Ctx) error {
+func (c *userController) UploadUserProfileImage(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "missing file: "+err.Error())
 	}
 
-	const maxFileSize = 5 * 1024 * 1024 // 5MB
+	const maxFileSize = 5 * 1024 * 1024
 	if file.Size > maxFileSize {
 		return fiber.NewError(fiber.StatusRequestEntityTooLarge, "File size exceeds the 2MB limit")
 	}
 
-	c.logs.Log("Update user profile iuamge v2 accessed")
 	auth := middleware.GetUser(ctx)
-	success, err := c.userUseCase.UpdateUserCoverImageV2(ctx.Context(), file, auth.UserProfileID)
+	profileURL, err := c.userUseCase.UploadUserProfileImage(ctx.Context(), file, auth.UserProfileID)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Update user profile image : ", err, c.logs)
 	}
@@ -89,24 +98,24 @@ func (c *userController) UpdateUserProfileImageV2(ctx *fiber.Ctx) error {
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
 		Success: true,
 		Data: map[string]interface{}{
-			"success": success,
+			"profile_url": profileURL,
 		},
 	})
 }
 
-func (c *userController) UpdateUserCoverImageV2(ctx *fiber.Ctx) error {
+func (c *userController) UploadUserCoverImage(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "missing file: "+err.Error())
 	}
 
-	const maxFileSize = 5 * 1024 * 1024 // 5MB
+	const maxFileSize = 5 * 1024 * 1024
 	if file.Size > maxFileSize {
 		return fiber.NewError(fiber.StatusRequestEntityTooLarge, "File size exceeds the 5MB limit")
 	}
 
 	auth := middleware.GetUser(ctx)
-	success, err := c.userUseCase.UpdateUserCoverImageV2(ctx.Context(), file, auth.UserProfileID)
+	profileCoverURL, err := c.userUseCase.UploadUserCoverImage(ctx.Context(), file, auth.UserProfileID)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Update user cover image : ", err, c.logs)
 	}
@@ -114,13 +123,12 @@ func (c *userController) UpdateUserCoverImageV2(ctx *fiber.Ctx) error {
 	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
 		Success: true,
 		Data: map[string]interface{}{
-			"success": success,
+			"profile_cover_url": profileCoverURL,
 		},
 	})
 }
 
 func (c *userController) GetAllPublicUserChat(ctx *fiber.Ctx) error {
-	log.Print("get all public accessed")
 	request := &model.RequestGetAllPublicUser{
 		Username: ctx.Query("username", ""),
 		Page:     ctx.QueryInt("page", 1),
@@ -155,11 +163,13 @@ func (c *userController) UpdateUserSimilarity(ctx *fiber.Ctx) error {
 		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
 	}
 
-	if err := c.userUseCase.UpdateUserSimilarity(ctx.Context(), request); err != nil {
+	similarity, err := c.userUseCase.UpdateUserSimilarity(ctx.Context(), request)
+	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Update user profile : ", err, c.logs)
 	}
 
-	return ctx.Status(http.StatusOK).JSON(model.WebResponse[any]{
+	return ctx.Status(http.StatusOK).JSON(model.WebResponse[*model.UpdateSeimilarityResponse]{
 		Success: true,
+		Data:    similarity,
 	})
 }
