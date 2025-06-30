@@ -276,11 +276,12 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 	}
 
 	auth := &entity.Auth{
-		Id:          user.Id,
-		Username:    user.Username,
-		Email:       user.Email.String,
-		PhoneNumber: user.PhoneNumber.String,
-		Similarity:  userProfile.Similarity,
+		Id:            user.Id,
+		Username:      user.Username,
+		Email:         user.Email.String,
+		PhoneNumber:   user.PhoneNumber.String,
+		UserProfileID: userProfile.Id,
+		Similarity:    userProfile.Similarity,
 	}
 
 	token, err := u.generateToken(ctx, auth)
@@ -661,11 +662,12 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 	}
 
 	auth := &entity.Auth{
-		Id:          user.Id,
-		Username:    user.Username,
-		Email:       user.Email.String,
-		PhoneNumber: user.PhoneNumber.String,
-		Similarity:  userProfile.Similarity,
+		Id:            user.Id,
+		Username:      user.Username,
+		Email:         user.Email.String,
+		PhoneNumber:   user.PhoneNumber.String,
+		UserProfileID: userProfile.Id,
+		Similarity:    userProfile.Similarity,
 	}
 
 	token, err := u.generateToken(ctx, auth)
@@ -774,13 +776,14 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 	}
 
 	authResponse := &model.AuthResponse{
-		UserId:      auth.Id,
-		Username:    auth.Username,
-		Email:       auth.Email,
-		PhoneNumber: auth.PhoneNumber,
-		Similarity:  auth.Similarity,
-		Token:       request.Token,
-		ExpiresAt:   accessTokenDetail.ExpiresAt,
+		UserId:        auth.Id,
+		Username:      auth.Username,
+		Email:         auth.Email,
+		PhoneNumber:   auth.PhoneNumber,
+		UserProfileID: auth.UserProfileID,
+		Similarity:    auth.Similarity,
+		Token:         request.Token,
+		ExpiresAt:     accessTokenDetail.ExpiresAt,
 	}
 
 	return authResponse, nil
@@ -798,11 +801,12 @@ func (u *authUseCase) setAuthCache(ctx context.Context, user *entity.User, auth 
 	}
 
 	auth = &entity.Auth{
-		Id:          user.Id,
-		Username:    user.Username,
-		Email:       user.Email.String,
-		PhoneNumber: user.PhoneNumber.String,
-		Similarity:  userProfile.Similarity,
+		Id:            user.Id,
+		Username:      user.Username,
+		Email:         user.Email.String,
+		PhoneNumber:   user.PhoneNumber.String,
+		UserProfileID: userProfile.Id,
+		Similarity:    userProfile.Similarity,
 	}
 
 	jsonValue, err := sonic.ConfigFastest.Marshal(auth)

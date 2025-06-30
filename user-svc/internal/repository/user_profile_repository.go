@@ -38,6 +38,7 @@ type UserProfileRepository interface {
 	Update(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	FindByUserId(ctx context.Context, userId string) (*entity.UserProfile, error)
 	UpdateSimilarity(ctx context.Context, tx Querier, similarity enum.SimilarityLevelEnum, userID string) error
+	UpdateImageURL(ctx context.Context, tx Querier, url, userProfId string, imageType enum.ImageTypeEnum) error
 
 	// UpdateUserProfileImage(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	// UpdateUserProfileCover(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
@@ -110,6 +111,22 @@ func (r *userProfileRepository) Update(ctx context.Context, tx Querier, userProf
 	return userProfile, nil
 }
 
+func (r *userProfileRepository) UpdateImageURL(ctx context.Context, tx Querier, url, userProfId string, imageType enum.ImageTypeEnum) error {
+	query := "UPDATE user_profiles SET "
+	if imageType == enum.ImageTypeProfile {
+		query += "profile_url = $1"
+	} else {
+		query += "profile_cover_url = $1"
+	}
+	query += " WHERE id = $2"
+	_, err := tx.ExecContext(ctx, query, url, userProfId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *userProfileRepository) UpdateSimilarity(ctx context.Context, tx Querier, similarity enum.SimilarityLevelEnum, userID string) error {
 	query := `UPDATE user_profiles set similarity = $1 WHERE user_id = $2 `
 	_, err := tx.ExecContext(ctx, query, similarity, userID)
@@ -129,25 +146,3 @@ func (r *userProfileRepository) FindByUserId(ctx context.Context, userId string)
 
 	return userProfile, nil
 }
-
-// func (r *userProfileRepository) UpdateUserProfileImage(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-// 	query := `UPDATE user_profiles set profile_url = $1, updated_at = $2 WHERE user_id = $3`
-// 	_, err := tx.ExecContext(ctx, query, userProfile.ProfileUrl, userProfile.UpdatedAt, userProfile.UserId)
-
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to update user profile image: %w", err)
-// 	}
-
-// 	return userProfile, nil
-// }
-
-// func (r *userProfileRepository) UpdateUserProfileCover(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-// 	query := `UPDATE user_profiles set profile_cover_url = $1, updated_at = $2 WHERE user_id = $3`
-// 	_, err := tx.ExecContext(ctx, query, userProfile.ProfileCoverUrl, userProfile.UpdatedAt, userProfile.UserId)
-
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to update user profile cover: %w", err)
-// 	}
-
-// 	return userProfile, nil
-// }

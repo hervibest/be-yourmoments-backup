@@ -14,11 +14,10 @@ import (
 )
 
 type UserController interface {
-	GetUserProfile(ctx *fiber.Ctx) error
-	UpdateUserProfile(ctx *fiber.Ctx) error
-	UpdateUserProfileImage(ctx *fiber.Ctx) error
-	UpdateUserCoverImage(ctx *fiber.Ctx) error
 	GetAllPublicUserChat(ctx *fiber.Ctx) error
+	GetUserProfileV2(ctx *fiber.Ctx) error
+	UpdateUserCoverImageV2(ctx *fiber.Ctx) error
+	UpdateUserProfileImageV2(ctx *fiber.Ctx) error
 	UpdateUserSimilarity(ctx *fiber.Ctx) error
 }
 
@@ -32,10 +31,9 @@ func NewUserController(userUseCase usecase.UserUseCase, customValidator helper.C
 	return &userController{userUseCase: userUseCase, customValidator: customValidator, logs: logs}
 }
 
-func (c *userController) GetUserProfile(ctx *fiber.Ctx) error {
+func (c *userController) GetUserProfileV2(ctx *fiber.Ctx) error {
 	auth := middleware.GetUser(ctx)
-
-	userProfileResponse, err := c.userUseCase.GetUserProfile(ctx.Context(), auth.UserId)
+	userProfileResponse, err := c.userUseCase.GetUserProfileV2(ctx.Context(), auth.UserId)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Get user profile : ", err, c.logs)
 	}
@@ -70,13 +68,7 @@ func (c *userController) UpdateUserProfile(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *userController) UpdateUserProfileImage(ctx *fiber.Ctx) error {
-
-	userProfId := ctx.Params("userProfId", "")
-	if userProfId == "" {
-		return fiber.NewError(http.StatusBadRequest, "userProfId is required")
-	}
-
+func (c *userController) UpdateUserProfileImageV2(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "missing file: "+err.Error())
@@ -87,7 +79,9 @@ func (c *userController) UpdateUserProfileImage(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusRequestEntityTooLarge, "File size exceeds the 2MB limit")
 	}
 
-	success, err := c.userUseCase.UpdateUserProfileImage(ctx.Context(), file, userProfId)
+	c.logs.Log("Update user profile iuamge v2 accessed")
+	auth := middleware.GetUser(ctx)
+	success, err := c.userUseCase.UpdateUserCoverImageV2(ctx.Context(), file, auth.UserProfileID)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Update user profile image : ", err, c.logs)
 	}
@@ -100,23 +94,19 @@ func (c *userController) UpdateUserProfileImage(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *userController) UpdateUserCoverImage(ctx *fiber.Ctx) error {
-	userProfId := ctx.Params("userProfId", "")
-	if userProfId == "" {
-		return fiber.NewError(http.StatusBadRequest, "userProfId is required")
-	}
-
+func (c *userController) UpdateUserCoverImageV2(ctx *fiber.Ctx) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "missing file: "+err.Error())
 	}
 
-	const maxFileSize = 4 * 1024 * 1024 // 5MB
+	const maxFileSize = 5 * 1024 * 1024 // 5MB
 	if file.Size > maxFileSize {
-		return fiber.NewError(fiber.StatusRequestEntityTooLarge, "File size exceeds the 2MB limit")
+		return fiber.NewError(fiber.StatusRequestEntityTooLarge, "File size exceeds the 5MB limit")
 	}
 
-	success, err := c.userUseCase.UpdateUserCoverImage(ctx.Context(), file, userProfId)
+	auth := middleware.GetUser(ctx)
+	success, err := c.userUseCase.UpdateUserCoverImageV2(ctx.Context(), file, auth.UserProfileID)
 	if err != nil {
 		return helper.ErrUseCaseResponseJSON(ctx, "Update user cover image : ", err, c.logs)
 	}

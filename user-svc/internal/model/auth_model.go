@@ -75,15 +75,16 @@ type VerifyUserRequest struct {
 }
 
 type AuthResponse struct {
-	UserId      string
-	Username    string
-	Email       string
-	PhoneNumber string
-	Similarity  uint
-	CreatorId   string
-	WalletId    string
-	Token       string
-	ExpiresAt   time.Time
+	UserId        string
+	Username      string
+	Email         string
+	PhoneNumber   string
+	UserProfileID string
+	Similarity    uint
+	CreatorId     string
+	WalletId      string
+	Token         string
+	ExpiresAt     time.Time
 }
 
 type LogoutUserRequest struct {

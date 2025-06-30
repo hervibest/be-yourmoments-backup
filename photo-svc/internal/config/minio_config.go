@@ -28,7 +28,7 @@ func NewMinio() *Minio {
 	minioPort := utils.GetEnv("MINIO_PORT")
 	minioRootUser := utils.GetEnv("MINIO_ROOT_USER")
 	minioRootPassword := utils.GetEnv("MINIO_ROOT_PASSWORD")
-	minioTicketsBucket := utils.GetEnv("MINIO_TICKETS_BUCKET")
+	minioBucket := utils.GetEnv("MINIO_BUCKET")
 	minioLocation := utils.GetEnv("MINIO_LOCATION")
 	endpoint := minioHost + ":" + minioPort
 
@@ -40,23 +40,23 @@ func NewMinio() *Minio {
 		log.Fatalln(err)
 	}
 
-	err = minioClient.MakeBucket(ctx, minioTicketsBucket, minio.MakeBucketOptions{Region: minioLocation})
+	err = minioClient.MakeBucket(ctx, minioBucket, minio.MakeBucketOptions{Region: minioLocation})
 	if err != nil {
-		exists, errBucketExists := minioClient.BucketExists(ctx, minioTicketsBucket)
+		exists, errBucketExists := minioClient.BucketExists(ctx, minioBucket)
 		if errBucketExists == nil && exists {
-			log.Printf("We already own %s\n", minioTicketsBucket)
+			log.Printf("We already own %s\n", minioBucket)
 		} else {
 			log.Fatalln(err)
 		}
 	} else {
-		log.Printf("Successfully created %s\n", minioTicketsBucket)
+		log.Printf("Successfully created %s\n", minioBucket)
 	}
 
-	log.Printf("Successfully connected %s\n", minioTicketsBucket)
+	log.Printf("Successfully connected %s\n", minioBucket)
 
 	return &Minio{
 		MinioClient:     minioClient,
-		minioBucketName: minioTicketsBucket,
+		minioBucketName: minioBucket,
 		enpoint:         endpoint,
 		Logs:            logger,
 	}

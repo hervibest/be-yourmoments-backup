@@ -1,22 +1,19 @@
 package route
 
 func (c *RouteConfig) SetupUserRoute() {
+	userRoutesV2 := c.App.Group("/api/v2/users", c.AuthMiddleware)
+	userRoutesV2.Get("/profile", c.UserController.GetUserProfileV2)
+	userRoutesV2.Patch("/profile", c.UserController.UpdateUserProfileImageV2)
+	userRoutesV2.Patch("/profile/cover", c.UserController.UpdateUserCoverImageV2)
+
 	userRoutes := c.App.Group("/api/users", c.AuthMiddleware)
 	userRoutes.Get("/current", c.AuthController.Current)
 	userRoutes.Delete("/logout", c.AuthController.Logout)
-
-	userRoutes.Get("/profile", c.UserController.GetUserProfile)
-	userRoutes.Put("/profile", c.UserController.UpdateUserProfile)
-	userRoutes.Patch("/profile/:userProfId", c.UserController.UpdateUserProfileImage)
-	userRoutes.Patch("/profile/cover/:userProfId", c.UserController.UpdateUserCoverImage)
-
 	userRoutes.Get("/dm", c.UserController.GetAllPublicUserChat)
 
-	// userRoutes.Get("/users", listUsers)
 	userRoutes.Post("/room", c.ChatController.GetOrCreateRoom)
 	userRoutes.Get("/token/:uid", c.ChatController.GetCustomToken)
 	userRoutes.Post("/send-message", c.ChatController.SendMessage)
-	// userRoutes.Post("/send-notification", sendNotification) // route baru untuk FCM
 
 	userRoutes.Put("/similarity", c.UserController.UpdateUserSimilarity)
 }

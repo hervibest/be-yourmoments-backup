@@ -12,10 +12,11 @@ import (
 )
 
 type Minio struct {
-	MinioClient     *minio.Client
-	minioBucketName string
-	enpoint         string
-	Logs            logger.Log
+	MinioClient           *minio.Client
+	minioBucketName       string
+	minioPublicBucketName string
+	enpoint               string
+	Logs                  logger.Log
 }
 
 func NewMinio() *Minio {
@@ -28,7 +29,8 @@ func NewMinio() *Minio {
 	minioPort := utils.GetEnv("MINIO_PORT")
 	minioRootUser := utils.GetEnv("MINIO_ROOT_USER")
 	minioRootPassword := utils.GetEnv("MINIO_ROOT_PASSWORD")
-	minioTicketsBucket := utils.GetEnv("MINIO_TICKETS_BUCKET")
+	minioBucket := utils.GetEnv("MINIO_BUCKET")
+	minioPublicBucket := utils.GetEnv("MINIO_PUBLIC_BUCKET")
 	minioLocation := utils.GetEnv("MINIO_LOCATION")
 	endpoint := minioHost + ":" + minioPort
 
@@ -36,31 +38,44 @@ func NewMinio() *Minio {
 		Creds:  credentials.NewStaticV4(minioRootUser, minioRootPassword, ""),
 		Secure: false,
 	})
+	logger.CustomError("failed to connect to minio", err)
 
-	err = minioClient.MakeBucket(ctx, minioTicketsBucket, minio.MakeBucketOptions{Region: minioLocation})
-	if err != nil {
-		exists, errBucketExists := minioClient.BucketExists(ctx, minioTicketsBucket)
-		if errBucketExists == nil && exists {
-			log.Printf("We already own %s\n", minioTicketsBucket)
+	buckets := []string{minioBucket, minioPublicBucket}
+
+	for _, bucket := range buckets {
+		err = minioClient.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: minioLocation})
+		if err != nil {
+			exists, errBucketExists := minioClient.BucketExists(ctx, bucket)
+			if errBucketExists == nil && exists {
+				log.Printf("We already own %s\n", bucket)
+			} else {
+				log.Fatalln("Minio config error", err)
+			}
 		} else {
-			log.Fatalln("Minio config error", err)
+			log.Printf("Successfully created %s\n", bucket)
 		}
-	} else {
-		log.Printf("Successfully created %s\n", minioTicketsBucket)
+		log.Printf("Successfully connected %s\n", bucket)
 	}
 
-	log.Printf("Successfully connected %s\n", minioTicketsBucket)
-
 	return &Minio{
-		MinioClient:     minioClient,
-		minioBucketName: minioTicketsBucket,
-		enpoint:         endpoint,
-		Logs:            logger,
+		MinioClient:           minioClient,
+		minioBucketName:       minioBucket,
+		minioPublicBucketName: minioPublicBucket,
+		enpoint:               endpoint,
+		Logs:                  logger,
 	}
 }
 
 func (m *Minio) GetBucketName() string {
 	return m.minioBucketName
+}
+
+func (m *Minio) GetPublicBucketName() string {
+	return m.minioPublicBucketName
+}
+
+func (m *Minio) GetPublicURL() string {
+	return m.enpoint + "/" + m.minioPublicBucketName
 }
 
 func (m *Minio) GetEndpoint() string {
