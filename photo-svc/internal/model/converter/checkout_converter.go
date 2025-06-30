@@ -12,11 +12,11 @@ func CheckoutItemToResponse(checkoutItems *[]*model.CheckoutItem, totalPrice, to
 		var discount *model.DiscountItem
 		if checkoutItem.Discount != 0 && checkoutItem.DiscountId != "" {
 			discount = &model.DiscountItem{
-				Discount:            checkoutItem.Discount,
-				DiscountMinQuantity: checkoutItem.DiscountMinQuantity,
-				DiscountValue:       checkoutItem.DiscountValue,
-				DiscountId:          checkoutItem.DiscountId,
-				DiscountType:        checkoutItem.DiscountType,
+				Id:          checkoutItem.DiscountId,
+				Amount:      checkoutItem.Discount,
+				MinQuantity: checkoutItem.DiscountMinQuantity,
+				Value:       checkoutItem.DiscountValue,
+				Type:        checkoutItem.DiscountType,
 			}
 		}
 

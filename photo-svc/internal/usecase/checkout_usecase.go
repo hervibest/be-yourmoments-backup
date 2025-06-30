@@ -134,16 +134,16 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePriceV2(ctx context.Context, req
 				if item.DiscountId == "" {
 					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has removed")
 				}
-				if item.DiscountId != toCompare.Discount.DiscountId {
+				if item.DiscountId != toCompare.Discount.Id {
 					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
 				}
-				if string(item.DiscountType) != string(toCompare.Discount.DiscountType) {
+				if string(item.DiscountType) != string(toCompare.Discount.Type) {
 					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
 				}
-				if item.DiscountMinQuantity != toCompare.Discount.DiscountMinQuantity {
+				if item.DiscountMinQuantity != toCompare.Discount.MinQuantity {
 					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
 				}
-				if item.DiscountValue != toCompare.Discount.DiscountValue {
+				if item.DiscountValue != toCompare.Discount.Value {
 					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
 				}
 			}
@@ -261,9 +261,10 @@ func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Quer
 	for _, p := range *photos {
 		if disc, ok := discountMap[p.CreatorId]; ok {
 			var discount int32 = 0
-			if disc.DiscountType == enum.DiscountTypeFlat {
+			switch disc.DiscountType {
+			case enum.DiscountTypeFlat:
 				discount = disc.Value
-			} else if disc.DiscountType == enum.DiscountTypePercent {
+			case enum.DiscountTypePercent:
 				discount = p.Price * disc.Value / 100
 			}
 

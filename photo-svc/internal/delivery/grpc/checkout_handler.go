@@ -101,11 +101,11 @@ func (h *PhotoGRPCHandler) CalculatePhotoPriceV2(ctx context.Context, pbReq *pho
 		var discount *model.DiscountItem
 		if item.GetDiscount() != nil {
 			discount = &model.DiscountItem{
-				Discount:            item.GetDiscount().GetDiscount(),
-				DiscountMinQuantity: int(item.GetDiscount().GetDiscountMinQuantity()),
-				DiscountValue:       item.GetDiscount().GetDiscountValue(),
-				DiscountId:          item.GetDiscount().GetDiscountId(),
-				DiscountType:        enum.DiscountType(item.GetDiscount().GetDiscountType()),
+				Id:          item.GetDiscount().GetDiscountId(),
+				Amount:      item.GetDiscount().GetDiscount(),
+				MinQuantity: int(item.GetDiscount().GetDiscountMinQuantity()),
+				Value:       item.GetDiscount().GetDiscountValue(),
+				Type:        enum.DiscountType(item.GetDiscount().GetDiscountType()),
 			}
 		}
 		checkoutItemWeb = append(checkoutItemWeb,
