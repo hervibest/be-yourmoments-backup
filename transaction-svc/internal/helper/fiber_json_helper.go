@@ -77,7 +77,7 @@ func MultipleULIDSliceParser(ulidSlice []string) error {
 		}
 	}
 	if len(invalidIds) != 0 {
-		return NewUseCaseError(errorcode.ErrInvalidArgument, fmt.Sprintf("Invalid photo ids : %s", invalidIds))
+		return NewUseCaseError(errorcode.ErrInvalidArgument, fmt.Sprintf("Invalid ids : %s", invalidIds))
 	}
 	return nil
 }

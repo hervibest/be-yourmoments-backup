@@ -2,12 +2,14 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"strings"
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model/converter"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -34,7 +36,7 @@ type PhotoRepository interface {
 	FindBuyableByPhotoId(ctx context.Context, tx Querier, photoId string, forUpdate bool) (*entity.Photo, error)
 	UpdateProcessedUrl(tx Querier, photo *entity.Photo) error
 	UpdateCompressedUrl(tx Querier, photo *entity.Photo) error
-	GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
+	GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool, converter func(string) string) (*[]*entity.Photo, error)
 	GetManyInTransactionByIDsAndUserID(ctx context.Context, tx Querier, userId string, ids []string, forUpdate bool) (*[]*entity.Photo, error)
 	UpdatePhotoOwnerAndStatusByIds(ctx context.Context, tx Querier, ownerID string, photoIDs []string) error
 	BulkCreate(ctx context.Context, tx Querier, items []*entity.Photo) (*[]*entity.Photo, error) // UpdatePhotoStatus(ctx context.Context, db Querier, photo *entity.Photo) error
@@ -42,7 +44,7 @@ type PhotoRepository interface {
 	BulkIncrementTotal(ctx context.Context, tx Querier, photoIDs []string) error
 	BulkAddPhotoTotals(ctx context.Context, tx Querier, photoCountMap map[string]int32) error
 	AddPhotoTotal(ctx context.Context, tx Querier, photoID string, count int) error
-	UserGetPhotoWithDetail(ctx context.Context, tx Querier, photoIDs []string, userID string) (*[]*entity.PhotoWithDetail, error)
+	UserGetPhotoWithDetail(ctx context.Context, tx Querier, photoIDs []string, userID string) ([]*entity.PhotoWithDetail, error)
 	UpdatePhotoStatusesByIDs(ctx context.Context, tx Querier, status enum.PhotoStatusEnum, ids []string) error
 }
 
@@ -161,7 +163,8 @@ func (r *photoRepository) GetManyInTransactionByIDsAndUserID(ctx context.Context
 	return &photos, nil
 }
 
-func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool) (*[]*entity.Photo, error) {
+// TODO HANDLE BEST PRACTIE URL, CDN AND LOCKING FOR UPDATE
+func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, tx Querier, userId, creatorId string, ids []string, forUpdate bool, cdn func(string) string) (*[]*entity.Photo, error) {
 	photos := make([]*entity.Photo, 0)
 	query := `
 		SELECT 
@@ -170,13 +173,31 @@ func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, tx Querier,
 			title,
 			is_this_you_url,
 			your_moments_url,
-			price
+			price,
+
+			pd.file_name,
+			pd.file_key,
+			pd.your_moments_type
 		FROM 
 			photos AS p
 		JOIN 
 			user_similar_photos AS up
 		ON 
 			up.photo_id = p.id
+		LEFT JOIN LATERAL (
+			SELECT 
+				pd.file_name,
+				pd.file_key,
+				pd.your_moments_type
+			FROM photo_details pd
+			WHERE pd.photo_id = p.id
+			AND pd.your_moments_type = 
+				CASE 
+					WHEN p.owned_by_user_id IS NULL THEN 'YOU'::your_moments_type
+					ELSE 'COLLECTION'::your_moments_type
+				END
+			LIMIT 1
+		) pd ON TRUE
 		WHERE 
 			id = ANY($1) 
 		AND 
@@ -188,12 +209,20 @@ func (r *photoRepository) GetSimilarPhotosByIDs(ctx context.Context, tx Querier,
 		AND
 			p.status = 'AVAILABLE'
 			`
-	if forUpdate {
-		query += ` FOR UPDATE`
-	}
+	// if forUpdate {
+	// 	query += ` FOR UPDATE`
+	// }
 
 	if err := tx.SelectContext(ctx, &photos, query, ids, userId, creatorId); err != nil {
 		return nil, err
+	}
+	for i := range photos {
+		log.Println("File Key:", photos[i].FileKey.String)
+		log.Println("Photo Type:", photos[i].PhotoType.String)
+		urlCdn := converter.ToCollectionOrIsYouURL(photos[i].PhotoType.String, photos[i].FileKey.String, cdn)
+		photos[i].YourMomentsUrl = sql.NullString{String: urlCdn.IsThisYouURL, Valid: true}
+		log.Println("File Key:", photos[i])
+
 	}
 	return &photos, nil
 }
@@ -347,7 +376,7 @@ func (r *photoRepository) AddPhotoTotal(ctx context.Context, tx Querier, photoID
 }
 
 // ISSUE  handle autorization for this query
-func (r *photoRepository) UserGetPhotoWithDetail(ctx context.Context, tx Querier, photoIDs []string, userID string) (*[]*entity.PhotoWithDetail, error) {
+func (r *photoRepository) UserGetPhotoWithDetail(ctx context.Context, tx Querier, photoIDs []string, userID string) ([]*entity.PhotoWithDetail, error) {
 	photoWithDetails := make([]*entity.PhotoWithDetail, 0)
 	query := ` 
 				SELECT 
@@ -398,7 +427,7 @@ func (r *photoRepository) UserGetPhotoWithDetail(ctx context.Context, tx Querier
 	if err := tx.SelectContext(ctx, &photoWithDetails, query, photoIDs, userID); err != nil {
 		return nil, err
 	}
-	return &photoWithDetails, nil
+	return photoWithDetails, nil
 }
 
 func (r *photoRepository) UpdatePhotoStatusesByIDs(ctx context.Context, tx Querier, status enum.PhotoStatusEnum, ids []string) error {

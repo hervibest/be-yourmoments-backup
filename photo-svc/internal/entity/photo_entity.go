@@ -27,6 +27,10 @@ type Photo struct {
 	CreatedAt        time.Time       `db:"created_at"`
 	UpdatedAt        time.Time       `db:"updated_at"`
 
+	FileName  sql.NullString `db:"file_name"`
+	FileKey   sql.NullString `db:"file_key"`
+	PhotoType sql.NullString `db:"your_moments_type"`
+
 	Status enum.PhotoStatusEnum `db:"status"`
 }
 

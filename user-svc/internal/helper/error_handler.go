@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	errorcode "github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/error"
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/message"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 
 	"google.golang.org/grpc/codes"
@@ -101,14 +102,14 @@ func WrapInternalServerError(logs logger.Log, internalMsg string, err error) err
 	logs.Error(fmt.Sprintf("%s %s", internalMsg, err.Error()), &logger.Options{
 		IsPrintStack: true,
 	})
-	return NewAppError(errorcode.ErrInternal, "Something went wrong. Please try again later", err)
+	return NewAppError(errorcode.ErrInternal, message.StatusInternalServerError, err)
 }
 
 func WrapExternalServiceUnavailable(logs logger.Log, internalMsg string, err error) error {
 	logs.Error(fmt.Sprintf("%s %s", internalMsg, err.Error()), &logger.Options{
 		IsPrintStack: true,
 	})
-	return NewAppError(errorcode.ErrExternal, "Service unavailable. Please try again later.", err)
+	return NewAppError(errorcode.ErrExternal, message.StatusServiceUnavailable, err)
 }
 
 func FromGRPCError(err error) *AppError {

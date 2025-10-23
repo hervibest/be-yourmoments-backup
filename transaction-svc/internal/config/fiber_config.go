@@ -18,8 +18,11 @@ func NewApp() *fiber.App {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowOrigins:  "*",
+		AllowMethods:  "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+		AllowHeaders:  "Origin, Content-Type, Accept, Authorization, X-Requested-With, Referer, User-Agent",
+		ExposeHeaders: "Content-Length",
+		MaxAge:        12 * 3600, // 12 hours
 	}))
 
 	return app

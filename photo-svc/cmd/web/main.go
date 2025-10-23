@@ -138,7 +138,7 @@ func webServer(ctx context.Context) error {
 	creatorUseCase := usecase.NewCreatorUseCase(dbConfig, creatorRepository, cacheAdapter, creatorProducer, logs)
 	exploreUseCase := usecase.NewExploreUseCase(dbConfig, exploreRepo, photoRepo, CDNAdapter, tracer, logs)
 	creatorDiscountUseCase := usecase.NewCreatorDiscountUseCase(dbConfig, creatorDiscountRepository, logs)
-	checkoutUseCase := usecase.NewCheckoutUseCase(dbConfig, photoRepo, creatorRepository, creatorDiscountRepository, logs)
+	checkoutUseCase := usecase.NewCheckoutUseCase(dbConfig, photoRepo, creatorRepository, creatorDiscountRepository, logs, CDNAdapter)
 
 	userSimilarWorkerUC := usecase.NewUserSimilarWorkerUseCase(dbConfig, photoRepo, photoDetailRepo, facecamRepo,
 		userSimilarRepo, bulkPhotoRepository, userAdapter, photoProducer, logs)

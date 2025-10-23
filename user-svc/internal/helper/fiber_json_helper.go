@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/message"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 
@@ -54,5 +55,5 @@ func ErrUseCaseResponseJSON(ctx *fiber.Ctx, msg string, err error, logs logger.L
 		})
 	}
 
-	return fiber.NewError(fiber.StatusInternalServerError, "Something went wrong. Please try again later")
+	return fiber.NewError(fiber.StatusInternalServerError, message.StatusInternalServerError)
 }

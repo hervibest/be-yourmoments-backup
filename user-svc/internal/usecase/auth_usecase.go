@@ -113,24 +113,24 @@ func (u *authUseCase) RegisterByPhoneNumber(ctx context.Context, request *model.
 	}
 
 	var user *entity.User
-	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-		now := time.Now()
-		user = &entity.User{
-			Id:       ulid.Make().String(),
-			Username: request.Username,
-			Password: sql.NullString{
-				Valid:  true,
-				String: string(hashedPassword),
-			},
-			PhoneNumber: sql.NullString{
-				Valid:  true,
-				String: request.PhoneNumber,
-			},
-			CreatedAt: &now,
-			UpdatedAt: &now,
-		}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+	now := time.Now()
+	user = &entity.User{
+		Id:       ulid.Make().String(),
+		Username: request.Username,
+		Password: sql.NullString{
+			Valid:  true,
+			String: string(hashedPassword),
+		},
+		PhoneNumber: sql.NullString{
+			Valid:  true,
+			String: request.PhoneNumber,
+		},
+		CreatedAt: &now,
+		UpdatedAt: &now,
+	}
 
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
 		user, err = u.userRepository.CreateByPhoneNumber(ctx, tx, user)
 		if err != nil {
 			return helper.WrapInternalServerError(u.logs, "failed to create user by phone number", err)
@@ -744,7 +744,7 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 		return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "Invalid access token")
 	}
 
-	userId, err := u.cacheAdapter.Get(ctx, request.Token)
+	userId, _ := u.cacheAdapter.Get(ctx, request.Token)
 	if userId != "" {
 		return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "User has already signed out")
 	}

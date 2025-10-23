@@ -35,6 +35,7 @@ func NewRealtimeChatAdapter(ctx context.Context, app *firebase.App, logs logger.
 		logs:            logs,
 	}
 }
+
 func (u *realtimeChatAdapter) CreateChatRoom(ctx context.Context, user *entity.User, userProfile *entity.UserProfile) {
 	userRef := u.firestoreClient.Collection("users").Doc(user.Id)
 	_, err := userRef.Get(ctx)

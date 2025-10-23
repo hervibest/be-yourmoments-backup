@@ -118,7 +118,7 @@ func (r *walletRepository) FindIdByCreatorId(ctx context.Context, db Querier, cr
         SELECT id
         FROM wallets
         WHERE creator_id = $1
-    `
+    `	
 	var walletId string
 	err := db.GetContext(ctx, &walletId, query, creatorId)
 	if err != nil {

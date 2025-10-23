@@ -18,8 +18,11 @@ func NewApp() *fiber.App {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowOrigins:  "*",
+		AllowMethods:  "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+		AllowHeaders:  "Origin, Content-Type, Accept, Authorization, X-Requested-With, Referer, User-Agent",
+		ExposeHeaders: "Content-Length",
+		MaxAge:        12 * 3600, // 12 hours
 	}))
 
 	return app
@@ -34,7 +37,7 @@ func CustomError() fiber.ErrorHandler {
 
 		message := &Message{
 			Success: false,
-			Error:   err.Error(),
+			Message: err.Error(),
 		}
 
 		return ctx.Status(code).JSON(message)
@@ -43,5 +46,5 @@ func CustomError() fiber.ErrorHandler {
 
 type Message struct {
 	Success bool   `json:"success"`
-	Error   string `json:"error"`
+	Message string `json:"message"`
 }

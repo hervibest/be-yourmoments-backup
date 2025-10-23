@@ -340,6 +340,9 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 
 	transaction, err := u.transactionRepository.FindById(ctx, tx, request.OrderID, true)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid transaction id")
+		}
 		return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
 	}
 
@@ -599,7 +602,7 @@ func (u *transactionUseCase) UserGetWithDetail(ctx context.Context, request *mod
 
 	pbPhotoWithDetails, err := u.photoAdapter.GetPhotoWithDetails(ctx, photoIds, request.UserID)
 	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to get photo with details from photo service using grpc", err)
+		return nil, err
 	}
 
 	return converter.TransactionAndPhotoToSingleResponse(*transactionWithDetails, *pbPhotoWithDetails), nil

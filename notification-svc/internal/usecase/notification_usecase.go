@@ -94,6 +94,7 @@ func (u *notificationUseCase) getTokenFromRedis(ctx context.Context, userID stri
 	if err != nil {
 		return nil, fmt.Errorf("redis error for userID %s: %w", userID, err)
 	}
+
 	if len(tokens) == 0 {
 		return nil, nil
 	}

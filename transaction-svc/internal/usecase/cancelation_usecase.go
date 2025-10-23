@@ -3,10 +3,12 @@ package usecase
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum"
+	errorcode "github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/enum/error"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
@@ -67,6 +69,9 @@ func (u *cancelationUseCase) CancelPendingTransaction(ctx context.Context, trans
 func (u *cancelationUseCase) updateTransactionStatusIfPending(ctx context.Context, tx *sqlx.Tx, transactionId string, status enum.TrxInternalStatus) error {
 	transaction, err := u.transactionRepo.FindById(ctx, tx, transactionId, true)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid transaction id")
+		}
 		return err
 	}
 

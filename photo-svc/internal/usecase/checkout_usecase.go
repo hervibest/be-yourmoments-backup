@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum/error"
@@ -33,16 +34,18 @@ type checkoutUseCase struct {
 	creatorRepository         repository.CreatorRepository
 	creatorDiscountRepository repository.CreatorDiscountRepository
 	logs                      *logger.Log
+	CDNAdapter                adapter.CDNAdapter
 }
 
 func NewCheckoutUseCase(db *sqlx.DB, photoRepository repository.PhotoRepository, creatorRepository repository.CreatorRepository,
-	creatorDiscountRepository repository.CreatorDiscountRepository, logs *logger.Log) CheckoutUseCase {
+	creatorDiscountRepository repository.CreatorDiscountRepository, logs *logger.Log, CDNAdapter adapter.CDNAdapter) CheckoutUseCase {
 	return &checkoutUseCase{
 		db:                        db,
 		photoRepository:           photoRepository,
 		creatorRepository:         creatorRepository,
 		creatorDiscountRepository: creatorDiscountRepository,
 		logs:                      logs,
+		CDNAdapter:                CDNAdapter,
 	}
 }
 
@@ -178,7 +181,7 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePriceV2(ctx context.Context, req
 
 // #M231 ISSUE - Discount consistency (if creator deactivate the discount when user already previewed it)
 func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Querier, request *model.CalculateRequest, isTransaction bool) (*[]*model.CheckoutItem, *model.Total, error) {
-	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, isTransaction)
+	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, isTransaction, u.CDNAdapter.GenerateCDN)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")

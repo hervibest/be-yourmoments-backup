@@ -40,4 +40,5 @@ func NewUploadConsumer(
 			"upload.update.photo":   "upload_update_photo_consumer",
 		},
 	}
+
 }
