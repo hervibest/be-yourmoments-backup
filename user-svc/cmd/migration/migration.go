@@ -17,6 +17,8 @@ func Run() {
 		log.Fatal("USER_DB_URL is not set")
 	}
 
+	log.Printf("Connecting to DB: %s", dbURL)
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("failed to connect to DB: %v", err)
