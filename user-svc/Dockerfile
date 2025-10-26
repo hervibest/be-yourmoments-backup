@@ -26,8 +26,9 @@ FROM gcr.io/distroless/static
 
 WORKDIR /
 
-# Copy binary and migration files only
+# Copy binary, migration files, and templates
 COPY --from=builder /app/user-svc .
 COPY --from=builder /app/db/migrations ./db/migrations
+COPY --from=builder /app/internal/templates ./internal/templates
 
 ENTRYPOINT ["/user-svc"]
