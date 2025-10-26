@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/enum/message"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/model"
 
@@ -21,8 +22,14 @@ func StrictBodyParser(ctx *fiber.Ctx, request interface{}) error {
 func ErrBodyParserResponseJSON(ctx *fiber.Ctx, err error) error {
 	return ctx.Status(http.StatusBadRequest).JSON(model.BodyParseErrorResponse{
 		Success: false,
-		Message: "Invalid fields",
-		Errors:  err.Error(),
+		Message: err.Error(),
+	})
+}
+
+func ErrBodyResponseJSON(ctx *fiber.Ctx, msg string) error {
+	return ctx.Status(http.StatusBadRequest).JSON(model.BodyParseErrorResponse{
+		Success: false,
+		Message: msg,
 	})
 }
 
@@ -48,5 +55,5 @@ func ErrUseCaseResponseJSON(ctx *fiber.Ctx, msg string, err error, logs logger.L
 		})
 	}
 
-	return fiber.NewError(fiber.StatusInternalServerError, "Something went wrong. Please try again later")
+	return fiber.NewError(fiber.StatusInternalServerError, message.StatusInternalServerError)
 }

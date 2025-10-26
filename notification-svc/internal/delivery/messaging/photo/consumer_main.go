@@ -43,7 +43,6 @@ func (s *PhotoConsumer) startConsumer(ctx context.Context, sub *nats.Subscriptio
 		default:
 			msgs, err := sub.Fetch(10, nats.MaxWait(2*time.Second))
 			if err != nil && err != nats.ErrTimeout {
-				s.logs.Error(fmt.Sprintf("feth error for subject : %s", subject))
 				continue
 			}
 

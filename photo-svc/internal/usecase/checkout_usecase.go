@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum"
 	errorcode "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/enum/error"
@@ -23,6 +24,7 @@ type CheckoutUseCase interface {
 	PreviewCheckout(ctx context.Context, request *model.PreviewCheckoutRequest) (*model.PreviewCheckoutResponse, error)
 	OwnerOwnPhotos(ctx context.Context, request *model.OwnerOwnPhotosRequest) error
 	LockPhotosAndCalculatePrice(ctx context.Context, request *model.CalculateRequest) (*[]*model.CheckoutItem, *model.Total, error)
+	LockPhotosAndCalculatePriceV2(ctx context.Context, request *model.CalculateV2Request) (*[]*model.CheckoutItem, *model.Total, error)
 	CancelPhotos(ctx context.Context, request *model.CancelPhotosRequest) error
 }
 
@@ -32,16 +34,18 @@ type checkoutUseCase struct {
 	creatorRepository         repository.CreatorRepository
 	creatorDiscountRepository repository.CreatorDiscountRepository
 	logs                      *logger.Log
+	CDNAdapter                adapter.CDNAdapter
 }
 
 func NewCheckoutUseCase(db *sqlx.DB, photoRepository repository.PhotoRepository, creatorRepository repository.CreatorRepository,
-	creatorDiscountRepository repository.CreatorDiscountRepository, logs *logger.Log) CheckoutUseCase {
+	creatorDiscountRepository repository.CreatorDiscountRepository, logs *logger.Log, CDNAdapter adapter.CDNAdapter) CheckoutUseCase {
 	return &checkoutUseCase{
 		db:                        db,
 		photoRepository:           photoRepository,
 		creatorRepository:         creatorRepository,
 		creatorDiscountRepository: creatorDiscountRepository,
 		logs:                      logs,
+		CDNAdapter:                CDNAdapter,
 	}
 }
 
@@ -86,9 +90,98 @@ func (u *checkoutUseCase) LockPhotosAndCalculatePrice(ctx context.Context, reque
 	return result, total, err
 }
 
+func (u *checkoutUseCase) LockPhotosAndCalculatePriceV2(ctx context.Context, request *model.CalculateV2Request) (*[]*model.CheckoutItem, *model.Total, error) {
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	itemMap := make(map[string]model.CheckoutItemWeb)
+	photoIDs := make([]string, 0, len(request.Items))
+	for _, item := range request.Items {
+		photoIDs = append(photoIDs, item.PhotoId)
+		itemMap[item.PhotoId] = item
+	}
+
+	calculatePriceReq := &model.CalculateRequest{
+		UserId:    request.UserId,
+		CreatorId: request.CreatorId,
+		PhotoIds:  photoIDs,
+	}
+
+	result, total, err := u.calculatePrice(ctx, tx, calculatePriceReq, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, item := range *result {
+		if toCompare, ok := itemMap[item.PhotoId]; ok {
+			if toCompare.PhotoId != item.PhotoId {
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
+			}
+			if toCompare.CreatorId != item.CreatorId {
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid creator id")
+			}
+			if toCompare.Title != item.Title {
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Title has changed")
+			}
+			if toCompare.Price != item.Price {
+				u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare price :%d item price %d", toCompare.Price, item.Price))
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Price has changed")
+			}
+			if toCompare.Discount != nil {
+				if item.DiscountId == "" {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has removed")
+				}
+				if item.DiscountId != toCompare.Discount.Id {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+				if string(item.DiscountType) != string(toCompare.Discount.Type) {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+				if item.DiscountMinQuantity != toCompare.Discount.MinQuantity {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+				if item.DiscountValue != toCompare.Discount.Value {
+					return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Discount has changed")
+				}
+			}
+			if toCompare.FinalPrice != item.FinalPrice {
+				u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare final price :%d item finasl  price %d", toCompare.FinalPrice, item.FinalPrice))
+
+				return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Price has changed")
+			}
+		}
+	}
+
+	if request.TotalPrice != total.Price {
+		u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare total price :%d item total price %d", request.TotalPrice, total.Price))
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Total price has changed")
+	}
+
+	if request.TotalDiscount != total.Discount {
+		u.logs.Log(fmt.Sprintf("[ToComparePrice] tocompare total discount :%d item total discount %d", request.TotalDiscount, total.Discount))
+		return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Total discount has changed")
+	}
+
+	if err := u.photoRepository.UpdatePhotoStatusesByIDs(ctx, tx, enum.PhotoStatusInTransactionEnum, photoIDs); err != nil {
+		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to update photo statuses by photo ids with status IN_TRANSACTION ", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		return nil, nil, err
+	}
+
+	return result, total, err
+}
+
 // #M231 ISSUE - Discount consistency (if creator deactivate the discount when user already previewed it)
 func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Querier, request *model.CalculateRequest, isTransaction bool) (*[]*model.CheckoutItem, *model.Total, error) {
-	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, isTransaction)
+	photos, err := u.photoRepository.GetSimilarPhotosByIDs(ctx, tx, request.UserId, request.CreatorId, request.PhotoIds, isTransaction, u.CDNAdapter.GenerateCDN)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid photo id")
@@ -171,9 +264,10 @@ func (u *checkoutUseCase) calculatePrice(ctx context.Context, tx repository.Quer
 	for _, p := range *photos {
 		if disc, ok := discountMap[p.CreatorId]; ok {
 			var discount int32 = 0
-			if disc.DiscountType == enum.DiscountTypeFlat {
+			switch disc.DiscountType {
+			case enum.DiscountTypeFlat:
 				discount = disc.Value
-			} else if disc.DiscountType == enum.DiscountTypePercent {
+			case enum.DiscountTypePercent:
 				discount = p.Price * disc.Value / 100
 			}
 
@@ -228,7 +322,7 @@ func (u *checkoutUseCase) OwnerOwnPhotos(ctx context.Context, request *model.Own
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	photos, err := u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.OwnerId, request.PhotoIds, true)
+	photos, err := u.photoRepository.GetManyInTransactionByIDsAndUserID(ctx, tx, request.OwnerId, request.PhotoIds, true)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
 	}
@@ -262,7 +356,7 @@ func (u *checkoutUseCase) CancelPhotos(ctx context.Context, request *model.Cance
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
 
-	photos, err := u.photoRepository.GetSimilarPhotosByIDsWithoutCreatorFilter(ctx, tx, request.UserId, request.PhotoIds, true)
+	photos, err := u.photoRepository.GetManyInTransactionByIDsAndUserID(ctx, tx, request.UserId, request.PhotoIds, true)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "error get photos by ids", err)
 	}

@@ -31,11 +31,11 @@ type CheckoutItemWeb struct {
 }
 
 type DiscountItem struct {
-	Discount            int32             `json:"discount"`
-	DiscountMinQuantity int               `json:"discount_min_quantity"`
-	DiscountValue       int32             `json:"discount_value"`
-	DiscountId          string            `json:"discount_id"`
-	DiscountType        enum.DiscountType `json:"discount_type"`
+	Id          string            `json:"id"`
+	Amount      int32             `json:"amount"`
+	MinQuantity int               `json:"min_quantity"`
+	Value       int32             `json:"value"`
+	Type        enum.DiscountType `json:"type"`
 }
 
 type PreviewCheckoutRequest struct {
@@ -69,4 +69,12 @@ type PreviewCheckoutResponse struct {
 type Total struct {
 	Price    int32
 	Discount int32
+}
+
+type CalculateV2Request struct {
+	UserId        string            `validate:"required"`
+	CreatorId     string            `validate:"required"`
+	Items         []CheckoutItemWeb `json:"items" validate:"required"`
+	TotalPrice    int32             `json:"total_price" validate:"required,gt=0"`
+	TotalDiscount int32             `json:"total_discount" validate:"required,gt=0"`
 }

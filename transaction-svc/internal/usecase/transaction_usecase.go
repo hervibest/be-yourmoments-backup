@@ -20,6 +20,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/converter"
+	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/model/event"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/repository"
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/usecase/contract"
 	"github.com/redis/go-redis/v9"
@@ -339,6 +340,9 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 
 	transaction, err := u.transactionRepository.FindById(ctx, tx, request.OrderID, true)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid transaction id")
+		}
 		return helper.WrapInternalServerError(u.logs, "failed to update transaction callback in database", err)
 	}
 
@@ -353,7 +357,7 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 		transaction.InternalStatus != enum.TrxInternalStatusTokenReady &&
 		transaction.InternalStatus != enum.TrxInternalStatusExpired {
 		u.logs.CustomLog("transaction internal status already final. Ignoring duplicate settlement :.", transaction.Id)
-		return helper.NewUseCaseError(errorcode.ErrForbidden, "Transaction internal status already final")
+		return nil
 	}
 
 	now := time.Now()
@@ -456,9 +460,20 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 
 	if transactionStatus == enum.TransactionStatusCancelled || transactionStatus == enum.TransactionStatusExpired ||
 		transactionStatus == enum.TransactionStatusFailed {
-		if err := u.photoAdapter.CancelPhotos(ctx, transaction.UserId, photoIds); err != nil {
-			return err
+		// if err := u.photoAdapter.CancelPhotos(ctx, transaction.UserId, photoIds); err != nil {
+		// 	return err
+		// }
+
+		event := &event.CancelPhotosEvent{
+			UserId:   transaction.UserId,
+			PhotoIds: photoIds,
 		}
+
+		if err := u.transactionProducer.ProduceTransactionCanceledEvent(ctx, event); err != nil {
+			u.logs.Error(fmt.Sprintf("failed to publish cancel photos event: %v", err))
+			return nil
+		}
+
 		u.logs.Log(fmt.Sprintf("successfully cancel photos from photo service with transaction id %s and buyer %s :.", transaction.Id, transaction.UserId))
 		return nil
 	}
@@ -468,9 +483,18 @@ func (u *transactionUseCase) CheckAndUpdateTransaction(ctx context.Context, requ
 		return nil
 	}
 
-	//Call photo service to update photo owner
-	if err := u.photoAdapter.OwnerOwnPhotos(ctx, transaction.UserId, photoIds); err != nil {
-		return err
+	// //Call photo service to update photo owner
+	// if err := u.photoAdapter.OwnerOwnPhotos(ctx, transaction.UserId, photoIds); err != nil {
+	// 	return err
+	// }
+
+	event := &event.OwnerOwnPhotosEvent{
+		UserId:   transaction.UserId,
+		PhotoIds: photoIds,
+	}
+
+	if err := u.transactionProducer.ProduceTransactionSettledEvent(ctx, event); err != nil {
+		u.logs.Error(fmt.Sprintf("failed to publish owner own settled photos event: %v", err))
 	}
 
 	if err := u.distributeTransactionToWallets(ctx, transaction.Id); err != nil {
@@ -578,7 +602,7 @@ func (u *transactionUseCase) UserGetWithDetail(ctx context.Context, request *mod
 
 	pbPhotoWithDetails, err := u.photoAdapter.GetPhotoWithDetails(ctx, photoIds, request.UserID)
 	if err != nil {
-		return nil, helper.WrapInternalServerError(u.logs, "failed to get photo with details from photo service using grpc", err)
+		return nil, err
 	}
 
 	return converter.TransactionAndPhotoToSingleResponse(*transactionWithDetails, *pbPhotoWithDetails), nil
@@ -591,4 +615,155 @@ func (u *transactionUseCase) GetAllUserTransaction(ctx context.Context, request 
 	}
 
 	return converter.UserTransactionToResponse(userTransactions), pageMetadata, nil
+}
+
+func (u *transactionUseCase) CreateTransactionV2(ctx context.Context, request *model.CreateTransactionV2Request) (*model.CreateTransactionResponse, error) {
+	var outerErr error
+
+	items, total, errAdapter := u.photoAdapter.CalculatePhotoPriceV2(ctx, request.UserId, request.CreatorId, request)
+	if errAdapter != nil {
+		return nil, errAdapter
+	}
+
+	if len(*items) == 0 {
+		return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Items is empty")
+	}
+
+	if total.Price == 0 {
+		return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Total price is zero")
+	}
+
+	// Step 1: Grouping per creator (photographer)
+	grouped := map[string][]*model.CheckoutItem{}
+	for _, i := range *items {
+		grouped[i.CreatorId] = append(grouped[i.CreatorId], i)
+	}
+
+	// Step 2: Hitung subtotal per creator dan total amount
+	var totalAmount int32 = 0
+
+	details := make([]*entity.TransactionDetail, 0)
+
+	allItems := make([]*entity.TransactionItem, 0)
+	now := time.Now()
+
+	photoIDs := make([]string, 0, len(*items))
+
+	for _, item := range *items {
+		photoIDs = append(photoIDs, item.PhotoId)
+	}
+
+	photoIDsByte, err := sonic.ConfigFastest.Marshal(photoIDs)
+	if err != nil {
+		outerErr = err
+		return nil, helper.WrapInternalServerError(u.logs, "failed to marshal photo ids", err)
+	}
+
+	transaction := &entity.Transaction{
+		Id:             uuid.NewString(),
+		UserId:         request.UserId,
+		InternalStatus: enum.TrxInternalStatusPending,
+		Status:         enum.TransactionStatusPending,
+		PhotoIds:       photoIDsByte,
+		Amount:         total.Price,
+		CheckoutAt:     &now,
+		CreatedAt:      &now,
+		UpdatedAt:      &now,
+	}
+
+	for creatorID, list := range grouped {
+		var subtotal int32 = 0
+		for _, it := range list {
+			subtotal += it.FinalPrice
+		}
+
+		detail := entity.TransactionDetail{
+			Id:                ulid.Make().String(),
+			TransactionId:     transaction.Id,
+			CreatorId:         creatorID,
+			SubTotalPrice:     subtotal,
+			CreatorDiscountId: list[0].DiscountId,
+			CreatedAt:         &now,
+			UpdatedAt:         &now,
+		}
+
+		details = append(details, &detail)
+		totalAmount += subtotal
+
+		for _, it := range list {
+			item := entity.TransactionItem{
+				Id:                  ulid.Make().String(),
+				TransactionDetailId: detail.Id,
+				PhotoId:             it.PhotoId,
+				Price:               it.Price,
+				Discount:            sql.NullInt32{Int32: it.Discount, Valid: it.Discount != 0},
+				FinalPrice:          it.FinalPrice,
+				CreatedAt:           &now,
+				UpdatedAt:           &now,
+			}
+			allItems = append(allItems, &item)
+		}
+	}
+
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		outerErr = err
+		return nil, err
+	}
+
+	defer func() {
+		repository.Rollback(err, tx, ctx, u.logs)
+	}()
+
+	transaction, err = u.transactionRepository.Create(ctx, tx, transaction)
+	if err != nil {
+		outerErr = err
+		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction in database", err)
+	}
+
+	_, err = u.transactionDetailRepository.Create(ctx, tx, transaction.Id, details)
+	if err != nil {
+		outerErr = err
+		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction details in database", err)
+	}
+
+	_, err = u.transactionItemRepository.Create(ctx, tx, allItems)
+	if err != nil {
+		outerErr = err
+		return nil, helper.WrapInternalServerError(u.logs, "failed to create transaction items in database", err)
+	}
+
+	if err := repository.Commit(tx, u.logs); err != nil {
+		outerErr = err
+		return nil, err
+	}
+
+	defer func() {
+		if outerErr != nil {
+			event := &event.CancelPhotosEvent{
+				UserId:   request.UserId,
+				PhotoIds: photoIDs,
+			}
+			if err := u.transactionProducer.ProduceTransactionCanceledEvent(ctx, event); err != nil {
+				u.logs.Error(fmt.Sprintf("failed to publish cancel photos event: %v", err))
+			}
+		}
+	}()
+
+	token, redirectUrl, err := u.getPaymentToken(ctx, transaction)
+	if err != nil {
+		return converter.TransactionToResponse(transaction, ""), nil
+	}
+
+	if err := u.updateTransactionToken(ctx, token, transaction.Id); err != nil {
+		return nil, err
+	}
+
+	if err = u.transactionProducer.ScheduleTransactionTaskExpiration(ctx, transaction.Id); err != nil {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to set transaction task expiration", err)
+	}
+
+	transaction.SnapToken.String = token
+
+	return converter.TransactionToResponse(transaction, redirectUrl), nil
 }

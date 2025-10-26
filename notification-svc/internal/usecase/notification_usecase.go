@@ -94,6 +94,7 @@ func (u *notificationUseCase) getTokenFromRedis(ctx context.Context, userID stri
 	if err != nil {
 		return nil, fmt.Errorf("redis error for userID %s: %w", userID, err)
 	}
+
 	if len(tokens) == 0 {
 		return nil, nil
 	}
@@ -174,9 +175,11 @@ func (u *notificationUseCase) fetchFCMTokens(ctx context.Context, userIDs []stri
 */
 
 func (u *notificationUseCase) ProcessAndSendBulkNotificationsV2(ctx context.Context, userCountMap map[string]int32) error {
+	u.logs.Log(fmt.Sprintf("[USER][NOTIFICATION USECASE] Process and send bulk notification with userCountMap: %v", userCountMap))
 	lenCountMap := len(userCountMap)
 	userIDs := make([]string, 0, lenCountMap)
 	for idx := range userCountMap {
+		u.logs.Log(fmt.Sprintf("[USER][NOTIFICATION USECASE] Processing userID: %s with count: %d", idx, userCountMap[idx]))
 		userIDs = append(userIDs, idx)
 	}
 

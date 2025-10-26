@@ -32,15 +32,12 @@ func newUserProfilePreraredStmt(db *sqlx.DB) (*userProfilePreparedStmt, error) {
 }
 
 type UserProfileRepository interface {
-	Close() error
 	CreateWithProfileUrl(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	Create(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	Update(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
 	FindByUserId(ctx context.Context, userId string) (*entity.UserProfile, error)
 	UpdateSimilarity(ctx context.Context, tx Querier, similarity enum.SimilarityLevelEnum, userID string) error
-
-	// UpdateUserProfileImage(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
-	// UpdateUserProfileCover(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error)
+	UpdateImageURL(ctx context.Context, tx Querier, url, userProfId string, imageType enum.ImageTypeEnum) error
 }
 
 type userProfileRepository struct {
@@ -71,7 +68,8 @@ func (r *userProfileRepository) Close() error {
 }
 
 func (r *userProfileRepository) CreateWithProfileUrl(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-	query := `INSERT INTO user_profiles 
+	query := `
+	INSERT INTO user_profiles 
 	(id, user_id, nickname, profile_url, created_at, updated_at) 
 	VALUES ($1, $2, $3, $4, $5, $6)`
 
@@ -99,15 +97,39 @@ func (r *userProfileRepository) Create(ctx context.Context, tx Querier, userProf
 }
 
 func (r *userProfileRepository) Update(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-	query := `UPDATE user_profiles set birth_date = $1, nickname = $2, 
-	biography = $3, updated_at = $4 WHERE user_id = $5 RETURNING *`
+	query := `
+	UPDATE 
+		user_profiles
+	SET
+		birth_date = $1, 
+		nickname = $2, 
+		biography = $3, 
+		updated_at = $4 
+	WHERE 
+		user_id = $5 
+	RETURNING *`
 
-	row := tx.QueryRowxContext(ctx, query, userProfile.BirthDate, userProfile.Nickname, userProfile.Biography, userProfile.UpdatedAt, userProfile.UserId)
-	if err := row.StructScan(userProfile); err != nil {
+	if err := tx.GetContext(ctx, userProfile, query, userProfile.BirthDate, userProfile.Nickname, userProfile.Biography, userProfile.UpdatedAt, userProfile.UserId); err != nil {
 		return nil, err
 	}
 
 	return userProfile, nil
+}
+
+func (r *userProfileRepository) UpdateImageURL(ctx context.Context, tx Querier, url, userProfId string, imageType enum.ImageTypeEnum) error {
+	query := "UPDATE user_profiles SET "
+	if imageType == enum.ImageTypeProfile {
+		query += "profile_url = $1"
+	} else {
+		query += "profile_cover_url = $1"
+	}
+	query += " WHERE id = $2"
+	_, err := tx.ExecContext(ctx, query, url, userProfId)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *userProfileRepository) UpdateSimilarity(ctx context.Context, tx Querier, similarity enum.SimilarityLevelEnum, userID string) error {
@@ -129,25 +151,3 @@ func (r *userProfileRepository) FindByUserId(ctx context.Context, userId string)
 
 	return userProfile, nil
 }
-
-// func (r *userProfileRepository) UpdateUserProfileImage(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-// 	query := `UPDATE user_profiles set profile_url = $1, updated_at = $2 WHERE user_id = $3`
-// 	_, err := tx.ExecContext(ctx, query, userProfile.ProfileUrl, userProfile.UpdatedAt, userProfile.UserId)
-
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to update user profile image: %w", err)
-// 	}
-
-// 	return userProfile, nil
-// }
-
-// func (r *userProfileRepository) UpdateUserProfileCover(ctx context.Context, tx Querier, userProfile *entity.UserProfile) (*entity.UserProfile, error) {
-// 	query := `UPDATE user_profiles set profile_cover_url = $1, updated_at = $2 WHERE user_id = $3`
-// 	_, err := tx.ExecContext(ctx, query, userProfile.ProfileCoverUrl, userProfile.UpdatedAt, userProfile.UserId)
-
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to update user profile cover: %w", err)
-// 	}
-
-// 	return userProfile, nil
-// }

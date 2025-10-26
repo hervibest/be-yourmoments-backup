@@ -45,3 +45,17 @@ func ToSQLString(input *string) sql.NullString {
 		Valid:  true,
 	}
 }
+
+func SQLStringToPtr(ns sql.NullString) *string {
+	if ns.Valid {
+		return &ns.String
+	}
+	return nil
+}
+
+func SQLFloat64ToPtr(ns sql.NullFloat64) *float64 {
+	if ns.Valid {
+		return &ns.Float64
+	}
+	return nil
+}

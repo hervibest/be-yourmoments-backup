@@ -28,14 +28,25 @@ type BankWalletUseCase interface {
 type bankWalletUseCase struct {
 	db             *sqlx.DB
 	bankWalletRepo repository.BankWalletRepository
+	bankRepo       repository.BankRepository
+	walletRepo     repository.WalletRepository
 	logs           *logger.Log
 }
 
-func NewBankWalletUseCase(db *sqlx.DB, bankWalletRepo repository.BankWalletRepository, logs *logger.Log) BankWalletUseCase {
-	return &bankWalletUseCase{db: db, bankWalletRepo: bankWalletRepo, logs: logs}
+func NewBankWalletUseCase(db *sqlx.DB,
+	bankWalletRepo repository.BankWalletRepository,
+	bankRepo repository.BankRepository,
+	logs *logger.Log) BankWalletUseCase {
+	return &bankWalletUseCase{
+		db:             db,
+		bankWalletRepo: bankWalletRepo,
+		bankRepo:       bankRepo,
+		logs:           logs,
+	}
 }
 
-func (u *bankWalletUseCase) Create(ctx context.Context, request *model.CreateBankWalletRequest) (*model.BankWalletResponse, error) {
+func (u *bankWalletUseCase) Create(ctx context.Context,
+	request *model.CreateBankWalletRequest) (*model.BankWalletResponse, error) {
 	now := time.Now()
 	bankWallet := &entity.BankWallet{
 		Id:            ulid.Make().String(),
@@ -55,6 +66,14 @@ func (u *bankWalletUseCase) Create(ctx context.Context, request *model.CreateBan
 	defer func() {
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()
+
+	_, err = u.bankRepo.FindById(ctx, u.db, request.BankId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid bank ID")
+		}
+		return nil, helper.WrapInternalServerError(u.logs, "failed to find bank by id", err)
+	}
 
 	bankWallet, err = u.bankWalletRepo.Create(ctx, tx, bankWallet)
 	if err != nil {

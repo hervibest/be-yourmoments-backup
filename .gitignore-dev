@@ -1,0 +1,18 @@
+# Development environment
+/tmp/be-yourmoments-dev/
+*.log
+*.tmp
+
+# Service account keys
+**/serviceAccountKey.json
+**/service-account*.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Docker volumes
+docker-data/
+postgres-data/
+minio-data/

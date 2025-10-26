@@ -22,6 +22,9 @@ func NewPhotoDetailRepository() PhotoDetailRepository {
 }
 
 func (r *photoDetailRepository) Create(tx Querier, photoDetail *entity.PhotoDetail) (*entity.PhotoDetail, error) {
+
+	log.Default().Printf("Ini adalah photo detail, id: %s, photo_id: %s, file_name: %s, file_key: %s, size: %d, type: %s, checksum: %s, width: %d, height: %d, url: %s, your_moments_type: %s, created_at: %s, updated_at: %s",
+		photoDetail.Id, photoDetail.PhotoId, photoDetail.FileName, photoDetail.FileKey, photoDetail.Size, photoDetail.Type)
 	query := `INSERT INTO photo_details 
 			  (id, photo_id, file_name, file_key, size, type, checksum, width, height, url, your_moments_type, created_at, updated_at) 
 			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`

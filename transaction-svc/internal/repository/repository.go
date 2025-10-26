@@ -53,10 +53,8 @@ func BeginTxx(db *sqlx.DB, ctx context.Context, logs *logger.Log) (*sqlx.Tx, err
 }
 
 func Rollback(err error, tx *sqlx.Tx, ctx context.Context, logs *logger.Log) {
-	if err != nil {
-		if tx != nil {
-			_ = tx.Rollback() // abaikan error rollback
-		}
+	if tx != nil {
+		_ = tx.Rollback() // abaikan error rollback
 	}
 }
 

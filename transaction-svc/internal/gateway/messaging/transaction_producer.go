@@ -16,6 +16,8 @@ import (
 type TransactionProducer interface {
 	ScheduleTransactionTaskExpiration(ctx context.Context, transactionID string) error
 	ProduceCreateReviewEvent(ctx context.Context, creatorReviewCountEvent *event.CreatorReviewCountEvent) error
+	ProduceTransactionSettledEvent(ctx context.Context, transactionSettledEvent *event.OwnerOwnPhotosEvent) error
+	ProduceTransactionCanceledEvent(ctx context.Context, transactionCanceledEvent *event.CancelPhotosEvent) error
 }
 
 type transactionProducer struct {
@@ -61,5 +63,29 @@ func (s *transactionProducer) ProduceCreateReviewEvent(ctx context.Context, crea
 	}
 
 	log.Printf("Published review update event for creator %s", creatorReviewCountEvent.Id)
+	return nil
+}
+
+func (s *transactionProducer) ProduceTransactionSettledEvent(ctx context.Context, transactionSettledEvent *event.OwnerOwnPhotosEvent) error {
+	subject := "transaction.settled"
+
+	err := s.messagingAdapter.Publish(ctx, subject, transactionSettledEvent)
+	if err != nil {
+		return fmt.Errorf("failed to publish transaction settled event: %w", err)
+	}
+
+	// log.Printf("Published transaction settled event for transaction %s", transactionSettledEvent.TransactionId)
+	return nil
+}
+
+func (s *transactionProducer) ProduceTransactionCanceledEvent(ctx context.Context, transactionCanceledEvent *event.CancelPhotosEvent) error {
+	subject := "transaction.canceled"
+
+	err := s.messagingAdapter.Publish(ctx, subject, transactionCanceledEvent)
+	if err != nil {
+		return fmt.Errorf("failed to publish transaction canceled event: %w", err)
+	}
+
+	// log.Printf("Published transaction canceled event for transaction %s", transactionCanceledEvent.TransactionId)
 	return nil
 }

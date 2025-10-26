@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-svc
+  labels:
+    app: user-svc
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-svc
+  template:
+    metadata:
+      labels:
+        app: user-svc
+        version: v1
+    spec:
+      containers:
+      - name: user-svc
+        image: ghcr.io/hervipro/be-yourmoments-backup-user-svc:latest
+        ports:
+        - containerPort: 8003
+        env:
+        - name: PORT
+          value: "8003"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: db-host
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: db-port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: db-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: db-password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: db-name
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: redis-host
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: redis-password
+        - name: NATS_URL
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: nats-url
+        - name: CONSUL_HOST
+          valueFrom:
+            secretKeyRef:
+              name: user-svc-secrets
+              key: consul-host
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/app/serviceAccountKey.json"
+        volumeMounts:
+        - name: service-account-key
+          mountPath: /app/serviceAccountKey.json
+          subPath: serviceAccountKey.json
+          readOnly: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: service-account-key
+        secret:
+          secretName: user-svc-service-account
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-svc
+  labels:
+    app: user-svc
+spec:
+  selector:
+    app: user-svc
+  ports:
+  - port: 8003
+    targetPort: 8003
+    protocol: TCP
+  type: ClusterIP

@@ -82,7 +82,7 @@ func (u *exploreUseCase) GetUserWishlist(ctx context.Context, request *model.Get
 	return converter.ExploresToResponses(&explores, u.CDNAdapter.GenerateCDN), pageMetadata, nil
 }
 
-//apa alasanya menggunakan pesimistic lock ?
+// apa alasanya menggunakan pesimistic lock ?
 func (u *exploreUseCase) UserAddWishlist(ctx context.Context, request *model.UserAddWishlistRequest) error {
 	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
 	if err != nil {
@@ -229,7 +229,7 @@ func (u *exploreUseCase) GetUserCart(ctx context.Context, request *model.GetAllC
 	defer span.End()
 
 	explores, pageMetadata, err := u.exploreRepository.FindAllExploreSimilar(ctx, u.db, request.Page, request.Size, request.Similarity,
-		request.UserId, request.CreatorId, false, true, false)
+		request.UserId, request.CreatorId, false, false, true)
 	if err != nil {
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to find all user cart photo in database", err)
 	}

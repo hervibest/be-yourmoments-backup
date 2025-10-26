@@ -21,7 +21,7 @@ func NewMessagingAdapter(js nats.JetStreamContext) MessagingAdapter {
 }
 
 func (n *messagingAdapter) Publish(ctx context.Context, subject string, data any) error {
-	payload, err := sonic.ConfigFastest.Marshal(data)
+	payload, err := sonic.ConfigStd.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}

@@ -41,9 +41,10 @@ func (c *reviewController) UserCreateReview(ctx *fiber.Ctx) error {
 
 	auth := middleware.GetUser(ctx)
 	request.UserId = auth.UserId
+	request.CreatorId = auth.CreatorId
 
-	if validatonErrs := c.customValidator.ValidateUseCase(request); validatonErrs != nil {
-		return helper.ErrValidationResponseJSON(ctx, validatonErrs)
+	if validationErrs := c.customValidator.ValidateUseCase(request); validationErrs != nil {
+		return helper.ErrValidationResponseJSON(ctx, validationErrs)
 	}
 
 	response, err := c.reviewUseCase.Create(ctx.Context(), request)

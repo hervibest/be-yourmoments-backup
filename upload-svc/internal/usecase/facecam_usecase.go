@@ -28,7 +28,7 @@ type FacecamUseCase interface {
 
 type facecamUseCase struct {
 	// aiAdapter       adapter.AiAdapter
-	photoAdapter    adapter.PhotoAdapter
+	// photoAdapter    adapter.PhotoAdapter
 	storageAdapter  adapter.StorageAdapter
 	compressAdapter adapter.CompressAdapter
 	uploadProducer  producer.UploadProducer
@@ -36,12 +36,12 @@ type facecamUseCase struct {
 }
 
 func NewFacecamUseCase(
-	photoAdapter adapter.PhotoAdapter,
+	// photoAdapter adapter.PhotoAdapter,
 	// aiAdapter adapter.AiAdapter,
 	storageAdapter adapter.StorageAdapter, compressAdapter adapter.CompressAdapter,
 	uploadProducer producer.UploadProducer, logs logger.Log) FacecamUseCase {
 	return &facecamUseCase{
-		photoAdapter: photoAdapter,
+		// photoAdapter: photoAdapter,
 		// aiAdapter:       aiAdapter,
 		storageAdapter:  storageAdapter,
 		compressAdapter: compressAdapter,
@@ -98,7 +98,11 @@ func (u *facecamUseCase) UploadFacecam(ctx context.Context, file *multipart.File
 		UpdatedAt:  now,
 	}
 
-	if err := u.photoAdapter.CreateFacecam(ctx, newFacecam); err != nil {
+	// if err := u.photoAdapter.CreateFacecam(ctx, newFacecam); err != nil {
+	// 	return helper.WrapInternalServerError(u.logs, "Failed to save facecam metadata", err)
+	// }
+
+	if err := u.uploadProducer.CreateFacecam(ctx, newFacecam); err != nil {
 		return helper.WrapInternalServerError(u.logs, "Failed to save facecam metadata", err)
 	}
 

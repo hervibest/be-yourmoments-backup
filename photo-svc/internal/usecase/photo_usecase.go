@@ -305,7 +305,7 @@ func (u *photoUsecase) GetPhotoFile(ctx context.Context, filename string) (io.Re
 func (u *photoUsecase) UserGetPhotoWithDetail(ctx context.Context, photoIDs []string, userID string) (*photopb.GetPhotoWithDetailsResponse, error) {
 	log.Print("user id in user ge photo wih detail", userID)
 	object, err := u.photoRepo.UserGetPhotoWithDetail(ctx, u.db, photoIDs, userID)
-	if len(*object) == 0 {
+	if len(object) == 0 {
 		return nil, helper.NewUseCaseError(errorcode.ErrResourceNotFound, "Photo with detail not found")
 	}
 
@@ -316,5 +316,5 @@ func (u *photoUsecase) UserGetPhotoWithDetail(ctx context.Context, photoIDs []st
 		return nil, helper.WrapInternalServerError(u.logs, "failed to get photo file from minio storage", err)
 	}
 
-	return converter.PhotoWithDetailsToGRPC(object, u.CDNAdapter.GenerateCDN), nil
+	return converter.PhotoWithDetailsToGRPC(&object, u.CDNAdapter.GenerateCDN), nil
 }

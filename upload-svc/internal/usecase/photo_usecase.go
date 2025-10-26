@@ -37,7 +37,7 @@ type PhotoUsecase interface {
 }
 
 type photoUsecase struct {
-	photoAdapter adapter.PhotoAdapter
+	// photoAdapter adapter.PhotoAdapter
 	// aiAdapter       adapter.AiAdapter
 	storageAdapter  adapter.StorageAdapter
 	compressAdapter adapter.CompressAdapter
@@ -45,12 +45,13 @@ type photoUsecase struct {
 	logs            logger.Log
 }
 
-func NewPhotoUsecase(photoAdapter adapter.PhotoAdapter,
+func NewPhotoUsecase(
+	// photoAdapter adapter.PhotoAdapter,
 	// aiAdapter adapter.AiAdapter,
 	storageAdapter adapter.StorageAdapter, compressAdapter adapter.CompressAdapter,
 	uploadProducer producer.UploadProducer, logs logger.Log) PhotoUsecase {
 	return &photoUsecase{
-		photoAdapter: photoAdapter,
+		// photoAdapter: photoAdapter,
 		// aiAdapter:       aiAdapter,
 		storageAdapter:  storageAdapter,
 		compressAdapter: compressAdapter,
@@ -162,7 +163,11 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 	}
 
 	startDB := time.Now()
-	if err := u.photoAdapter.CreatePhoto(ctx, newPhoto, newPhotoDetail); err != nil {
+	// if err := u.photoAdapter.CreatePhoto(ctx, newPhoto, newPhotoDetail); err != nil {
+	// 	return helper.WrapInternalServerError(u.logs, "failed to create photo :", err)
+	// }
+
+	if err := u.uploadProducer.CreatePhoto(ctx, newPhoto, newPhotoDetail); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to create photo :", err)
 	}
 	u.logs.Log(fmt.Sprintf("⏱️ Insert to DB took: %v", time.Since(startDB)))
@@ -225,7 +230,12 @@ func (u *photoUsecase) UploadPhoto(ctx context.Context, file *multipart.FileHead
 		}
 
 		compDB := time.Now()
-		if err := u.photoAdapter.UpdatePhotoDetail(ctx, compressedPhotoDetail); err != nil {
+		// if err := u.photoAdapter.UpdatePhotoDetail(ctx, compressedPhotoDetail); err != nil {
+		// 	u.logs.CustomError("failed to update compressed photo detail: %v", err)
+		// 	return
+		// }
+
+		if err := u.uploadProducer.UpdatePhotoDetail(ctx, compressedPhotoDetail); err != nil {
 			u.logs.CustomError("failed to update compressed photo detail: %v", err)
 			return
 		}
@@ -357,7 +367,11 @@ func (u *photoUsecase) BulkUploadPhoto(ctx context.Context, files []*multipart.F
 		u.logs.Log(fmt.Sprintf("Uploaded photo %s (%dx%d) [%s]", upload.Filename, imgConfig.Width, imgConfig.Height, imageType))
 	}
 
-	if err := u.photoAdapter.CreatePhotos(ctx, bulkPhoto, &photoEntities, &photoDetailEntities); err != nil {
+	// if err := u.photoAdapter.CreatePhotos(ctx, bulkPhoto, &photoEntities, &photoDetailEntities); err != nil {
+	// 	return helper.WrapInternalServerError(u.logs, "failed to create photo entities", err)
+	// }
+
+	if err := u.uploadProducer.CreatePhotos(ctx, bulkPhoto, &photoEntities, &photoDetailEntities); err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to create photo entities", err)
 	}
 

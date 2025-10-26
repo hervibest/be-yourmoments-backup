@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log"
 
 	"github.com/hervibest/be-yourmoments-backup/transaction-svc/internal/entity"
 )
@@ -9,7 +10,7 @@ import (
 type TransactionDetailRepository interface {
 	Create(ctx context.Context, tx Querier, trxId string, details []*entity.TransactionDetail) (*[]*entity.TransactionDetail, error)
 	FindManyByTrxID(ctx context.Context, tx Querier, trxId string) (*[]*entity.TransactionDetail, error)
-	FindByID(ctx context.Context, tx Querier, transactionDetailID string) (*entity.TransactionDetail, error)
+	FindByIDNotCreator(ctx context.Context, tx Querier, transactionDetailID, creatorID string, isForUpdate bool) (*entity.TransactionDetail, error)
 	UpdateReviewStatus(ctx context.Context, tx Querier, transactionDetail *entity.TransactionDetail) (*entity.TransactionDetail, error)
 }
 
@@ -50,14 +51,21 @@ func (r *transactionDetailRepository) FindManyByTrxID(ctx context.Context, tx Qu
 	return &details, nil
 }
 
-func (r *transactionDetailRepository) FindByID(ctx context.Context, tx Querier, transactionDetailID string) (*entity.TransactionDetail, error) {
+func (r *transactionDetailRepository) FindByIDNotCreator(ctx context.Context, tx Querier, transactionDetailID, creatorID string, isForUpdate bool) (*entity.TransactionDetail, error) {
+	log.Default().Println("Creator ID in repo:", creatorID)
+
 	transactionDetail := new(entity.TransactionDetail)
-	const query = `
+	var query = `
         SELECT id, transaction_id, creator_id, subtotal_price, is_reviewed
         FROM transaction_details
-        WHERE id = $1
+        WHERE id = $1 AND creator_id != $2
     `
-	err := tx.GetContext(ctx, transactionDetail, query, transactionDetailID)
+
+	if isForUpdate {
+		query += " FOR UPDATE"
+	}
+
+	err := tx.GetContext(ctx, transactionDetail, query, transactionDetailID, creatorID)
 	if err != nil {
 		return nil, err
 	}

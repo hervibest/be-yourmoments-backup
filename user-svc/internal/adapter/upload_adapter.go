@@ -16,7 +16,9 @@ import (
 
 type UploadAdapter interface {
 	UploadFile(ctx context.Context, file *multipart.FileHeader, uploadFile multipart.File, path string) (*model.MinioFileResponse, error)
+	UploadPublicFile(ctx context.Context, file *multipart.FileHeader, uploadFile multipart.File, path string) (*model.MinioFileResponse, error)
 	DeleteFile(ctx context.Context, fileName string) (bool, error)
+	DeletePublicFile(ctx context.Context, fileName string) (bool, error)
 	GetPresignedUrl(ctx context.Context, fileKey string) (string, error)
 }
 
@@ -78,6 +80,15 @@ func (a *uploadAdapter) DeleteFile(ctx context.Context, fileName string) (bool, 
 	return true, nil
 }
 
+func (a *uploadAdapter) DeletePublicFile(ctx context.Context, fileName string) (bool, error) {
+	err := a.minio.MinioClient.RemoveObject(ctx, a.minio.GetPublicBucketName(), fileName, minio.RemoveObjectOptions{ForceDelete: true})
+	if err != nil {
+		return false, fmt.Errorf("failed to delete file: %w", err)
+	}
+
+	return true, nil
+}
+
 func (a *uploadAdapter) GetPresignedUrl(ctx context.Context, fileKey string) (string, error) {
 	cacheKey := "presigned_url:" + fileKey
 
@@ -98,4 +109,33 @@ func (a *uploadAdapter) GetPresignedUrl(ctx context.Context, fileKey string) (st
 	}
 
 	return urlStr, nil
+}
+
+func (a *uploadAdapter) UploadPublicFile(ctx context.Context, file *multipart.FileHeader, uploadFile multipart.File, path string) (*model.MinioFileResponse, error) {
+	fileKey := path + string(RandomNumber(31)) + "_" + file.Filename
+	contentType := file.Header.Get("Content-Type")
+
+	s3PutObjectOutput, err := a.minio.MinioClient.PutObject(ctx, a.minio.GetPublicBucketName(), fileKey, uploadFile, file.Size, minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	if err != nil {
+		a.minio.Logs.Error("failed to upload file to S3" + err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	fileResponse := new(model.MinioFileResponse)
+	fileResponse.ChecksumCRC32 = s3PutObjectOutput.ChecksumCRC32
+	fileResponse.ChecksumCRC32C = s3PutObjectOutput.ChecksumCRC32C
+	fileResponse.ChecksumSHA1 = s3PutObjectOutput.ChecksumSHA1
+	fileResponse.ChecksumSHA256 = s3PutObjectOutput.ChecksumSHA256
+	fileResponse.ETag = s3PutObjectOutput.ETag
+	fileResponse.Expiration = s3PutObjectOutput.Expiration
+
+	fileResponse.URL = a.minio.GetPublicURL() + "/" + fileKey
+	fileResponse.Filename = file.Filename
+	fileResponse.FileKey = fileKey
+	fileResponse.Mimetype = contentType
+	fileResponse.Size = file.Size
+
+	return fileResponse, nil
 }

@@ -49,7 +49,14 @@ func NewServerConfig() ServerConfig {
 	if grpcAddr == "" {
 		log.Fatal("GRPC_ADDR environment variable is not set")
 	}
-	grpcInternalAddr := ip
+
+	var addr string
+	if IsLocal() {
+		addr = grpcAddr
+	} else {
+		addr = ip
+	}
+
 	grpcPort := utils.GetEnv("GRPC_PORT")
 	if grpcPort == "" {
 		log.Fatal("GRPC_PORT environment variable is not set")
@@ -69,7 +76,7 @@ func NewServerConfig() ServerConfig {
 		HTTPPort:         port,
 		GRPC:             fmt.Sprintf("%s:%s", grpcAddr, grpcPort),
 		GRPCAddr:         grpcAddr,
-		GRPCInternalAddr: grpcInternalAddr,
+		GRPCInternalAddr: addr,
 		GRPCPort:         grpcPort,
 		ConsulAddr:       consulAddr,
 		Name:             name,

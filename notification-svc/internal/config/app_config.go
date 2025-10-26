@@ -1,6 +1,10 @@
 package config
 
-import "github.com/hervibest/be-yourmoments-backup/notification-svc/internal/helper/utils"
+import (
+	"log"
+
+	"github.com/hervibest/be-yourmoments-backup/notification-svc/internal/helper/utils"
+)
 
 const (
 	EnvLocal       = "local"
@@ -15,6 +19,7 @@ func init() {
 }
 
 func Get() string {
+	log.Default().Println("Current Environment: " + environtment)
 	return environtment
 }
 

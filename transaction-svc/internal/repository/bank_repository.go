@@ -11,6 +11,7 @@ type BankRepository interface {
 	Update(ctx context.Context, db Querier, bank *entity.Bank) (*entity.Bank, error)
 	FindById(ctx context.Context, db Querier, bankId string) (*entity.Bank, error)
 	FindAll(ctx context.Context, db Querier) (*[]*entity.Bank, error)
+	FindByCode(ctx context.Context, db Querier, bankCode string) (*entity.Bank, error)
 	Delete(ctx context.Context, db Querier, bankId string) error
 }
 
@@ -62,4 +63,14 @@ func (r *bankRepository) Delete(ctx context.Context, db Querier, bankId string) 
 		return err
 	}
 	return nil
+}
+
+func (r *bankRepository) FindByCode(ctx context.Context, db Querier, bankCode string) (*entity.Bank, error) {
+	bank := new(entity.Bank)
+	query := "SELECT * FROM banks WHERE bank_code = $1"
+	if err := db.GetContext(ctx, bank, query, bankCode); err != nil {
+		return nil, err
+	}
+
+	return bank, nil
 }

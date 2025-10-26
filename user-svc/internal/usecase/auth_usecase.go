@@ -113,24 +113,24 @@ func (u *authUseCase) RegisterByPhoneNumber(ctx context.Context, request *model.
 	}
 
 	var user *entity.User
-	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-		now := time.Now()
-		user = &entity.User{
-			Id:       ulid.Make().String(),
-			Username: request.Username,
-			Password: sql.NullString{
-				Valid:  true,
-				String: string(hashedPassword),
-			},
-			PhoneNumber: sql.NullString{
-				Valid:  true,
-				String: request.PhoneNumber,
-			},
-			CreatedAt: &now,
-			UpdatedAt: &now,
-		}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+	now := time.Now()
+	user = &entity.User{
+		Id:       ulid.Make().String(),
+		Username: request.Username,
+		Password: sql.NullString{
+			Valid:  true,
+			String: string(hashedPassword),
+		},
+		PhoneNumber: sql.NullString{
+			Valid:  true,
+			String: request.PhoneNumber,
+		},
+		CreatedAt: &now,
+		UpdatedAt: &now,
+	}
 
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
 		user, err = u.userRepository.CreateByPhoneNumber(ctx, tx, user)
 		if err != nil {
 			return helper.WrapInternalServerError(u.logs, "failed to create user by phone number", err)
@@ -276,11 +276,12 @@ func (u *authUseCase) RegisterOrLoginByGoogle(ctx context.Context, request *mode
 	}
 
 	auth := &entity.Auth{
-		Id:          user.Id,
-		Username:    user.Username,
-		Email:       user.Email.String,
-		PhoneNumber: user.PhoneNumber.String,
-		Similarity:  userProfile.Similarity,
+		Id:            user.Id,
+		Username:      user.Username,
+		Email:         user.Email.String,
+		PhoneNumber:   user.PhoneNumber.String,
+		UserProfileID: userProfile.Id,
+		Similarity:    userProfile.Similarity,
 	}
 
 	token, err := u.generateToken(ctx, auth)
@@ -432,7 +433,7 @@ func (u *authUseCase) ResendEmailVerification(ctx context.Context, email string)
 	_, err = u.emailVerificationRepo.FindByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid email or password")
+			return helper.NewUseCaseError(errorcode.ErrInvalidArgument, "The selected email is invalid.")
 		}
 		return helper.WrapInternalServerError(u.logs, "failed to find email verification by email", err)
 	}
@@ -661,11 +662,12 @@ func (u *authUseCase) Login(ctx context.Context, request *model.LoginUserRequest
 	}
 
 	auth := &entity.Auth{
-		Id:          user.Id,
-		Username:    user.Username,
-		Email:       user.Email.String,
-		PhoneNumber: user.PhoneNumber.String,
-		Similarity:  userProfile.Similarity,
+		Id:            user.Id,
+		Username:      user.Username,
+		Email:         user.Email.String,
+		PhoneNumber:   user.PhoneNumber.String,
+		UserProfileID: userProfile.Id,
+		Similarity:    userProfile.Similarity,
 	}
 
 	token, err := u.generateToken(ctx, auth)
@@ -742,7 +744,7 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 		return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "Invalid access token")
 	}
 
-	userId, err := u.cacheAdapter.Get(ctx, request.Token)
+	userId, _ := u.cacheAdapter.Get(ctx, request.Token)
 	if userId != "" {
 		return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "User has already signed out")
 	}
@@ -774,13 +776,14 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 	}
 
 	authResponse := &model.AuthResponse{
-		UserId:      auth.Id,
-		Username:    auth.Username,
-		Email:       auth.Email,
-		PhoneNumber: auth.PhoneNumber,
-		Similarity:  auth.Similarity,
-		Token:       request.Token,
-		ExpiresAt:   accessTokenDetail.ExpiresAt,
+		UserId:        auth.Id,
+		Username:      auth.Username,
+		Email:         auth.Email,
+		PhoneNumber:   auth.PhoneNumber,
+		UserProfileID: auth.UserProfileID,
+		Similarity:    auth.Similarity,
+		Token:         request.Token,
+		ExpiresAt:     accessTokenDetail.ExpiresAt,
 	}
 
 	return authResponse, nil
@@ -798,11 +801,12 @@ func (u *authUseCase) setAuthCache(ctx context.Context, user *entity.User, auth 
 	}
 
 	auth = &entity.Auth{
-		Id:          user.Id,
-		Username:    user.Username,
-		Email:       user.Email.String,
-		PhoneNumber: user.PhoneNumber.String,
-		Similarity:  userProfile.Similarity,
+		Id:            user.Id,
+		Username:      user.Username,
+		Email:         user.Email.String,
+		PhoneNumber:   user.PhoneNumber.String,
+		UserProfileID: userProfile.Id,
+		Similarity:    userProfile.Similarity,
 	}
 
 	jsonValue, err := sonic.ConfigFastest.Marshal(auth)

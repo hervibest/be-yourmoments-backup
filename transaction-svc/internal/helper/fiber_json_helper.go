@@ -23,8 +23,7 @@ func StrictBodyParser(ctx *fiber.Ctx, request interface{}) error {
 func ErrBodyParserResponseJSON(ctx *fiber.Ctx, err error) error {
 	return ctx.Status(http.StatusBadRequest).JSON(model.BodyParseErrorResponse{
 		Success: false,
-		Message: "Invalid fields",
-		Errors:  err.Error(),
+		Message: err.Error(),
 	})
 }
 
@@ -78,7 +77,7 @@ func MultipleULIDSliceParser(ulidSlice []string) error {
 		}
 	}
 	if len(invalidIds) != 0 {
-		return NewUseCaseError(errorcode.ErrInvalidArgument, fmt.Sprintf("Invalid photo ids : %s", invalidIds))
+		return NewUseCaseError(errorcode.ErrInvalidArgument, fmt.Sprintf("Invalid ids : %s", invalidIds))
 	}
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/hervibest/be-yourmoments-backup/notification-svc/cmd/migration"
 	"github.com/hervibest/be-yourmoments-backup/notification-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/notification-svc/internal/config"
 	subscriber "github.com/hervibest/be-yourmoments-backup/notification-svc/internal/delivery/messaging"
@@ -69,6 +70,10 @@ func worker(ctx context.Context) error {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	if !config.IsLocal() {
+		migration.Run()
+	}
 
 	if err := worker(ctx); err != nil {
 		logs.Error(err)

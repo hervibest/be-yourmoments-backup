@@ -17,16 +17,16 @@ func NewCreatorMiddleware(creatorUseCase usecase.CreatorUseCase, tracer trace.Tr
 		defer span.End()
 
 		auth := GetUser(ctx)
-		request := &model.GetCreatorIdRequest{
+		request := &model.GetCreatorRequest{
 			UserId: auth.UserId,
 		}
 
-		creatorId, err := creatorUseCase.GetCreatorId(context, request)
+		creator, err := creatorUseCase.GetCreator(context, request)
 		if err != nil {
 			return helper.ErrUseCaseResponseJSON(ctx, "Get creator error : ", err, logs)
 		}
 
-		auth.CreatorId = creatorId
+		auth.CreatorId = creator.Id
 
 		ctx.Locals("auth", auth)
 		return ctx.Next()

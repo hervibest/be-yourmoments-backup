@@ -1,6 +1,8 @@
 package config
 
 import (
+	"log"
+
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/utils"
 )
 
@@ -17,6 +19,7 @@ func init() {
 }
 
 func Get() string {
+	log.Default().Println("Current Environment: " + environtment)
 	return environtment
 }
 

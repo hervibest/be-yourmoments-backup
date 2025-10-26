@@ -11,16 +11,17 @@ type RequestGetUserProfile struct {
 }
 
 type RequestUpdateUserProfile struct {
-	UserId    string     `validate:"required"`
-	BirthDate *time.Time `json:"birth_date" validate:"required"`
-	Nickname  string     `json:"nickname" validate:"required"`
-	Biography string     `json:"biography" validate:"required"`
+	UserId       string     `validate:"required"`
+	BirthDate    *time.Time `json:"-"`
+	BirthDateStr string     `json:"birth_date" validate:"required"`
+	Nickname     string     `json:"nickname" validate:"required"`
+	Biography    string     `json:"biography" validate:"required"`
 }
 
 type UserProfileResponse struct {
 	Id              string     `json:"id"`
 	UserId          string     `json:"user_id"`
-	BirthDate       *time.Time `json:"birth_date,omitempty"`
+	BirthDate       string     `json:"birth_date,omitempty"`
 	Nickname        string     `json:"nickname"`
 	Biography       *string    `json:"biography"`
 	ProfileUrl      *string    `json:"profile_url"`
@@ -45,4 +46,8 @@ type GetAllPublicUserResponse struct {
 type RequestUpdateSimilarity struct {
 	Similarity enum.SimilarityLevelEnum `json:"similarity" validate:"required,gte=1,lte=9"`
 	UserID     string                   `json:"user_id" validate:"required"`
+}
+
+type UpdateSeimilarityResponse struct {
+	Similarity enum.SimilarityLevelEnum `json:"similarity"`
 }

@@ -18,6 +18,7 @@ service PhotoService{
   rpc CreateCreator(CreateCreatorRequest) returns (CreateCreatorResponse);
   rpc GetCreator(GetCreatorRequest) returns (GetCreatorResponse);
   rpc CalculatePhotoPrice(CalculatePhotoPriceRequest) returns (CalculatePhotoPriceResponse);
+  rpc CalculatePhotoPriceV2(CalculatePhotoPriceV2Request) returns (CalculatePhotoPriceV2Response);
   rpc OwnerOwnPhotos(OwnerOwnPhotosRequest) returns (OwnerOwnPhotosResponse);
   rpc CreateBulkPhoto(CreateBulkPhotoRequest) returns (CreateBulkPhotoResponse);
   rpc CreateBulkUserSimilarPhotos(CreateBulkUserSimilarPhotoRequest) returns (CreateBulkUserSimilarPhotoResponse);
@@ -300,3 +301,37 @@ message CancelPhotosRequest {
 message CancelPhotosResponse {
   int64   status  = 1;
   string  error   = 2;}
+
+
+message CheckoutItemWeb {
+  string photo_id = 1;
+  string creator_id = 2;
+  string title = 3;
+  int32 price = 5;
+  Discount discount = 6;
+  int32 final_price = 7;
+}
+
+message Discount {
+  int32 discount = 1;
+  string discount_id = 2;
+  string discount_type = 3;
+  int32 discount_min_quantity = 4;
+  int32 discount_value =5;
+}
+
+message CalculatePhotoPriceV2Request {
+  string user_id = 1;
+  string  creator_id = 2;
+  repeated CheckoutItemWeb chekout_item_web = 3; 
+  int32 total_price = 4;
+  int32 total_discount = 5;
+}
+
+message CalculatePhotoPriceV2Response {
+  int64   status  = 1;
+  repeated CheckoutItem items = 2;
+  Total total = 3;
+  string  error   = 4;
+}
+  

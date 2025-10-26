@@ -8,7 +8,7 @@ import (
 
 // consumer.go
 type PhotoConsumer struct {
-	notficiationUseCase usecase.NotificationUseCase
+	notificationUseCase usecase.NotificationUseCase
 	js                  nats.JetStreamContext
 	logs                logger.Log
 	subjects            []string
@@ -16,12 +16,12 @@ type PhotoConsumer struct {
 }
 
 func NewPhotoConsumer(
-	notficiationUseCase usecase.NotificationUseCase,
+	notificationUseCase usecase.NotificationUseCase,
 	js nats.JetStreamContext,
 	logs logger.Log,
 ) *PhotoConsumer {
 	return &PhotoConsumer{
-		notficiationUseCase: notficiationUseCase,
+		notificationUseCase: notificationUseCase,
 		js:                  js,
 		logs:                logs,
 		subjects: []string{
