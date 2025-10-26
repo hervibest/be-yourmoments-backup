@@ -55,6 +55,15 @@ func (u *bankUseCase) Create(ctx context.Context, request *model.CreateBankReque
 		return nil, err
 	}
 
+	existBank, err := u.bankRepository.FindByCode(ctx, u.db, request.BankCode)
+	if err == nil && existBank != nil {
+		return nil, helper.NewUseCaseError(errorcode.ErrAlreadyExists, "Bank code already exists")
+	}
+
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to check existing bank code", err)
+	}
+
 	defer func() {
 		repository.Rollback(err, tx, ctx, u.logs)
 	}()

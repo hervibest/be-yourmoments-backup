@@ -101,7 +101,9 @@ func (r *userSimilarRepository) InserOrUpdateByUserId(tx Querier, userId string,
 	placeholderCounter := 1
 	for _, userSimilarPhoto := range *userSimilarPhotos {
 		// Misalnya, baris pertama: ($1, $2, $3, $4), baris kedua: ($5, $6, $7, $8), dst.
-		insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", placeholderCounter, placeholderCounter+1, placeholderCounter+2, placeholderCounter+3, placeholderCounter+4))
+		insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)",
+			placeholderCounter, placeholderCounter+1, placeholderCounter+2, placeholderCounter+3, placeholderCounter+4))
+
 		insertArgs = append(insertArgs, userId, userSimilarPhoto.PhotoId, userSimilarPhoto.Similarity, now, now)
 		placeholderCounter += 5
 	}
@@ -109,6 +111,9 @@ func (r *userSimilarRepository) InserOrUpdateByUserId(tx Querier, userId string,
 	insertQuery := "INSERT INTO user_similar_photos (user_id, photo_id, similarity, created_at, updated_at) VALUES " +
 		strings.Join(insertValues, ", ") +
 		" ON CONFLICT (photo_id, user_id) DO UPDATE SET updated_at = EXCLUDED.updated_at"
+
+	log.Default().Println("Insert Query:", insertQuery)
+	log.Default().Println("Insert Args:", insertArgs)
 
 	if _, err := tx.Exec(insertQuery, insertArgs...); err != nil {
 		log.Println("Error at insert query:", err)

@@ -142,7 +142,7 @@ func webServer(ctx context.Context) error {
 
 	walletUseCase := usecase.NewWalletUseCase(walletRepository, cacheAdapter, dbConfig, logs)
 	bankUseCase := usecase.NewBankUseCase(dbConfig, bankRepository, logs)
-	bankWalletUseCase := usecase.NewBankWalletUseCase(dbConfig, bankWalletRepoistory, logs)
+	bankWalletUseCase := usecase.NewBankWalletUseCase(dbConfig, bankWalletRepoistory, bankRepository, logs)
 	reviewUseCase := usecase.NewReviewUseCase(transactionDetailRepo, creatorReviewRepo, transactionProducer, dbConfig, logs)
 	withdrawalUseCase := usecase.NewWithdrawalUseCase(dbConfig, withdrawalRepository, walletRepository, logs)
 	transactionWalletUC := usecase.NewTransactionWalletUseCase(dbConfig, transactionWalletRepo, logs)

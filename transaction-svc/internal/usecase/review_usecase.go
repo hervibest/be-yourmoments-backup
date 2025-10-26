@@ -45,7 +45,12 @@ func NewReviewUseCase(transactionDetailRepo repository.TransactionDetailReposito
 }
 
 func (u *reviewUseCase) Create(ctx context.Context, request *model.CreateReviewRequest) (*model.CreatorReviewResponse, error) {
-	transactionDetail, err := u.transactionDetailRepo.FindByID(ctx, u.db, request.TransactionDetailId)
+	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
+	if err != nil {
+		return nil, err
+	}
+
+	transactionDetail, err := u.transactionDetailRepo.FindByIDNotCreator(ctx, u.db, request.TransactionDetailId, request.CreatorId, true)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, helper.NewUseCaseError(errorcode.ErrInvalidArgument, "Invalid transaction detail id")
@@ -61,17 +66,12 @@ func (u *reviewUseCase) Create(ctx context.Context, request *model.CreateReviewR
 	review := &entity.CreatorReview{
 		Id:                  ulid.Make().String(),
 		TransactionDetailId: request.TransactionDetailId,
-		CreatorId:           request.CreatorId,
+		CreatorId:           transactionDetail.CreatorId,
 		UserId:              request.UserId,
 		Rating:              request.Rating,
 		Comment:             nullable.ToSQLString(request.Comment),
 		CreatedAt:           &now,
 		UpdatedAt:           &now,
-	}
-
-	tx, err := repository.BeginTxx(u.db, ctx, u.logs)
-	if err != nil {
-		return nil, err
 	}
 
 	defer func() {

@@ -91,7 +91,7 @@ func (r *creatorRepository) UpdateCreatorRating(ctx context.Context, tx Querier,
 			user_id
 	`
 
-	if err := tx.GetContext(ctx, &creator, query, creator.Rating, creator.RatingCount, creator.UpdatedAt, creator.Id); err != nil {
+	if err := tx.GetContext(ctx, &creator.UserId, query, creator.Rating, creator.RatingCount, creator.UpdatedAt, creator.Id); err != nil {
 		return nil, fmt.Errorf("failed to update creator rating: %w", err)
 	}
 

@@ -7,7 +7,7 @@ services:
       dockerfile: photo-svc/Dockerfile
 
     env_file:
-      - .env.photo
+      - .env.photo.development
     ports:
       - "8001:8001"
     networks:
@@ -22,7 +22,7 @@ services:
       context: .
       dockerfile: transaction-svc/Dockerfile
     env_file:
-      - .env.transaction
+      - .env.transaction.development
     ports:
       - "8005:8005"
     networks:
@@ -39,7 +39,7 @@ services:
       dockerfile: upload-svc/Dockerfile
 
     env_file:
-      - .env.upload
+      - .env.upload.development
     ports:
       - "8002:8002"
     networks:
@@ -54,13 +54,33 @@ services:
       context: .
       dockerfile: user-svc/Dockerfile
     env_file:
-      - .env.user
+      - .env.user.development
     volumes:
     - ./user-svc/serviceAccountKey.json:/app/serviceAccountKey.json
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /app/serviceAccountKey.json
     ports:
       - "8003:8003"
+    networks:
+      - backend
+    depends_on:
+      - redis
+      - postgres
+      - consul
+      - nats  
+  
+  notification-svc:
+    build:
+      context: .
+      dockerfile: notification-svc/Dockerfile
+    env_file:
+      - .env.notification.development
+    volumes:
+    - ./notification-svc/serviceAccountKey.json:/app/serviceAccountKey.json
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/serviceAccountKey.json
+    ports:
+      - "8004:8004"
     networks:
       - backend
     depends_on:

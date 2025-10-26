@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 func waitForServerReady() error {
 	maxRetries := 10
 	for i := 0; i < maxRetries; i++ {
-		resp, err := http.Get("http://127.0.0.1:8003/health")
+		resp, err := http.Get("http://0.0.0.0:8003/health")
 		if err == nil && resp.StatusCode == 200 {
 			return nil
 		}

@@ -53,7 +53,7 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 	AND 
 		(p.status = 'AVAILABLE' OR p.status= 'SOLD')
 	AND 
-		(p.owned_by_user_id IS NULL OR p.owned_by_user_id = $1)
+		(p.owned_by_user_id IS NULL)
 	 `
 
 	var countArgs []interface{}
@@ -123,7 +123,7 @@ func (r *exploreRepository) FindAllExploreSimilar(ctx context.Context, tx Querie
 	AND usp.similarity >= $2
 	AND p.creator_id != $3
 	AND (p.status = 'AVAILABLE' OR p.status= 'SOLD')
-	AND (p.owned_by_user_id IS NULL OR p.owned_by_user_id = $1)
+	AND (p.owned_by_user_id IS NULL)
 	`
 
 	if isWishlist {

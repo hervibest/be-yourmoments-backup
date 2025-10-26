@@ -12,7 +12,7 @@ func UserProfileToResponse(userProfile *entity.UserProfile) *model.UserProfileRe
 	return &model.UserProfileResponse{
 		Id:              userProfile.Id,
 		UserId:          userProfile.UserId,
-		BirthDate:       userProfile.BirthDate.Format(time.DateOnly),
+		BirthDate:       nullable.TimeToString(userProfile.BirthDate, time.DateOnly),
 		Nickname:        userProfile.Nickname,
 		Biography:       nullable.SQLStringToPtr(userProfile.Biography),
 		ProfileUrl:      nullable.SQLStringToPtr(userProfile.ProfileUrl),
