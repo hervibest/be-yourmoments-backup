@@ -301,6 +301,19 @@ func (u *userSimilarWorkerUseCase) CreateBulkUserSimilarPhotos(ctx context.Conte
 		photoUserSimilarMap[bulkUserSimilar.PhotoDetail.PhotoID] = userSimilarPhotos
 	}
 
+	for photoID, userSimilars := range photoUserSimilarMap {
+		fmt.Println("Photo:", photoID)
+		seen := map[string]bool{}
+		for _, u := range userSimilars {
+			key := fmt.Sprintf("%s-%s", photoID, u.UserId)
+			if seen[key] {
+				fmt.Println("⚠️  Duplicate pair detected:", key)
+			}
+			seen[key] = true
+			fmt.Println("  User:", u.UserId)
+		}
+	}
+
 	err = u.userSimilarRepo.InsertOrUpdateBulk(ctx, tx, photoUserSimilarMap)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to insert or update bulk user similar photos in database", err)

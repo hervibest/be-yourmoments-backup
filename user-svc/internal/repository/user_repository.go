@@ -113,6 +113,8 @@ type UserRepository interface {
 
 	UpdateEmailVerifiedAt(ctx context.Context, tx Querier, user *entity.User) (*entity.User, error)
 	UpdatePassword(ctx context.Context, tx Querier, user *entity.User) (*entity.User, error)
+
+	UpdateHasFacecam(ctx context.Context, tx Querier, userId string, hasFacecam bool) error
 }
 
 type userRepository struct {
@@ -390,4 +392,15 @@ func (r *userRepository) UpdatePassword(ctx context.Context, tx Querier, user *e
 	}
 
 	return user, nil
+}
+
+func (r *userRepository) UpdateHasFacecam(ctx context.Context, tx Querier, userId string, hasFacecam bool) error {
+	query := `UPDATE users set has_facecam = $1, updated_at = NOW() WHERE id = $2`
+
+	_, err := tx.ExecContext(ctx, query, hasFacecam, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

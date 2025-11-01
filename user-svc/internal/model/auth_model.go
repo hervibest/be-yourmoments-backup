@@ -127,9 +127,10 @@ type UserResponse struct {
 	// EmailVerifiedAt       *time.Time `json:"email_verified_at,omitempty"`
 	PhoneNumber *string `json:"phone_number,omitempty"`
 	// PhoneNumberVerifiedAt *time.Time `json:"phone_number_verified_at,omitempty"`
-	GoogleId  *string    `json:"google_id,omitempty"`
-	CreatedAt *time.Time `json:"created_at,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	GoogleId   *string    `json:"google_id,omitempty"`
+	HasFacecam bool       `json:"has_facecam"`
+	CreatedAt  *time.Time `json:"created_at,omitempty"`
+	UpdatedAt  *time.Time `json:"updated_at,omitempty"`
 }
 
 // type UserResponse struct {

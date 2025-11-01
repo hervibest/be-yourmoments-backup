@@ -14,8 +14,9 @@ func UserToResponse(u *entity.User) *model.UserResponse {
 		// EmailVerifiedAt:       u.EmailVerifiedAt,
 		PhoneNumber: nullable.SQLStringToPtr(u.PhoneNumber),
 		// PhoneNumberVerifiedAt: u.PhoneNumberVerifiedAt,
-		GoogleId:  nullable.SQLStringToPtr(u.GoogleId),
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		HasFacecam: u.HasFacecam,
+		GoogleId:   nullable.SQLStringToPtr(u.GoogleId),
+		CreatedAt:  u.CreatedAt,
+		UpdatedAt:  u.UpdatedAt,
 	}
 }

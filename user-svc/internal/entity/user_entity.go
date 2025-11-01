@@ -14,6 +14,7 @@ type User struct {
 	PhoneNumber           sql.NullString `json:"phone_number" db:"phone_number"`
 	PhoneNumberVerifiedAt *time.Time     `json:"phone_number_verified_at" db:"phone_number_verified_at"`
 	GoogleId              sql.NullString `json:"google_id" db:"google_id"`
+	HasFacecam            bool           `json:"has_facecam" db:"has_facecam"`
 	CreatedAt             *time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt             *time.Time     `json:"updated_at" db:"updated_at"`
 }

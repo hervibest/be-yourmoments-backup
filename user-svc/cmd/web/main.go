@@ -5,6 +5,7 @@ import (
 	"github.com/hervibest/be-yourmoments-backup/user-svc/cmd/migration"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/config"
+	consumer "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/delivery/photo"
 	grpcHandler "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/grpc"
 	http "github.com/hervibest/be-yourmoments-backup/user-svc/internal/delivery/http/controller"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/gateway/producer"
@@ -104,6 +105,7 @@ func webServer(ctx context.Context) error {
 	// photoAdapter, _ := adapter.NewPhotoAdapter(ctx, registry, logs)
 	// transactionAdapter, _ := adapter.NewTransactionAdapter(ctx, registry, logs)
 	messagingAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
+	config.InitPhotoStream(jetStreamConfig, logs)
 
 	userProducer := producer.NewUserProducer(messagingAdapter, logs)
 	databaseAdapter := repository.NewDatabaseAdapter(dbConfig)
@@ -147,6 +149,13 @@ func webServer(ctx context.Context) error {
 
 	authMiddleware := middleware.NewUserAuth(authUseCase, customValidator, logs)
 
+	photoConsumer := consumer.NewPhotoConsumer(userUseCase, jetStreamConfig, logs)
+	go func() {
+		logs.Log("consume all photo event beginning")
+		if err := photoConsumer.ConsumeAllEvents(ctx); err != nil {
+			logs.CustomError("failed to consume all event", err)
+		}
+	}()
 	routeConfig := route.RouteConfig{
 		App:              app,
 		AuthController:   authController,

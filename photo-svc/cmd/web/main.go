@@ -146,7 +146,7 @@ func webServer(ctx context.Context) error {
 	photoUseCaseWorker := usecase.NewPhotoWorkerUseCase(dbConfig, photoRepo, photoDetailRepo, userSimilarRepo, creatorRepository,
 		bulkPhotoRepository, storageAdapter, CDNAdapter, logs)
 
-	facecamUseCaseWorker := usecase.NewFacecamUseCaseWorker(dbConfig, facecamRepo, userSimilarRepo, storageAdapter, logs)
+	facecamUseCaseWorker := usecase.NewFacecamUseCaseWorker(dbConfig, facecamRepo, userSimilarRepo, photoProducer, storageAdapter, logs)
 
 	exploreController := http.NewExploreController(tracer, customValidator, exploreUseCase, logs)
 	creatorDiscountController := http.NewCreatorDiscountController(creatorDiscountUseCase, customValidator, logs)

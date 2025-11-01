@@ -45,3 +45,7 @@ type UpdatePhotoDetailEvent struct {
 type CreateFacecamEvent struct {
 	Facecam Facecam `json:"facecam"`
 }
+
+type PersistFacecamEvent struct {
+	UserID string `json:"user_id"`
+}

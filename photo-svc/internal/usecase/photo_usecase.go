@@ -123,7 +123,7 @@ func (u *photoUsecase) CreatePhoto(ctx context.Context, request *photopb.CreateP
 		UpdatedAt:       request.GetPhoto().GetDetail().GetUpdatedAt().AsTime(),
 	}
 
-	newPhotoDetail, err = u.photoDetailRepo.Create(tx, newPhotoDetail)
+	_, err = u.photoDetailRepo.Create(tx, newPhotoDetail)
 	if err != nil {
 		return helper.WrapInternalServerError(u.logs, "failed to insert new photo detail to database", err)
 	}

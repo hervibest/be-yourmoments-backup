@@ -29,9 +29,20 @@ func NewJetStream() nats.JetStreamContext {
 }
 
 func InitPhotoStream(js nats.JetStreamContext, log logger.Log) {
-	_, err := js.AddStream(&nats.StreamConfig{
+	info, err := js.StreamInfo("PHOTO_STREAM")
+	if info != nil {
+		log.Log("PHOTO_STREAM already exists, skipping creation")
+		return
+	}
+
+	if err != nil && err != nats.ErrStreamNotFound {
+		log.CustomError("failed to get stream info", err)
+		return
+	}
+
+	_, err = js.AddStream(&nats.StreamConfig{
 		Name:     "PHOTO_STREAM",
-		Subjects: []string{"photo.bulk", "photo.single.facecam", "photo.single.photo"},
+		Subjects: []string{"photo.bulk", "photo.single.facecam", "photo.single.photo", "photo.persist.facecam"},
 		Storage:  nats.FileStorage,
 	})
 

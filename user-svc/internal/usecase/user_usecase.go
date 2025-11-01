@@ -31,6 +31,7 @@ type UserUseCase interface {
 	UpdateUserProfile(ctx context.Context, request *model.RequestUpdateUserProfile) (*model.UserProfileResponse, error)
 	UploadUserProfileImage(ctx context.Context, file *multipart.FileHeader, userProfId string) (string, error)
 	UpdateUserSimilarity(ctx context.Context, request *model.RequestUpdateSimilarity) (*model.UpdateSeimilarityResponse, error)
+	UpdateHasFacecam(ctx context.Context, userId string) error
 }
 
 type userUseCase struct {
@@ -254,4 +255,18 @@ func (u *userUseCase) GetUserProfile(ctx context.Context, userId string) (*model
 	}
 
 	return converter.UserProfileToResponse(userProfile), nil
+}
+
+func (u *userUseCase) UpdateHasFacecam(ctx context.Context, userId string) error {
+	if err := repository.BeginTransaction(ctx, u.logs, u.db, func(tx repository.TransactionTx) error {
+		err := u.userRepository.UpdateHasFacecam(ctx, tx, userId, true)
+		if err != nil {
+			return helper.WrapInternalServerError(u.logs, "failed to update has facecam", err)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }

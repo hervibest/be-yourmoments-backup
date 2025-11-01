@@ -5,6 +5,7 @@ import (
 
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/adapter"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/entity"
+	producer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/model/event"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
@@ -23,18 +24,21 @@ type facecamUseCaseWorker struct {
 	facecamRepo     repository.FacecamRepository
 	userSimilarRepo repository.UserSimilarRepository
 	// aiAdapter       adapter.AiAdapter
+	photoProducer  producer.PhotoProducer
 	storageAdapter adapter.StorageAdapter
 	logs           *logger.Log
 }
 
 func NewFacecamUseCaseWorker(db *sqlx.DB, facecamRepo repository.FacecamRepository,
-	userSimilarRepo repository.UserSimilarRepository, storageAdapter adapter.StorageAdapter,
+	userSimilarRepo repository.UserSimilarRepository,
+	photoProducer producer.PhotoProducer, storageAdapter adapter.StorageAdapter,
 	logs *logger.Log) FacecamUseCaseWorker {
 	return &facecamUseCaseWorker{
 		db:              db,
 		facecamRepo:     facecamRepo,
 		userSimilarRepo: userSimilarRepo,
 		// aiAdapter:       aiAdapter,
+		photoProducer:  photoProducer,
 		storageAdapter: storageAdapter,
 		logs:           logs,
 	}
@@ -74,6 +78,10 @@ func (u *facecamUseCaseWorker) CreateFacecam(ctx context.Context, request *event
 		return err
 	}
 
+	persistEvent := &event.PersistFacecamEvent{UserID: request.Facecam.UserId}
+	if err := u.photoProducer.ProducePersistFacecam(ctx, persistEvent); err != nil {
+		return err
+	}
 	return nil
 
 }

@@ -3,6 +3,7 @@ package consul
 import (
 	"context"
 	"fmt"
+	"log"
 
 	consul "github.com/hashicorp/consul/api"
 )
@@ -41,6 +42,8 @@ func (r *Registry) RegisterService(ctx context.Context, serviceName, serviceID, 
 			DeregisterCriticalServiceAfter: "1m",    // Deregistrasi setelah gagal dalam 1 menit
 		},
 	}
+
+	log.Default().Println("Registering service with Consul:", registration)
 
 	err := r.client.Agent().ServiceRegister(registration)
 	if err != nil {
