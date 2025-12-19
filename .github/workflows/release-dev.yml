@@ -1,0 +1,78 @@
+name: Release Dev
+
+on:
+  push:
+    tags:
+      - "*-dev.*"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: hervibest
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
+      - name: Login to GitHub Container Registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
+          docker login $REGISTRY \
+            -u ${{ secrets.REGISTRY_USERNAME }} \
+            --password-stdin
+
+      # ======================
+      # photo-svc
+      # ======================
+      - name: Build & Push photo-svc
+        run: |
+          docker build \
+            -f photo-svc/Dockerfile \
+            -t $REGISTRY/$IMAGE_NAMESPACE/photo-svc:$VERSION .
+          docker push $REGISTRY/$IMAGE_NAMESPACE/photo-svc:$VERSION
+
+      # ======================
+      # upload-svc
+      # ======================
+      - name: Build & Push upload-svc
+        run: |
+          docker build \
+            -f upload-svc/Dockerfile \
+            -t $REGISTRY/$IMAGE_NAMESPACE/upload-svc:$VERSION .
+          docker push $REGISTRY/$IMAGE_NAMESPACE/upload-svc:$VERSION
+
+      # ======================
+      # user-svc
+      # ======================
+      - name: Build & Push user-svc
+        run: |
+          docker build \
+            -f user-svc/Dockerfile \
+            -t $REGISTRY/$IMAGE_NAMESPACE/user-svc:$VERSION .
+          docker push $REGISTRY/$IMAGE_NAMESPACE/user-svc:$VERSION
+
+      # ======================
+      # transaction-svc
+      # ======================
+      - name: Build & Push transaction-svc
+        run: |
+          docker build \
+            -f transaction-svc/Dockerfile \
+            -t $REGISTRY/$IMAGE_NAMESPACE/transaction-svc:$VERSION .
+          docker push $REGISTRY/$IMAGE_NAMESPACE/transaction-svc:$VERSION
+
+      # ======================
+      # notification-svc
+      # ======================
+      - name: Build & Push notification-svc
+        run: |
+          docker build \
+            -f notification-svc/Dockerfile \
+            -t $REGISTRY/$IMAGE_NAMESPACE/notification-svc:$VERSION .
+          docker push $REGISTRY/$IMAGE_NAMESPACE/notification-svc:$VERSION
