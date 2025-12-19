@@ -13,6 +13,10 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,9 +26,9 @@ jobs:
 
       - name: Login to GitHub Container Registry
         run: |
-          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
-          sudo docker login $REGISTRY \
-            -u ${{ secrets.REGISTRY_USERNAME }} \
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+          docker login ghcr.io \
+            -u ${{ github.actor }} \
             --password-stdin
 
       # ======================
@@ -32,50 +36,50 @@ jobs:
       # ======================
       - name: Build & Push photo-svc
         run: |
-          sudo docker build \
+           docker build \
             -f photo-svc/Dockerfile \
             -t $REGISTRY/$IMAGE_NAMESPACE/photo-svc:$VERSION .
-          sudo docker push $REGISTRY/$IMAGE_NAMESPACE/photo-svc:$VERSION
+           docker push $REGISTRY/$IMAGE_NAMESPACE/photo-svc:$VERSION
 
       # ======================
       # upload-svc
       # ======================
       - name: Build & Push upload-svc
         run: |
-          sudo docker build \
+           docker build \
             -f upload-svc/Dockerfile \
             -t $REGISTRY/$IMAGE_NAMESPACE/upload-svc:$VERSION .
-          sudo docker push $REGISTRY/$IMAGE_NAMESPACE/upload-svc:$VERSION
+           docker push $REGISTRY/$IMAGE_NAMESPACE/upload-svc:$VERSION
 
       # ======================
       # user-svc
       # ======================
       - name: Build & Push user-svc
         run: |
-          sudo docker build \
+           docker build \
             -f user-svc/Dockerfile \
             -t $REGISTRY/$IMAGE_NAMESPACE/user-svc:$VERSION .
-          sudo docker push $REGISTRY/$IMAGE_NAMESPACE/user-svc:$VERSION
+           docker push $REGISTRY/$IMAGE_NAMESPACE/user-svc:$VERSION
 
       # ======================
       # transaction-svc
       # ======================
       - name: Build & Push transaction-svc
         run: |
-          sudo docker build \
+           docker build \
             -f transaction-svc/Dockerfile \
             -t $REGISTRY/$IMAGE_NAMESPACE/transaction-svc:$VERSION .
-          sudo docker push $REGISTRY/$IMAGE_NAMESPACE/transaction-svc:$VERSION
+           docker push $REGISTRY/$IMAGE_NAMESPACE/transaction-svc:$VERSION
 
       # ======================
       # notification-svc
       # ======================
       - name: Build & Push notification-svc
         run: |
-          sudo docker build \
+           docker build \
             -f notification-svc/Dockerfile \
             -t $REGISTRY/$IMAGE_NAMESPACE/notification-svc:$VERSION .
-          sudo docker push $REGISTRY/$IMAGE_NAMESPACE/notification-svc:$VERSION
+           docker push $REGISTRY/$IMAGE_NAMESPACE/notification-svc:$VERSION
 
   deploy:
     runs-on: ubuntu-latest
@@ -97,12 +101,12 @@ jobs:
 
           echo "APP_VERSION=${GITHUB_REF_NAME}" > .env
 
-          sudo docker login ghcr.io -u hervibest -p "${{ secrets.REGISTRY_PASSWORD }}"
+           sudo docker login ghcr.io -u hervibest -p "${{ secrets.REGISTRY_PASSWORD }}"
 
-          sudo docker compose -f docker-compose-dev.yaml pull
-          sudo docker compose -f docker-compose-dev.yaml down
-          sudo docker compose -f docker-compose-dev.yaml up -d
-          sudo docker image prune -f
+           sudo docker compose -f docker-compose-dev.yaml pull
+           sudo docker compose -f docker-compose-dev.yaml down
+           sudo docker compose -f docker-compose-dev.yaml up -d
+           sudo docker image prune -f
 
           EOF
 
