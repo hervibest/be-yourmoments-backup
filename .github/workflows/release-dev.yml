@@ -97,7 +97,7 @@ jobs:
           ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
 
           set -e
-          cd /app/be-yourmoments-backup
+          cd /home/ubuntu/app/be-yourmoments-backup
 
           echo "APP_VERSION=${GITHUB_REF_NAME}" > .env
 
