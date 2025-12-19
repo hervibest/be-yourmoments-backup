@@ -94,7 +94,7 @@ jobs:
       - name: Deploy to VPS
         run: |
           ssh -o StrictHostKeyChecking=no \
-          ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
+          ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
 
           set -e
           cd /home/ubuntu/app/be-yourmoments-backup
