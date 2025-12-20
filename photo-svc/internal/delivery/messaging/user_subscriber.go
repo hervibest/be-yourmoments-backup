@@ -54,8 +54,13 @@ func (s *UserSubscriber) Start(ctx context.Context) error {
 				return
 			default:
 				msgs, err := sub.Fetch(10, nats.MaxWait(2*time.Second))
-				if err != nil && err != nats.ErrTimeout {
-					s.logs.CustomLog("Fetch error: %v", err)
+				if err != nil {
+					if err == nats.ErrTimeout {
+						time.Sleep(200 * time.Millisecond) // 🔥 WAJIB
+						continue
+					}
+					s.logs.Error(fmt.Sprintf("failed to fetch messages with error %v", err))
+					time.Sleep(time.Second)
 					continue
 				}
 
