@@ -93,15 +93,15 @@ func (u *reviewUseCase) Create(ctx context.Context, request *model.CreateReviewR
 		return nil, err
 	}
 
-	totalReviewAndRating, err := u.creatorReviewRepo.CountTotalReviewAndRating(ctx, u.db, request.CreatorId)
+	totalReviewAndRating, err := u.creatorReviewRepo.CountTotalReviewAndRating(ctx, u.db, transactionDetail.CreatorId)
 	if err != nil {
 		return nil, helper.WrapInternalServerError(u.logs, "failed to count total review and rating in database", err)
 	}
 
-	totalReviewAndRating.CreatorId = request.CreatorId
+	totalReviewAndRating.CreatorId = transactionDetail.CreatorId
 
 	creatorReviewCountEvent := &event.CreatorReviewCountEvent{
-		Id:          request.CreatorId,
+		Id:          transactionDetail.CreatorId,
 		Rating:      totalReviewAndRating.Rating,
 		RatingCount: totalReviewAndRating.TotalReview,
 	}
