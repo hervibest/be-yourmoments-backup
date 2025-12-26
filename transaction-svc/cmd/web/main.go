@@ -120,6 +120,8 @@ func webServer(ctx context.Context) error {
 	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
 	paymentAdapter := adapter.NewPaymentAdapter(midtransConfig, cacheAdapter, logs)
 	messagingAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
+	// jwtAdapter := adapter.NewJWTAdapter()
+
 	transactionProducer := producer.NewTransactionProducer(cacheAdapter, messagingAdapter, logs)
 
 	customValidator := helper.NewCustomValidator()
@@ -157,7 +159,9 @@ func webServer(ctx context.Context) error {
 	walletController := http.NewWalletController(walletUseCase, logs)
 	transactionWalletCtrl := http.NewTransactionWalletController(transactionWalletUC, customValidator, logs)
 
-	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
+	// authMiddlewareV2 := middleware.NewAuthMiddleware(userAdapter, logs, tracer, jwtAdapter, cacheAdapter)
+
+	// authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
 	creatorMiddleware := middleware.NewCreatorMiddleware(photoAdapter, tracer, logs)
 	walletMiddleware := middleware.NewWalletMiddleware(walletUseCase, tracer, logs)
 
@@ -199,7 +203,7 @@ func webServer(ctx context.Context) error {
 
 	serverErrors := make(chan error, 1)
 	route := route.NewRoute(app, transactionController, bankController, bankWalletController, reviewController,
-		withdarawlController, walletController, transactionWalletCtrl, authMiddleware, creatorMiddleware, walletMiddleware)
+		withdarawlController, walletController, transactionWalletCtrl, middleware.NewUserAuth(userAdapter, tracer, logs), creatorMiddleware, walletMiddleware)
 
 	route.SetupRoute()
 	app.Use(cors.New())

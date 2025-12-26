@@ -5,16 +5,18 @@ package user;
 option go_package = "github.com/hervibest/be-yourmoments-backup/pb/user;userpb";
 
 import "photo/photo.proto";
+import "google/protobuf/timestamp.proto";
 
 
 service UserService{
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+  rpc AuthenticateV2(AuthenticateRequestV2) returns (AuthenticateResponseV2);
   rpc SendBulkPhotoNotification(SendBulkPhotoNotificationRequest) returns (SendBulkPhotoNotificationResponse);
   rpc SendSinglePhotoNotification(SendSinglePhotoNotificationRequest) returns (SendSinglePhotoNotificationResponse);
   rpc SendBulkNotification(SendBulkNotificationRequest) returns (SendBulkNotificationResponse);
   rpc SendSingleFacecamNotification(SendSingleFacecamNotificationRequest) returns (SendSingleFacecamNotificationResponse);
 }
-
+// google.protobuf.Timestamp
 message AuthenticateRequest{
   string token = 1;
 }
@@ -24,6 +26,23 @@ message AuthenticateResponse{
   string error = 2;
   User user = 3;
 }
+
+
+/**
+Authenticate V2 (Improved JWT )
+**/
+message AuthenticateRequestV2{
+  string token = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message AuthenticateResponseV2{
+  int64 status = 1; 
+  string error = 2;
+  User user = 3;
+}
+
 
 message User {
   string 	user_id = 1;

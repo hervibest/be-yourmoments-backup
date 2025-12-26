@@ -41,6 +41,7 @@ type AuthUseCase interface {
 	ResetPassword(ctx context.Context, request *model.ResetPasswordUserRequest) error
 	ValidateResetPassword(ctx context.Context, request *model.ValidateResetTokenRequest) (bool, error)
 	Verify(ctx context.Context, request *model.VerifyUserRequest) (*model.AuthResponse, error)
+	VerifyV2(ctx context.Context, request *model.VerifyUserRequestV2) (*model.AuthResponse, error)
 	VerifyEmail(ctx context.Context, request *model.VerifyEmailUserRequest) error
 }
 
@@ -766,7 +767,7 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 			return nil, helper.WrapInternalServerError(u.logs, "failed to find user by id", err)
 		}
 
-		if err = u.setAuthCache(ctx, user, auth, accessTokenDetail); err != nil {
+		if err = u.setAuthCache(ctx, user, auth, accessTokenDetail.ExpiresAt); err != nil {
 			return nil, err
 		}
 	} else {
@@ -789,7 +790,58 @@ func (u *authUseCase) Verify(ctx context.Context, request *model.VerifyUserReque
 	return authResponse, nil
 }
 
-func (u *authUseCase) setAuthCache(ctx context.Context, user *entity.User, auth *entity.Auth, accessTokenDetail *entity.AccessToken) error {
+func (u *authUseCase) VerifyV2(ctx context.Context, request *model.VerifyUserRequestV2) (*model.AuthResponse, error) {
+	accessTokenDetail, err := u.jwtAdapter.VerifyAccessToken(request.Token)
+	if err != nil {
+		return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "Invalid access token")
+	}
+
+	userId, _ := u.cacheAdapter.Get(ctx, request.Token)
+	if userId != "" {
+		return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "User has already signed out")
+	}
+
+	cachedUserStr, err := u.cacheAdapter.Get(ctx, accessTokenDetail.UserId)
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, helper.WrapInternalServerError(u.logs, "failed to get cached user", err)
+	}
+
+	auth := new(entity.Auth)
+	//If redis stale, get from db
+	if errors.Is(err, redis.Nil) {
+		user, err := u.userRepository.FindById(ctx, accessTokenDetail.UserId)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				u.logs.Debug("Err no rows for user id in user repo find by id (access token user id)")
+				return nil, helper.NewUseCaseError(errorcode.ErrUnauthorized, "invalid refresh token")
+			}
+			return nil, helper.WrapInternalServerError(u.logs, "failed to find user by id", err)
+		}
+
+		if err = u.setAuthCache(ctx, user, auth, accessTokenDetail.ExpiresAt); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := sonic.ConfigFastest.Unmarshal([]byte(cachedUserStr), &auth); err != nil {
+			return nil, helper.WrapInternalServerError(u.logs, "failed to unmarshal user body from cached", err)
+		}
+	}
+
+	authResponse := &model.AuthResponse{
+		UserId:        auth.Id,
+		Username:      auth.Username,
+		Email:         auth.Email,
+		PhoneNumber:   auth.PhoneNumber,
+		UserProfileID: auth.UserProfileID,
+		Similarity:    auth.Similarity,
+		Token:         request.Token,
+		ExpiresAt:     accessTokenDetail.ExpiresAt,
+	}
+
+	return authResponse, nil
+}
+
+func (u *authUseCase) setAuthCache(ctx context.Context, user *entity.User, auth *entity.Auth, expiresAt time.Time) error {
 	if auth == nil {
 		auth = new(entity.Auth)
 	}
@@ -814,7 +866,7 @@ func (u *authUseCase) setAuthCache(ctx context.Context, user *entity.User, auth 
 		return fmt.Errorf("marshal user : %+v", err)
 	}
 
-	if err := u.cacheAdapter.Set(ctx, auth.Id, jsonValue, time.Until(accessTokenDetail.ExpiresAt)); err != nil {
+	if err := u.cacheAdapter.Set(ctx, auth.Id, jsonValue, time.Until(expiresAt)); err != nil {
 		return fmt.Errorf("save user body into cache : %+v", err)
 	}
 
@@ -858,7 +910,7 @@ func (u *authUseCase) AccessTokenRequest(ctx context.Context, refreshToken strin
 		return nil, nil, helper.WrapInternalServerError(u.logs, "failed to generate access token", err)
 	}
 
-	if err := u.setAuthCache(ctx, user, nil, accessTokenDetail); err != nil {
+	if err := u.setAuthCache(ctx, user, nil, accessTokenDetail.ExpiresAt); err != nil {
 		return nil, nil, err
 	}
 

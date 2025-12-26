@@ -41,3 +41,33 @@ func (h *UserGRPCHandler) Authenticate(ctx context.Context,
 		User:   userPb,
 	}, nil
 }
+
+func (h *UserGRPCHandler) AuthenticateV2(ctx context.Context, pbReq *userpb.AuthenticateRequestV2) (*userpb.AuthenticateResponseV2, error) {
+	log.Println("---- Authenticate User via gRPC in user-svc ------")
+
+	request := &model.VerifyUserRequestV2{
+		Token:     pbReq.GetToken(),
+		UserId:    pbReq.GetUserId(),
+		ExpiresAt: pbReq.GetExpiresAt().AsTime(),
+	}
+
+	response, err := h.authUseCase.VerifyV2(ctx, request)
+	if err != nil {
+		return nil, helper.ErrGRPC(err)
+	}
+
+	userPb := &userpb.User{
+		UserId:      response.UserId,
+		Username:    response.Username,
+		Email:       response.Email,
+		PhoneNumber: response.PhoneNumber,
+		Similarity:  uint32(response.Similarity),
+		CreatorId:   response.CreatorId,
+		WalletId:    response.WalletId,
+	}
+
+	return &userpb.AuthenticateResponseV2{
+		Status: int64(codes.OK),
+		User:   userPb,
+	}, nil
+}
