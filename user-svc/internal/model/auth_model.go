@@ -74,6 +74,12 @@ type VerifyUserRequest struct {
 	Token string `validate:"required"`
 }
 
+type VerifyUserRequestV2 struct {
+	Token     string    `validate:"required"`
+	UserId    string    `validate:"required"`
+	ExpiresAt time.Time `validate:"required"`
+}
+
 type AuthResponse struct {
 	UserId        string
 	Username      string
