@@ -83,8 +83,8 @@ services:
     restart: unless-stopped
     networks:
       - backend
-    expose:
-      - "6379"
+    ports:
+      - "6379:6379"
 
   postgres:
     image: postgres:17-alpine
