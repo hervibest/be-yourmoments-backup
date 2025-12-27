@@ -32,6 +32,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/resolver"
 )
 
 var logs = logger.New("USER-SVC")
@@ -72,6 +73,9 @@ func webServer(ctx context.Context) error {
 		logs.Error("Failed to register user service to consuls")
 		return err
 	}
+
+	//Resolver for gRPC + Consul resilience
+	resolver.Register(consul.NewConsulResolverBuilder(registry.GetConsulClient()))
 
 	go func() {
 		<-ctx.Done()

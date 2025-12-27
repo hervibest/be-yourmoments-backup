@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"log"
 
 	photopb "github.com/hervibest/be-yourmoments-backup/pb/photo"
 	"github.com/hervibest/be-yourmoments-backup/user-svc/internal/entity"
@@ -22,11 +23,13 @@ type photoAdapter struct {
 
 func NewPhotoAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (PhotoAdapter, error) {
 	photoServiceName := utils.GetEnv("PHOTO_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, photoServiceName, registry, logs)
+	conn, err := discovery.NewGrpcClient(photoServiceName)
 	if err != nil {
 		logs.CustomError("failed to connect to the photo service due to an error : ", err)
 		return nil, err
 	}
+
+	log.Printf("successfuly connected to %s", photoServiceName)
 	client := photopb.NewPhotoServiceClient(conn)
 
 	return &photoAdapter{

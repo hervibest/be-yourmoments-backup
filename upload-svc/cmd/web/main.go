@@ -30,6 +30,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/resolver"
 )
 
 var logs = logger.New("main")
@@ -67,6 +68,8 @@ func webServer(ctx context.Context) error {
 		logs.Error("Failed to register upload service to consuls")
 		return err
 	}
+
+	resolver.Register(consul.NewConsulResolverBuilder(registry.GetConsulClient()))
 
 	go func() {
 		<-ctx.Done()

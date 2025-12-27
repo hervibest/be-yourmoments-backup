@@ -36,6 +36,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/resolver"
 )
 
 var logs = logger.New("main")
@@ -89,6 +90,9 @@ func webServer(ctx context.Context) error {
 		return err
 	}
 
+	//Resolver for gRPC + Consul resilience
+	resolver.Register(consul.NewConsulResolverBuilder(registry.GetConsulClient()))
+
 	go func() {
 		<-ctx.Done()
 		logs.Log("Context canceled. Deregistering services...")
@@ -113,7 +117,7 @@ func webServer(ctx context.Context) error {
 		logs.Error(err)
 	}
 
-	userAdapter, err := adapter.NewUserAdapter(ctx, registry, logs)
+	userAdapter, err := adapter.NewUserAdapter(ctx, logs)
 	if err != nil {
 		logs.Error(err)
 	}
