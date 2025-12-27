@@ -26,6 +26,9 @@ func NewRegistry(address, serviceName string) (*Registry, error) {
 	}, nil
 }
 
+func (r *Registry) GetConsulClient() *consul.Client {
+	return r.client
+}
 func (r *Registry) RegisterService(ctx context.Context, serviceName, serviceID, serviceAddress string, servicePort int, tags []string) error {
 	checkID := "service:" + serviceID
 

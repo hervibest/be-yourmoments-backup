@@ -23,8 +23,8 @@ import (
 	uploadconsumer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/delivery/messaging/upload"
 	producer "github.com/hervibest/be-yourmoments-backup/photo-svc/internal/gateway/messaging"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper"
-	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/consul"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery"
+	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/discovery/consul"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/helper/logger"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/repository"
 	"github.com/hervibest/be-yourmoments-backup/photo-svc/internal/usecase"
@@ -34,6 +34,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/resolver"
 )
 
 var logs = logger.New("main")
@@ -91,6 +92,8 @@ func webServer(ctx context.Context) error {
 		return err
 	}
 
+	resolver.Register(consul.NewConsulResolverBuilder(registry.GetConsulClient()))
+
 	go func() {
 		<-ctx.Done()
 		logs.Log("Context canceled. Deregistering services...")
@@ -116,6 +119,7 @@ func webServer(ctx context.Context) error {
 	CDNAdapter := adapter.NewCDNadapter()
 	cacheAdapter := adapter.NewCacheAdapter(redisConfig)
 	messaginAdapter := adapter.NewMessagingAdapter(jetStreamConfig)
+	jwtAdapter := adapter.NewJWTAdapter()
 	creatorProducer := producer.NewCreatorProducer(messaginAdapter, logs)
 	photoProducer := producer.NewPhotoProducer(messaginAdapter, logs)
 
@@ -153,7 +157,7 @@ func webServer(ctx context.Context) error {
 	healthCheckController := http.NewHealthCheckController()
 	checkoutController := http.NewCheckoutController(checkoutUseCase, customValidator, logs)
 	photoController := http.NewPhotoController(photoUseCase, customValidator, logs)
-	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs)
+	authMiddleware := middleware.NewUserAuth(userAdapter, tracer, logs, jwtAdapter, cacheAdapter)
 	creatorMiddleware := middleware.NewCreatorMiddleware(creatorUseCase, tracer, logs)
 
 	aiSimilarConsumer := aiconsumer.NewAIConsumer(userSimilarWorkerUC, jetStreamConfig, logs)

@@ -22,12 +22,13 @@ type userAdapter struct {
 
 func NewUserAdapter(ctx context.Context, registry discovery.Registry, logs logger.Log) (UserAdapter, error) {
 	userServiceName := utils.GetEnv("USER_SVC_NAME")
-	conn, err := discovery.ServiceConnection(ctx, userServiceName, registry, logs)
+	conn, err := discovery.NewGrpcClient(userServiceName)
 	if err != nil {
+		logs.CustomError("failed to connect to the user service due to an error : ", err)
 		return nil, err
 	}
 
-	log.Print("successfuly connected to user-svc-grpc")
+	log.Printf("successfuly connected to %s", userServiceName)
 	client := userpb.NewUserServiceClient(conn)
 
 	return &userAdapter{
