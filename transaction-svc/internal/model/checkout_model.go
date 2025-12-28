@@ -33,7 +33,7 @@ type DiscountItem struct {
 	DiscountMinQuantity int    `json:"min_quantity" validate:"required,gte=0"`
 	DiscountValue       int32  `json:"value" validate:"required,gt=0"`
 	DiscountId          string `json:"id" validate:"required"`
-	DiscountType        string `json:"type" validate:"required"`
+	DiscountType        string `json:"discount_type" validate:"required"`
 }
 
 type PreviewCheckoutResponse struct {

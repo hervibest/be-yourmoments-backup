@@ -35,7 +35,7 @@ type DiscountItem struct {
 	Amount      int32             `json:"amount"`
 	MinQuantity int               `json:"min_quantity"`
 	Value       int32             `json:"value"`
-	Type        enum.DiscountType `json:"type"`
+	Type        enum.DiscountType `json:"discount_type"`
 }
 
 type PreviewCheckoutRequest struct {
