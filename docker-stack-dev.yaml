@@ -160,17 +160,17 @@ services:
       restart_policy:
         condition: on-failure
 
-    consul:
-      image: hashicorp/consul:1.20.6
-      command: >
-        agent
-        -server
-        -bootstrap-expect=1
-        -ui
-        -client=0.0.0.0
-        -bind=0.0.0.0
-        -advertise=127.0.0.1
-
+  consul:
+    image: hashicorp/consul:1.20.6
+    command: >
+      agent
+      -server
+      -bootstrap-expect=1
+      -ui
+      -client=0.0.0.0
+      -bind=0.0.0.0
+      -advertise=127.0.0.1
+      
     networks:
       - backend
     ports:
