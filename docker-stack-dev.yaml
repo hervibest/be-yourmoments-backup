@@ -162,7 +162,15 @@ services:
 
   consul:
     image: hashicorp/consul:1.20.6
-    command: agent -server -bootstrap-expect=1 -client=0.0.0.0 -ui
+    command: >
+      agent
+      -server
+      -bootstrap-expect=1
+      -ui
+      -client=0.0.0.0
+      -bind={{ GetInterfaceIP "eth0" }}
+      -advertise={{ GetInterfaceIP "eth0" }}
+
     networks:
       - backend
     ports:
