@@ -95,7 +95,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      - name: Deploy to VPS
+      - name: Deploy to VPS (Docker Swarm)
         run: |
           ssh -o StrictHostKeyChecking=no \
           ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
@@ -104,6 +104,7 @@ jobs:
 
           cd /home/ubuntu/app/be-yourmoments-backup
 
+          echo "🔧 Update APP_VERSION"
           grep -q "^APP_VERSION=" .env && \
             sed -i "s|^APP_VERSION=.*|APP_VERSION=${APP_VERSION}|" .env || \
             echo "APP_VERSION=${APP_VERSION}" >> .env
@@ -111,20 +112,17 @@ jobs:
           echo "🔐 Login to GHCR"
           echo "${{ secrets.REGISTRY_PASSWORD }}" | \
             docker login ${REGISTRY} \
-            -u hervibest \
-            --password-stdin
+              -u hervibest \
+              --password-stdin
 
-          echo "📦 Pull images"
-          docker compose -f docker-compose-dev.yaml pull
+          echo "🚀 Deploy Docker Stack (Rolling Update)"
+          docker stack deploy \
+            --with-registry-auth \
+            -c docker-stack-dev.yaml \
+            yourmoments
 
-          echo "🛑 Stop containers"
-          docker compose -f docker-compose-dev.yaml down
-
-          echo "🚀 Start containers"
-          docker compose -f docker-compose-dev.yaml up -d
-
-          echo "🧹 Cleanup images"
+          echo "🧹 Cleanup unused images"
           docker image prune -f
 
-          echo "✅ Deploy finished"
+          echo "✅ Swarm deploy finished"
           EOF

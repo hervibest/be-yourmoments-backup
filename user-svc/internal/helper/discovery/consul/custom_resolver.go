@@ -115,7 +115,7 @@ func (r *consulResolver) update() {
 		addrs = append(addrs, resolver.Address{Addr: addr})
 	}
 
-	r.logger("update address list: %v", addrs)
+	// r.logger("update address list: %v", addrs)
 
 	r.cc.UpdateState(resolver.State{
 		Addresses: addrs,
