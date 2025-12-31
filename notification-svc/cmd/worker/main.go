@@ -61,10 +61,8 @@ func worker(ctx context.Context) error {
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-		return nil
-	}
+	<-ctx.Done()
+	return nil
 }
 
 func main() {
