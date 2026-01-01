@@ -9,7 +9,7 @@ services:
     env_file:
       - .env.photo.development
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "8001:8001"   # expose ke host untuk NGINX
     deploy:
@@ -26,7 +26,7 @@ services:
     env_file:
       - .env.transaction.development
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "8005:8005"
     deploy:
@@ -43,7 +43,7 @@ services:
     env_file:
       - .env.upload.development
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "8002:8002"
     deploy:
@@ -64,7 +64,7 @@ services:
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /app/serviceAccountKey.json
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "8003:8003"
     deploy:
@@ -85,7 +85,7 @@ services:
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /app/serviceAccountKey.json
     networks:
-      - backend
+      - yourmoments_network_backend
     deploy:
       replicas: 3
       update_config:
@@ -102,7 +102,7 @@ services:
     image: redis:7.2-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "6379:6379"   # expose ke host jika perlu
     deploy:
@@ -121,7 +121,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "5432:5432"
     deploy:
@@ -140,7 +140,7 @@ services:
     volumes:
       - minio-data:/data
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -155,7 +155,7 @@ services:
     image: nats:2.11.2-alpine
     command: ["-js", "-m", "8222"]
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "4222:4222"
       - "8222:8222"
@@ -166,12 +166,17 @@ services:
       restart_policy:
         condition: on-failure
 
+    healthcheck:
+      test: ["CMD", "nats", "ping"]
+      interval: 5s
+      retries: 5
+
   consul:
     image: hashicorp/consul:1.20.6
     command: > 
       agent -server -bootstrap-expect=1 -ui -client=0.0.0.0 -bind=0.0.0.0 -advertise=127.0.0.1
     networks:
-      - backend
+      - yourmoments_network_backend
     ports:
       - "8500:8500"
     deploy:
@@ -185,7 +190,7 @@ services:
 # NETWORKS & VOLUMES
 # =========================
 networks:
-  backend:
+  yourmoments_network_backend:
     driver: overlay
     attachable: true
 
