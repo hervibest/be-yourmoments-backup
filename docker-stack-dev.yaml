@@ -4,13 +4,14 @@ services:
   # =========================
   # APPLICATION SERVICES
   # =========================
-
   photo-svc:
     image: ghcr.io/hervibest/photo-svc:${APP_VERSION}
     env_file:
       - .env.photo.development
     networks:
       - backend
+    ports:
+      - "8001:8001"   # expose ke host untuk NGINX
     deploy:
       replicas: 3
       update_config:
@@ -26,6 +27,8 @@ services:
       - .env.transaction.development
     networks:
       - backend
+    ports:
+      - "8005:8005"
     deploy:
       replicas: 3
       update_config:
@@ -41,6 +44,8 @@ services:
       - .env.upload.development
     networks:
       - backend
+    ports:
+      - "8002:8002"
     deploy:
       replicas: 3
       update_config:
@@ -60,6 +65,8 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /app/serviceAccountKey.json
     networks:
       - backend
+    ports:
+      - "8003:8003"
     deploy:
       replicas: 3
       update_config:
@@ -91,14 +98,13 @@ services:
   # =========================
   # INFRASTRUCTURE SERVICES
   # =========================
-
   redis:
     image: redis:7.2-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
     networks:
       - backend
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"   # expose ke host jika perlu
     deploy:
       placement:
         constraints:
@@ -117,7 +123,7 @@ services:
     networks:
       - backend
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"
     deploy:
       placement:
         constraints:
@@ -136,8 +142,8 @@ services:
     networks:
       - backend
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "9000:9000"
+      - "9001:9001"
     deploy:
       placement:
         constraints:
@@ -151,8 +157,8 @@ services:
     networks:
       - backend
     ports:
-      - "127.0.0.1:4222:4222"
-      - "127.0.0.1:8222:8222"
+      - "4222:4222"
+      - "8222:8222"
     deploy:
       placement:
         constraints:
@@ -162,19 +168,12 @@ services:
 
   consul:
     image: hashicorp/consul:1.20.6
-    command: >
-      agent
-      -server
-      -bootstrap-expect=1
-      -ui
-      -client=0.0.0.0
-      -bind=0.0.0.0
-      -advertise=127.0.0.1
-      
+    command: > 
+      agent -server -bootstrap-expect=1 -ui -client=0.0.0.0 -bind=0.0.0.0 -advertise=127.0.0.1
     networks:
       - backend
     ports:
-      - "127.0.0.1:8500:8500"
+      - "8500:8500"
     deploy:
       placement:
         constraints:
@@ -185,7 +184,6 @@ services:
 # =========================
 # NETWORKS & VOLUMES
 # =========================
-
 networks:
   backend:
     driver: overlay
